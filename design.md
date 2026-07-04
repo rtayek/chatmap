@@ -2,7 +2,9 @@
 
 ## Project Summary
 
-ChatMap is a local desktop application for importing, organizing, searching, and exporting AI chat histories.
+ChatMap is a local desktop application for importing, organizing, searching, and exporting AI chat histories.\
+
+The purpose of ChatMap is to help developers manage AI conversations across multiple LLMs.
 
 The MVP is not a universal multi-AI control center. The MVP is a practical tool that makes exported AI chats usable.
 
