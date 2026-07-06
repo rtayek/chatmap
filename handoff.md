@@ -2,7 +2,7 @@
 
 ## Project Summary
 
-ChatMap is a local desktop application for importing, organizing, searching, and exporting AI chat histories.\
+ChatMap is a local desktop application for importing, organizing, searching, and exporting AI chat histories.
 
 The purpose of ChatMap is to help developers manage AI conversations across multiple LLMs.
 
