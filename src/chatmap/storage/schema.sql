@@ -46,11 +46,15 @@ CREATE TABLE IF NOT EXISTS tags (
     name TEXT NOT NULL UNIQUE COLLATE NOCASE
 );
 
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name COLLATE NOCASE);
+
 CREATE TABLE IF NOT EXISTS chat_tags (
     chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
     tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     PRIMARY KEY (chat_id, tag_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_chat_tags_tag ON chat_tags(tag_id);
 
 -- ---------------------------------------------------------------------------
 -- Full-text search: external-content FTS5 table over messages.text.

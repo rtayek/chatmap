@@ -77,6 +77,26 @@ public final class ChatRepository {
         }
     }
 
+    public void assignProject(long id, Long projectId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET project_id = ? WHERE id = ?")) {
+            if (projectId == null) {
+                ps.setNull(1, java.sql.Types.INTEGER);
+            } else {
+                ps.setLong(1, projectId);
+            }
+            ps.setLong(2, id);
+            ps.executeUpdate();
+        }
+    }
+
+    public void updateTitle(long id, String title) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET title = ? WHERE id = ?")) {
+            ps.setString(1, title);
+            ps.setLong(2, id);
+            ps.executeUpdate();
+        }
+    }
+
     private static Chat read(ResultSet rs) throws SQLException {
         long projectId = rs.getLong("project_id");
         Long boxedProjectId = rs.wasNull() ? null : projectId;
