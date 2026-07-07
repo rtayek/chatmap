@@ -59,6 +59,7 @@ replay_pid*
 
 # Allow checked-in reference jars if you truly need them
 !lib/**/*.jar
+!gradle/wrapper/gradle-wrapper.jar
 
 ###############################################################################
 # Logs

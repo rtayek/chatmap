@@ -2,13 +2,14 @@ package chatmap.importer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import chatmap.JavaManagementText;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.storage.ChatRepository;
@@ -29,10 +30,11 @@ class PlainTextImporterTest {
     }
 
     @Test
-    void createsOneNormalizedChatWithOneUnknownMessage() {
-        ImportedChat imported = new PlainTextImporter().importText(JavaManagementText.text, importedAt);
+    void createsOneNormalizedChatWithOneUnknownMessage() throws Exception {
+        String text = Files.readString(Path.of("samples", "plainTextSample.txt"));
+        ImportedChat imported = new PlainTextImporter().importText(text, importedAt);
 
-        assertEquals("How much management can I do just using Java?", imported.chat().title());
+        assertEquals("ChatMap plain text sample", imported.chat().title());
         assertEquals(chatmap.domain.Source.plainText, imported.chat().source());
         assertEquals(importedAt, imported.chat().importedAt());
         assertEquals(false, imported.chat().archived());
@@ -41,7 +43,7 @@ class PlainTextImporterTest {
         assertEquals(1, imported.messages().size());
         Message message = imported.messages().getFirst();
         assertEquals(PlainTextImporter.unknownRole, message.role());
-        assertEquals(JavaManagementText.text, message.text());
+        assertEquals(text, message.text());
         assertEquals(0, message.sequence());
         assertEquals(null, message.timestamp());
         assertEquals(null, message.rawJson());
@@ -49,7 +51,8 @@ class PlainTextImporterTest {
 
     @Test
     void importedPlainTextPersistsAndCanBeSearchedWithFts() throws Exception {
-        ImportedChat imported = new PlainTextImporter().importText(JavaManagementText.text, importedAt);
+        String text = Files.readString(Path.of("samples", "plainTextSample.txt"));
+        ImportedChat imported = new PlainTextImporter().importText(text, importedAt);
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);
@@ -62,6 +65,6 @@ class PlainTextImporterTest {
 
         assertEquals(storedChat, chats.findById(storedChat.id()).orElseThrow());
         assertEquals(List.of(storedMessage), messages.findByChat(storedChat.id()));
-        assertEquals(List.of(storedMessage.id()), messages.searchText("summoning"));
+        assertEquals(List.of(storedMessage.id()), messages.searchText("ChatMap"));
     }
 }

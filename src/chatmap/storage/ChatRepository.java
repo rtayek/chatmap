@@ -64,6 +64,15 @@ public final class ChatRepository {
         }
     }
 
+    public List<Chat> findAll() throws SQLException {
+        String sql = "SELECT id, projectId, source, title, createdAt, updatedAt, importedAt, archived "
+                + "FROM chats ORDER BY importedAt, id";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            return readAll(rs);
+        }
+    }
+
     /** Deletes the chat; messages cascade via FK, and the FTS index follows via triggers. */
     public void delete(long id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("DELETE FROM chats WHERE id = ?")) {

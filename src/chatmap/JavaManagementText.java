@@ -1,22 +1,14 @@
 package chatmap;
 
-/** Static text captured for reuse in the application. */
+/** Static text fixture retained for older Eclipse buffers and ad hoc smoke checks. */
 public final class JavaManagementText {
 
     public static final String text = """
-            How much management can I do just using Java?
-            Thought for a couple of seconds
+            ChatMap plain text sample
 
-            A lot. For the MVP, you can do almost all chat management in Java.
+            User: How can I use ChatMap to organize imported chats?
 
-            Python is not needed for ordinary management. AI APIs are not needed either. Shocking development: software can still do useful things without summoning a model every six seconds.
-
-            Java can handle all of this
-            Import
-            - read files
-            - parse text/Markdown
-            - parse ChatGPT JSON using Jackson
-            - normalize chats/messages
+            Assistant: Import a chat file, search for ChatMap, then add the chat to a project with useful tags.
             """;
 
     private JavaManagementText() {
