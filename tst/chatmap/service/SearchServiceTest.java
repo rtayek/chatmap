@@ -50,6 +50,14 @@ class SearchServiceTest {
     }
 
     @Test
+    void simpleSearchMatchesPartialTokens() throws Exception {
+        Chat match = insertChat("Match", "2026-07-06T00:00:00Z");
+        messages.insert(new Message(0, match.id(), "user", "ChatMap search target", 0, null, null));
+
+        assertEquals(List.of(match), searchService.searchChats("chat"));
+    }
+
+    @Test
     void emptySearchReturnsAllChats() throws Exception {
         Chat first = insertChat("First", "2026-07-06T00:00:00Z");
         Chat second = insertChat("Second", "2026-07-06T00:01:00Z");

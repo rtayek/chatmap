@@ -20,6 +20,9 @@ public final class SearchRepository {
     }
 
     public List<Chat> searchChatsByMessageText(String ftsQuery) throws SQLException {
+        if (ftsQuery == null || ftsQuery.isBlank()) {
+            return List.of();
+        }
         String sql = "SELECT DISTINCT c.id, c.projectId, c.source, c.title, c.createdAt, "
                 + "c.updatedAt, c.importedAt, c.archived "
                 + "FROM messageFts f "

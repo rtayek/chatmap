@@ -166,6 +166,8 @@ public final class ChatMapApp extends Application {
         chatList.setItems(FXCollections.observableArrayList(matches));
         detail.clear();
         status.setText("Matches: " + matches.size());
+        searchField.requestFocus();
+        searchField.selectAll();
     }
 
     private void clearSearch() throws Exception {
@@ -173,6 +175,7 @@ public final class ChatMapApp extends Application {
         refreshChats();
         detail.clear();
         status.setText("Showing all chats");
+        searchField.requestFocus();
     }
 
     private void showChat(Chat chat) {

@@ -1,7 +1,9 @@
 package chatmap.service;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import chatmap.domain.Chat;
 import chatmap.storage.ChatRepository;
@@ -23,6 +25,19 @@ public final class SearchService {
         if (trimmed.isEmpty()) {
             return chats.findAll();
         }
-        return search.searchChatsByMessageText(trimmed);
+        return search.searchChatsByMessageText(toFtsPrefixQuery(trimmed));
+    }
+
+    private static String toFtsPrefixQuery(String query) {
+        List<String> tokens = new ArrayList<>();
+        for (String token : query.toLowerCase(Locale.ROOT).split("[^\\p{Alnum}]+")) {
+            if (!token.isBlank()) {
+                tokens.add(token + "*");
+            }
+        }
+        if (tokens.isEmpty()) {
+            return "";
+        }
+        return String.join(" OR ", tokens);
     }
 }
