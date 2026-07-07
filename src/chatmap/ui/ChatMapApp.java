@@ -8,10 +8,12 @@ import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
+import chatmap.service.SearchService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
+import chatmap.storage.SearchRepository;
 import chatmap.storage.TagRepository;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
@@ -23,8 +25,10 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -37,8 +41,10 @@ public final class ChatMapApp extends Application {
     private MessageRepository messages;
     private ImportService importService;
     private ExportService exportService;
+    private SearchService searchService;
     private ListView<Chat> chatList;
     private TextArea detail;
+    private TextField searchField;
     private Label status;
 
     public static void main(String[] args) {
@@ -54,28 +60,31 @@ public final class ChatMapApp extends Application {
         messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
+        SearchRepository search = new SearchRepository(conn);
         importService = new ImportService(chats, messages);
         exportService = new ExportService(chats, messages, projects, tags);
+        searchService = new SearchService(chats, search);
 
         chatList = new ListView<>();
         chatList.setCellFactory(chatListView -> new ListCell<>() {
             @Override
             protected void updateItem(Chat chat, boolean empty) {
                 super.updateItem(chat, empty);
-                chatListView.getItems();
                 setText(empty || chat == null ? null : chat.title());
             }
         });
-        chatList.getSelectionModel().selectedItemProperty().addListener((observable, previousChat, selectedChat) -> {
-            observable.getValue();
-            if (previousChat != selectedChat) {
-                showChat(selectedChat);
-            }
-        });
+        chatList.getSelectionModel().selectedItemProperty().addListener(
+                (observable, previousChat, selectedChat) -> showChat(selectedChat));
 
         detail = new TextArea();
         detail.setEditable(false);
         detail.setWrapText(true);
+        searchField = new TextField();
+        searchField.setPromptText("Search message text");
+        searchField.setOnAction(actionEvent -> {
+            actionEvent.consume();
+            runWithFeedback(this::searchChats);
+        });
         status = new Label("Ready");
 
         ToolBar toolbar = new ToolBar(
@@ -83,12 +92,17 @@ public final class ChatMapApp extends Application {
                 button("Import Markdown", () -> importFile("Import Markdown", "*.md", "*.markdown")),
                 button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
                 button("Export Chat Markdown", this::exportSelectedChat));
+        HBox searchBar = new HBox(8,
+                searchField,
+                button("Search", this::searchChats),
+                button("Clear", this::clearSearch));
 
         BorderPane root = new BorderPane();
-        root.setTop(toolbar);
+        root.setTop(new VBox(toolbar, searchBar));
         root.setLeft(chatList);
         root.setCenter(detail);
         root.setBottom(new VBox(status));
+        BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
         BorderPane.setMargin(chatList, new Insets(8));
         BorderPane.setMargin(detail, new Insets(8));
         BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
@@ -145,6 +159,20 @@ public final class ChatMapApp extends Application {
         }
         boolean exported = exportService.writeChatMarkdown(selected.id(), file.toPath());
         status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists.");
+    }
+
+    private void searchChats() throws Exception {
+        List<Chat> matches = searchService.searchChats(searchField.getText());
+        chatList.setItems(FXCollections.observableArrayList(matches));
+        detail.clear();
+        status.setText("Matches: " + matches.size());
+    }
+
+    private void clearSearch() throws Exception {
+        searchField.clear();
+        refreshChats();
+        detail.clear();
+        status.setText("Showing all chats");
     }
 
     private void showChat(Chat chat) {
