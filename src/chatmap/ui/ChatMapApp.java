@@ -6,6 +6,9 @@ import java.util.List;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.SearchResult;
+import chatmap.domain.Tag;
+import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
 import chatmap.service.SearchService;
@@ -37,12 +40,10 @@ import javafx.stage.Stage;
 public final class ChatMapApp extends Application {
 
     private Connection conn;
-    private ChatRepository chats;
-    private MessageRepository messages;
     private ImportService importService;
     private ExportService exportService;
     private SearchService searchService;
-    private ListView<Chat> chatList;
+    private ListView<SearchResult> chatList;
     private TextArea detail;
     private TextField searchField;
     private Label status;
@@ -56,25 +57,26 @@ public final class ChatMapApp extends Application {
         Path dbPath = Path.of(System.getProperty("user.home"), ".chatmap", "chatmap.db");
         dbPath.toFile().getParentFile().mkdirs();
         conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize();
-        chats = new ChatRepository(conn);
-        messages = new MessageRepository(conn);
+        ChatRepository chats = new ChatRepository(conn);
+        MessageRepository messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
         SearchRepository search = new SearchRepository(conn);
         importService = new ImportService(chats, messages);
         exportService = new ExportService(chats, messages, projects, tags);
-        searchService = new SearchService(chats, search);
+        searchService = new SearchService(search);
 
         chatList = new ListView<>();
         chatList.setCellFactory(chatListView -> new ListCell<>() {
             @Override
-            protected void updateItem(Chat chat, boolean empty) {
-                super.updateItem(chat, empty);
-                setText(empty || chat == null ? null : chat.title());
+            protected void updateItem(SearchResult result, boolean empty) {
+                super.updateItem(result, empty);
+                setText(empty || result == null ? null : formatResultRow(result));
             }
         });
         chatList.getSelectionModel().selectedItemProperty().addListener(
-                (observable, previousChat, selectedChat) -> showChat(selectedChat));
+                (observable, previousResult, selectedResult) -> showChat(
+                        selectedResult == null ? null : selectedResult.chat()));
 
         detail = new TextArea();
         detail.setEditable(false);
@@ -144,7 +146,8 @@ public final class ChatMapApp extends Application {
     }
 
     private void exportSelectedChat() throws Exception {
-        Chat selected = chatList.getSelectionModel().getSelectedItem();
+        SearchResult selectedResult = chatList.getSelectionModel().getSelectedItem();
+        Chat selected = selectedResult == null ? null : selectedResult.chat();
         if (selected == null) {
             status.setText("Select a chat before exporting.");
             return;
@@ -162,10 +165,14 @@ public final class ChatMapApp extends Application {
     }
 
     private void searchChats() throws Exception {
-        List<Chat> matches = searchService.searchChats(searchField.getText());
-        chatList.setItems(FXCollections.observableArrayList(matches));
-        detail.clear();
-        status.setText("Matches: " + matches.size());
+        String query = searchField.getText();
+        if (query == null || query.trim().isEmpty()) {
+            clearSearch();
+            return;
+        }
+        List<SearchResult> matches = searchService.searchResults(query);
+        setChatItems(matches, matches.size() == 1);
+        status.setText(formatMatchStatus(matches.size()));
         searchField.requestFocus();
         searchField.selectAll();
     }
@@ -184,12 +191,17 @@ public final class ChatMapApp extends Application {
                 detail.clear();
                 return;
             }
-            List<Message> chatMessages = messages.findByChat(chat.id());
+            ChatExportModel model = exportService.loadChat(chat.id()).orElse(null);
+            if (model == null) {
+                detail.clear();
+                status.setText("Selected chat no longer exists.");
+                return;
+            }
             StringBuilder out = new StringBuilder();
-            out.append(chat.title()).append("\n");
-            out.append("Source: ").append(chat.source().dbValue()).append("\n");
-            out.append("Imported: ").append(chat.importedAt()).append("\n\n");
-            for (Message message : chatMessages) {
+            out.append(model.chat().title()).append("\n");
+            out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
+            out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
+            for (Message message : model.messages()) {
                 out.append("[").append(message.role()).append("]\n");
                 out.append(message.text()).append("\n\n");
             }
@@ -198,14 +210,23 @@ public final class ChatMapApp extends Application {
     }
 
     private void refreshChats() throws Exception {
-        List<Chat> allChats = chats.findAll();
-        chatList.setItems(FXCollections.observableArrayList(allChats));
+        setChatItems(searchService.searchResults(""), false);
+    }
+
+    private void setChatItems(List<SearchResult> items, boolean autoSelectSingle) {
+        chatList.getSelectionModel().clearSelection();
+        chatList.setItems(FXCollections.observableArrayList(items));
+        if (autoSelectSingle && items.size() == 1) {
+            selectChat(items.getFirst().chatId());
+        } else {
+            detail.clear();
+        }
     }
 
     private void selectChat(long chatId) {
-        for (Chat chat : chatList.getItems()) {
-            if (chat.id() == chatId) {
-                chatList.getSelectionModel().select(chat);
+        for (SearchResult result : chatList.getItems()) {
+            if (result.chatId() == chatId) {
+                chatList.getSelectionModel().select(result);
                 return;
             }
         }
@@ -227,6 +248,39 @@ public final class ChatMapApp extends Application {
     private static String safeFileName(String title) {
         String cleaned = title.replaceAll("[^A-Za-z0-9.-]+", "-").replaceAll("^-|-$", "");
         return cleaned.isBlank() ? "chat" : cleaned;
+    }
+
+    private static String formatResultRow(SearchResult result) {
+        StringBuilder row = new StringBuilder();
+        row.append(result.chat().title()).append("\n");
+        row.append("Source: ").append(result.chat().source().dbValue());
+        if (result.projectName() != null && !result.projectName().isBlank()) {
+            row.append(" | Project: ").append(result.projectName());
+        }
+        if (!result.tags().isEmpty()) {
+            row.append(" | Tags: ").append(formatTags(result.tags()));
+        }
+        if (result.snippet() != null && !result.snippet().isBlank()) {
+            row.append("\n").append(result.snippet());
+        }
+        return row.toString();
+    }
+
+    private static String formatTags(List<Tag> tags) {
+        return tags.stream()
+                .map(Tag::name)
+                .reduce((left, right) -> left + ", " + right)
+                .orElse("");
+    }
+
+    private static String formatMatchStatus(int matches) {
+        if (matches == 0) {
+            return "No matches";
+        }
+        if (matches == 1) {
+            return "1 match";
+        }
+        return matches + " matches";
     }
 
     @FunctionalInterface

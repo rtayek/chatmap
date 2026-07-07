@@ -14,6 +14,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.SearchOptions;
+import chatmap.domain.SearchResult;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
 
@@ -154,6 +155,26 @@ class SearchRepositoryTest {
         messages.insert(new Message(0, chat.id(), "assistant", "duplicate target", 1, null, null));
 
         assertEquals(List.of(chat), search.searchChatsByMessageText("target"));
+    }
+
+    @Test
+    void searchResultsIncludeChatIdProjectTagsAndSnippet() throws Exception {
+        Project project = projects.insert(new Project(
+                0, "MVP Project", null, "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Tag tag = tags.insert(new Tag(0, "Search"));
+        Chat chat = insertChat("Chat", project.id(), false, "2026-07-06T00:00:00Z");
+        tags.assignToChat(chat.id(), tag.id());
+        messages.insert(new Message(0, chat.id(), "user", "A ChatMap target appears here.", 0, null, null));
+
+        List<SearchResult> results = search.searchResultsByMessageText("target");
+
+        assertEquals(1, results.size());
+        SearchResult result = results.getFirst();
+        assertEquals(chat.id(), result.chatId());
+        assertEquals(chat, result.chat());
+        assertEquals("MVP Project", result.projectName());
+        assertEquals(List.of(tag), result.tags());
+        assertTrue(result.snippet().contains("target"));
     }
 
     private Chat insertChat(String title, Long projectId, boolean archived, String importedAt) throws Exception {
