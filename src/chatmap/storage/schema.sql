@@ -12,78 +12,78 @@ CREATE TABLE IF NOT EXISTS projects (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT,
-    created_at  TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
+    createdAt   TEXT NOT NULL,
+    updatedAt   TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS chats (
     id          INTEGER PRIMARY KEY,
-    project_id  INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+    projectId   INTEGER REFERENCES projects(id) ON DELETE SET NULL,
     source      TEXT NOT NULL,
     title       TEXT NOT NULL,
-    created_at  TEXT,
-    updated_at  TEXT,
-    imported_at TEXT NOT NULL,
+    createdAt   TEXT,
+    updatedAt   TEXT,
+    importedAt  TEXT NOT NULL,
     archived    INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_chats_project ON chats(project_id);
+CREATE INDEX IF NOT EXISTS chatsProjectIndex ON chats(projectId);
 
 CREATE TABLE IF NOT EXISTS messages (
     id        INTEGER PRIMARY KEY,
-    chat_id   INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    chatId    INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
     role      TEXT NOT NULL,
     text      TEXT NOT NULL,
     sequence  INTEGER NOT NULL,
     timestamp TEXT,
-    raw_json  TEXT
+    rawJson   TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, sequence);
+CREATE INDEX IF NOT EXISTS messagesChatIndex ON messages(chatId, sequence);
 
 CREATE TABLE IF NOT EXISTS tags (
     id   INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE COLLATE NOCASE
 );
 
-CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS tagsNameIndex ON tags(name COLLATE NOCASE);
 
-CREATE TABLE IF NOT EXISTS chat_tags (
-    chat_id INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-    tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (chat_id, tag_id)
+CREATE TABLE IF NOT EXISTS chatTags (
+    chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    tagId  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (chatId, tagId)
 );
 
-CREATE INDEX IF NOT EXISTS idx_chat_tags_tag ON chat_tags(tag_id);
+CREATE INDEX IF NOT EXISTS chatTagsTagIndex ON chatTags(tagId);
 
 -- ---------------------------------------------------------------------------
 -- Full-text search: external-content FTS5 table over messages.text.
 --
--- The durable text lives in `messages`; `messages_fts` is only an index.
+-- The durable text lives in `messages`; `messageFts` is only an index.
 -- With content='messages', FTS5 reads row content from the messages table,
 -- so the index must be kept in sync via the triggers below.
 --
 -- IMPORTANT: for external-content tables, deletions/updates must go through
 -- the special 'delete' command:
---   INSERT INTO messages_fts(messages_fts, rowid, text) VALUES('delete', ...)
--- A plain DELETE FROM messages_fts does NOT work correctly.
+--   INSERT INTO messageFts(messageFts, rowid, text) VALUES('delete', ...)
+-- A plain DELETE FROM messageFts does NOT work correctly.
 -- ---------------------------------------------------------------------------
 
-CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+CREATE VIRTUAL TABLE IF NOT EXISTS messageFts USING fts5(
     text,
     content='messages',
     content_rowid='id'
 );
 
-CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
-    INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
+CREATE TRIGGER IF NOT EXISTS messagesAfterInsert AFTER INSERT ON messages BEGIN
+    INSERT INTO messageFts(rowid, text) VALUES (new.id, new.text);
 END;
 
-CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
-    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.id, old.text);
+CREATE TRIGGER IF NOT EXISTS messagesAfterDelete AFTER DELETE ON messages BEGIN
+    INSERT INTO messageFts(messageFts, rowid, text) VALUES ('delete', old.id, old.text);
 END;
 
-CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF text ON messages BEGIN
-    INSERT INTO messages_fts(messages_fts, rowid, text) VALUES ('delete', old.id, old.text);
-    INSERT INTO messages_fts(rowid, text) VALUES (new.id, new.text);
+CREATE TRIGGER IF NOT EXISTS messagesAfterUpdate AFTER UPDATE OF text ON messages BEGIN
+    INSERT INTO messageFts(messageFts, rowid, text) VALUES ('delete', old.id, old.text);
+    INSERT INTO messageFts(rowid, text) VALUES (new.id, new.text);
 END;

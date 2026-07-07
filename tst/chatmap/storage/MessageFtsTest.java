@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.Source;
 
 /**
  * Verifies the FTS5 external-content triggers in schema.sql.
@@ -43,7 +44,7 @@ class MessageFtsTest {
     }
 
     private Chat newChat() throws Exception {
-        return chats.insert(new Chat(0, null, "test", "Test Chat",
+        return chats.insert(new Chat(0, null, Source.unknown, "Test Chat",
                 null, null, "2026-07-02T00:00:00Z", false));
     }
 

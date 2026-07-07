@@ -3,7 +3,7 @@ package chatmap;
 /** Static text captured for reuse in the application. */
 public final class JavaManagementText {
 
-    public static final String TEXT = """
+    public static final String text = """
             How much management can I do just using Java?
             Thought for a couple of seconds
 

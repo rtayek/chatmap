@@ -25,7 +25,7 @@ import java.sql.Statement;
  */
 public final class Database {
 
-    private static final String SCHEMA_RESOURCE = "/chatmap/storage/schema.sql";
+    private static final String schemaResource = "/chatmap/storage/schema.sql";
 
     private final String jdbcUrl;
 
@@ -99,9 +99,9 @@ public final class Database {
     }
 
     private static String readSchemaResource() throws IOException {
-        try (InputStream in = Database.class.getResourceAsStream(SCHEMA_RESOURCE)) {
+        try (InputStream in = Database.class.getResourceAsStream(schemaResource)) {
             if (in == null) {
-                throw new IOException("schema resource not found on classpath: " + SCHEMA_RESOURCE);
+                throw new IOException("schema resource not found on classpath: " + schemaResource);
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }

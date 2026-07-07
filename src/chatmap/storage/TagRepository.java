@@ -64,7 +64,7 @@ public final class TagRepository {
     }
 
     public void assignToChat(long chatId, long tagId) throws SQLException {
-        String sql = "INSERT OR IGNORE INTO chat_tags (chat_id, tag_id) VALUES (?, ?)";
+        String sql = "INSERT OR IGNORE INTO chatTags (chatId, tagId) VALUES (?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, chatId);
             ps.setLong(2, tagId);
@@ -73,7 +73,7 @@ public final class TagRepository {
     }
 
     public void removeFromChat(long chatId, long tagId) throws SQLException {
-        String sql = "DELETE FROM chat_tags WHERE chat_id = ? AND tag_id = ?";
+        String sql = "DELETE FROM chatTags WHERE chatId = ? AND tagId = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, chatId);
             ps.setLong(2, tagId);
@@ -83,8 +83,8 @@ public final class TagRepository {
 
     public List<Tag> findByChat(long chatId) throws SQLException {
         String sql = "SELECT t.id, t.name FROM tags t "
-                + "JOIN chat_tags ct ON ct.tag_id = t.id "
-                + "WHERE ct.chat_id = ? ORDER BY t.name COLLATE NOCASE";
+                + "JOIN chatTags ct ON ct.tagId = t.id "
+                + "WHERE ct.chatId = ? ORDER BY t.name COLLATE NOCASE";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, chatId);
             try (ResultSet rs = ps.executeQuery()) {

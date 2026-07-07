@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
+import chatmap.domain.Source;
 import chatmap.domain.Tag;
 
 class RepositoryTest {
@@ -65,7 +66,7 @@ class RepositoryTest {
     void createsUpdatesArchivesAndDeletesChat() throws Exception {
         Project project = projects.insert(new Project(0, "Project", null,
                 "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
-        Chat chat = chats.insert(new Chat(0, project.id(), "plain-text", "Original",
+        Chat chat = chats.insert(new Chat(0, project.id(), Source.plainText, "Original",
                 null, null, "2026-07-06T00:00:00Z", false));
 
         chats.updateTitle(chat.id(), "Renamed");
@@ -84,7 +85,7 @@ class RepositoryTest {
 
     @Test
     void createsUpdatesDeletesAndSearchesMessages() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, "plain-text", "Searchable",
+        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Searchable",
                 null, null, "2026-07-06T00:00:00Z", false));
         Message first = messages.insert(new Message(0, chat.id(), "user",
                 "storage foundation alpha", 0, null, null));
@@ -108,7 +109,7 @@ class RepositoryTest {
 
     @Test
     void assignsFindsRemovesAndCascadesTags() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, "plain-text", "Tagged",
+        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Tagged",
                 null, null, "2026-07-06T00:00:00Z", false));
         Tag tag = tags.insert(new Tag(0, "MVP"));
 

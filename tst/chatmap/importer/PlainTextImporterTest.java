@@ -17,7 +17,7 @@ import chatmap.storage.MessageRepository;
 
 class PlainTextImporterTest {
 
-    private static final String IMPORTED_AT = "2026-07-06T00:00:00Z";
+    private static final String importedAt = "2026-07-06T00:00:00Z";
 
     private Connection conn;
 
@@ -30,18 +30,18 @@ class PlainTextImporterTest {
 
     @Test
     void createsOneNormalizedChatWithOneUnknownMessage() {
-        ImportedChat imported = new PlainTextImporter().importText(JavaManagementText.TEXT, IMPORTED_AT);
+        ImportedChat imported = new PlainTextImporter().importText(JavaManagementText.text, importedAt);
 
         assertEquals("How much management can I do just using Java?", imported.chat().title());
-        assertEquals(PlainTextImporter.SOURCE, imported.chat().source());
-        assertEquals(IMPORTED_AT, imported.chat().importedAt());
+        assertEquals(chatmap.domain.Source.plainText, imported.chat().source());
+        assertEquals(importedAt, imported.chat().importedAt());
         assertEquals(false, imported.chat().archived());
         assertEquals(null, imported.chat().projectId());
 
         assertEquals(1, imported.messages().size());
         Message message = imported.messages().getFirst();
-        assertEquals(PlainTextImporter.UNKNOWN_ROLE, message.role());
-        assertEquals(JavaManagementText.TEXT, message.text());
+        assertEquals(PlainTextImporter.unknownRole, message.role());
+        assertEquals(JavaManagementText.text, message.text());
         assertEquals(0, message.sequence());
         assertEquals(null, message.timestamp());
         assertEquals(null, message.rawJson());
@@ -49,7 +49,7 @@ class PlainTextImporterTest {
 
     @Test
     void importedPlainTextPersistsAndCanBeSearchedWithFts() throws Exception {
-        ImportedChat imported = new PlainTextImporter().importText(JavaManagementText.TEXT, IMPORTED_AT);
+        ImportedChat imported = new PlainTextImporter().importText(JavaManagementText.text, importedAt);
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);

@@ -309,7 +309,7 @@ Message
 - raw_json
 ```
 
-`text` is the normalized plain-text form used by the app.
+`text` is the normalized plain text form used by the app.
 
 `raw_json` is optional and stores the source message payload for future reprocessing or higher-fidelity export. Plain text and Markdown imports may leave `raw_json` null.
 
@@ -572,7 +572,7 @@ Markdown file → one Chat → one Message containing Markdown text
 
 ### Pasted Conversation Import
 
-Pasted conversations are handled by the plain-text importer.
+Pasted conversations are handled by the plain text importer.
 
 The UI may provide a text area for paste input, but internally it should use the same path as imported `.txt` files:
 

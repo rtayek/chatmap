@@ -14,7 +14,7 @@ public final class MarkdownExporter {
         Chat chat = model.chat();
         StringBuilder out = new StringBuilder();
         out.append("# ").append(chat.title()).append("\n\n");
-        out.append("Source: ").append(chat.source()).append("\n");
+        out.append("Source: ").append(chat.source().dbValue()).append("\n");
         appendMetadata(out, "Created", chat.createdAt());
         appendMetadata(out, "Updated", chat.updatedAt());
         appendMetadata(out, "Imported", chat.importedAt());

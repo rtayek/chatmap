@@ -5,12 +5,12 @@ import java.util.Objects;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.Source;
 
-/** Minimal plain-text importer: one input text becomes one chat and one message. */
+/** Minimal plain text importer: one input text becomes one chat and one message. */
 public final class PlainTextImporter {
 
-    public static final String SOURCE = "plain_text";
-    public static final String UNKNOWN_ROLE = "unknown";
+    public static final String unknownRole = "unknown";
 
     public ImportedChat importText(String text, String importedAt) {
         return importText(deriveTitle(text), text, importedAt);
@@ -21,8 +21,8 @@ public final class PlainTextImporter {
         Objects.requireNonNull(text, "text");
         Objects.requireNonNull(importedAt, "importedAt");
 
-        Chat chat = new Chat(0, null, SOURCE, title, null, null, importedAt, false);
-        Message message = new Message(0, 0, UNKNOWN_ROLE, text, 0, null, null);
+        Chat chat = new Chat(0, null, Source.plainText, title, null, null, importedAt, false);
+        Message message = new Message(0, 0, unknownRole, text, 0, null, null);
         return new ImportedChat(chat, List.of(message));
     }
 

@@ -8,6 +8,7 @@ import java.sql.Statement;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
+import chatmap.domain.Source;
 
 /**
  * CRUD for chats. Holds a Connection supplied by the caller; does not own it.
@@ -23,7 +24,7 @@ public final class ChatRepository {
 
     /** Inserts a chat; the id field of the argument is ignored. Returns the stored chat with its new id. */
     public Chat insert(Chat chat) throws SQLException {
-        String sql = "INSERT INTO chats (project_id, source, title, created_at, updated_at, imported_at, archived) "
+        String sql = "INSERT INTO chats (projectId, source, title, createdAt, updatedAt, importedAt, archived) "
                 + "VALUES (?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             if (chat.projectId() == null) {
@@ -31,7 +32,7 @@ public final class ChatRepository {
             } else {
                 ps.setLong(1, chat.projectId());
             }
-            ps.setString(2, chat.source());
+            ps.setString(2, chat.source().dbValue());
             ps.setString(3, chat.title());
             ps.setString(4, chat.createdAt());
             ps.setString(5, chat.updatedAt());
@@ -48,7 +49,7 @@ public final class ChatRepository {
     }
 
     public Optional<Chat> findById(long id) throws SQLException {
-        String sql = "SELECT id, project_id, source, title, created_at, updated_at, imported_at, archived "
+        String sql = "SELECT id, projectId, source, title, createdAt, updatedAt, importedAt, archived "
                 + "FROM chats WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
@@ -78,7 +79,7 @@ public final class ChatRepository {
     }
 
     public void assignProject(long id, Long projectId) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET project_id = ? WHERE id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET projectId = ? WHERE id = ?")) {
             if (projectId == null) {
                 ps.setNull(1, java.sql.Types.INTEGER);
             } else {
@@ -98,16 +99,16 @@ public final class ChatRepository {
     }
 
     private static Chat read(ResultSet rs) throws SQLException {
-        long projectId = rs.getLong("project_id");
+        long projectId = rs.getLong("projectId");
         Long boxedProjectId = rs.wasNull() ? null : projectId;
         return new Chat(
                 rs.getLong("id"),
                 boxedProjectId,
-                rs.getString("source"),
+                Source.fromDbValue(rs.getString("source")),
                 rs.getString("title"),
-                rs.getString("created_at"),
-                rs.getString("updated_at"),
-                rs.getString("imported_at"),
+                rs.getString("createdAt"),
+                rs.getString("updatedAt"),
+                rs.getString("importedAt"),
                 rs.getInt("archived") != 0);
     }
 }

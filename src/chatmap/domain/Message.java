@@ -3,7 +3,7 @@ package chatmap.domain;
 /**
  * One message within a chat.
  *
- * text     - normalized plain-text form used for display, search, and export.
+ * text     - normalized plain text form used for display, search, and export.
  * rawJson  - optional original source payload for future reprocessing;
  *            null for plain text / Markdown imports.
  * timestamp- UTC ISO-8601 string when the source provides one, else null

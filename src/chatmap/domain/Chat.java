@@ -10,7 +10,7 @@ package chatmap.domain;
 public record Chat(
         long id,
         Long projectId,
-        String source,
+        Source source,
         String title,
         String createdAt,
         String updatedAt,

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.Source;
 import chatmap.service.ExportService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
@@ -30,7 +31,7 @@ class MarkdownExporterTest {
 
     @Test
     void exportsHydratedChatAsDeterministicMarkdown() throws Exception {
-        Chat chat = new Chat(7, null, "plain_text", "Sample Chat",
+        Chat chat = new Chat(7, null, Source.plainText, "Sample Chat",
                 "2026-07-05T10:00:00Z", null, "2026-07-06T00:00:00Z", false);
         List<Message> messages = List.of(
                 new Message(11, 7, "unknown", "First line\nsecond line", 0, null, null),
@@ -48,7 +49,7 @@ class MarkdownExporterTest {
         MessageRepository messages = new MessageRepository(conn);
         ExportService exportService = new ExportService(chats, messages);
 
-        Chat storedChat = chats.insert(new Chat(0, null, "plain_text", "Stored Chat",
+        Chat storedChat = chats.insert(new Chat(0, null, Source.plainText, "Stored Chat",
                 null, null, "2026-07-06T00:00:00Z", false));
         Message second = messages.insert(new Message(0, storedChat.id(), "unknown",
                 "Second message.", 1, null, null));

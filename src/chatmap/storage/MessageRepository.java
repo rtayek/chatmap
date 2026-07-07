@@ -14,8 +14,8 @@ import chatmap.domain.Message;
  * CRUD for messages plus FTS-backed text search.
  * Holds a Connection supplied by the caller; does not own it.
  *
- * The messages_fts index is maintained by triggers in schema.sql; this class
- * never writes to messages_fts directly.
+ * The messageFts index is maintained by triggers in schema.sql; this class
+ * never writes to messageFts directly.
  */
 public final class MessageRepository {
 
@@ -27,7 +27,7 @@ public final class MessageRepository {
 
     /** Inserts a message; the id field of the argument is ignored. Returns the stored message with its new id. */
     public Message insert(Message m) throws SQLException {
-        String sql = "INSERT INTO messages (chat_id, role, text, sequence, timestamp, raw_json) "
+        String sql = "INSERT INTO messages (chatId, role, text, sequence, timestamp, rawJson) "
                 + "VALUES (?, ?, ?, ?, ?, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setLong(1, m.chatId());
@@ -62,8 +62,8 @@ public final class MessageRepository {
 
     /** Messages of a chat in sequence order. */
     public List<Message> findByChat(long chatId) throws SQLException {
-        String sql = "SELECT id, chat_id, role, text, sequence, timestamp, raw_json "
-                + "FROM messages WHERE chat_id = ? ORDER BY sequence";
+        String sql = "SELECT id, chatId, role, text, sequence, timestamp, rawJson "
+                + "FROM messages WHERE chatId = ? ORDER BY sequence";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, chatId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -82,7 +82,7 @@ public final class MessageRepository {
      * Richer, filtered search belongs to SearchRepository (build order step 9).
      */
     public List<Long> searchText(String ftsQuery) throws SQLException {
-        String sql = "SELECT rowid FROM messages_fts WHERE messages_fts MATCH ? ORDER BY rank";
+        String sql = "SELECT rowid FROM messageFts WHERE messageFts MATCH ? ORDER BY rank";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, ftsQuery);
             try (ResultSet rs = ps.executeQuery()) {
@@ -98,11 +98,11 @@ public final class MessageRepository {
     private static Message read(ResultSet rs) throws SQLException {
         return new Message(
                 rs.getLong("id"),
-                rs.getLong("chat_id"),
+                rs.getLong("chatId"),
                 rs.getString("role"),
                 rs.getString("text"),
                 rs.getInt("sequence"),
                 rs.getString("timestamp"),
-                rs.getString("raw_json"));
+                rs.getString("rawJson"));
     }
 }

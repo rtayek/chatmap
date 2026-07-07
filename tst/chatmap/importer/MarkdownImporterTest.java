@@ -16,7 +16,7 @@ import chatmap.storage.MessageRepository;
 
 class MarkdownImporterTest {
 
-    private static final String IMPORTED_AT = "2026-07-06T00:00:00Z";
+    private static final String importedAt = "2026-07-06T00:00:00Z";
 
     private Connection conn;
 
@@ -31,17 +31,17 @@ class MarkdownImporterTest {
     void importsMarkdownWithLevelOneHeadingAsTitle() {
         String markdown = "# Architecture Notes\n\nMarkdown body with storage details.";
 
-        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", IMPORTED_AT);
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
 
         assertEquals("Architecture Notes", imported.chat().title());
-        assertEquals(MarkdownImporter.SOURCE, imported.chat().source());
-        assertEquals(IMPORTED_AT, imported.chat().importedAt());
+        assertEquals(chatmap.domain.Source.markdown, imported.chat().source());
+        assertEquals(importedAt, imported.chat().importedAt());
         assertEquals(false, imported.chat().archived());
         assertEquals(null, imported.chat().projectId());
 
         assertEquals(1, imported.messages().size());
         Message message = imported.messages().getFirst();
-        assertEquals(MarkdownImporter.UNKNOWN_ROLE, message.role());
+        assertEquals(MarkdownImporter.unknownRole, message.role());
         assertEquals(markdown, message.text());
         assertEquals(0, message.sequence());
         assertEquals(null, message.timestamp());
@@ -52,17 +52,17 @@ class MarkdownImporterTest {
     void importsMarkdownWithoutLevelOneHeadingUsingFallbackTitle() {
         String markdown = "## Section\n\nBody without a top heading.";
 
-        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "notes.md", IMPORTED_AT);
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "notes.md", importedAt);
 
         assertEquals("notes.md", imported.chat().title());
-        assertEquals(MarkdownImporter.SOURCE, imported.chat().source());
+        assertEquals(chatmap.domain.Source.markdown, imported.chat().source());
         assertEquals(markdown, imported.messages().getFirst().text());
     }
 
     @Test
     void importedMarkdownPersistsAndCanBeSearchedWithFts() throws Exception {
         String markdown = "# Searchable Markdown\n\nThis note mentions deterministic indexing.";
-        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", IMPORTED_AT);
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);
