@@ -2,6 +2,7 @@ package chatmap.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.List;
 
@@ -23,6 +24,7 @@ class SearchServiceTest {
     private ChatRepository chats;
     private MessageRepository messages;
     private SearchService searchService;
+    private ImportService importService;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -30,6 +32,7 @@ class SearchServiceTest {
         chats = new ChatRepository(conn);
         messages = new MessageRepository(conn);
         searchService = new SearchService(chats, new SearchRepository(conn));
+        importService = new ImportService(chats, messages);
     }
 
     @AfterEach
@@ -58,11 +61,48 @@ class SearchServiceTest {
     }
 
     @Test
+    void multiWordServiceSearchMatchesAnyTokenPrefix() throws Exception {
+        Chat alpha = insertChat("Alpha", "2026-07-06T00:00:00Z");
+        Chat beta = insertChat("Beta", "2026-07-06T00:01:00Z");
+        messages.insert(new Message(0, alpha.id(), "user", "alpha content", 0, null, null));
+        messages.insert(new Message(0, beta.id(), "user", "beta content", 0, null, null));
+
+        assertEquals(List.of(alpha, beta), searchService.searchChats("alp bet"));
+    }
+
+    @Test
     void emptySearchReturnsAllChats() throws Exception {
         Chat first = insertChat("First", "2026-07-06T00:00:00Z");
         Chat second = insertChat("Second", "2026-07-06T00:01:00Z");
 
         assertEquals(List.of(first, second), searchService.searchChats("   "));
+    }
+
+    @Test
+    void searchAfterImportingPlainTextFindsImportedChat() throws Exception {
+        Chat imported = importService.importFile(Path.of("samples", "plainTextSample.txt"));
+
+        assertEquals(List.of(imported), searchService.searchChats("organize"));
+    }
+
+    @Test
+    void clearingSearchWithEmptyQueryRestoresFullChatList() throws Exception {
+        Chat first = insertChat("First", "2026-07-06T00:00:00Z");
+        Chat second = insertChat("Second", "2026-07-06T00:01:00Z");
+        messages.insert(new Message(0, first.id(), "user", "target", 0, null, null));
+
+        assertEquals(List.of(first), searchService.searchChats("target"));
+        assertEquals(List.of(first, second), searchService.searchChats(""));
+    }
+
+    @Test
+    void searchResultsAreReturnedInDeterministicOrder() throws Exception {
+        Chat second = insertChat("Second", "2026-07-06T00:01:00Z");
+        Chat first = insertChat("First", "2026-07-06T00:00:00Z");
+        messages.insert(new Message(0, second.id(), "user", "target", 0, null, null));
+        messages.insert(new Message(0, first.id(), "user", "target", 0, null, null));
+
+        assertEquals(List.of(first, second), searchService.searchChats("target"));
     }
 
     private Chat insertChat(String title, String importedAt) throws Exception {

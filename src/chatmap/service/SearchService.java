@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Locale;
 
 import chatmap.domain.Chat;
+import chatmap.domain.SearchOptions;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.SearchRepository;
 
@@ -21,11 +22,15 @@ public final class SearchService {
     }
 
     public List<Chat> searchChats(String query) throws SQLException {
+        return searchChats(query, SearchOptions.none());
+    }
+
+    public List<Chat> searchChats(String query, SearchOptions options) throws SQLException {
         String trimmed = query == null ? "" : query.trim();
         if (trimmed.isEmpty()) {
             return chats.findAll();
         }
-        return search.searchChatsByMessageText(toFtsPrefixQuery(trimmed));
+        return search.searchChatsByMessageText(toFtsPrefixQuery(trimmed), options);
     }
 
     private static String toFtsPrefixQuery(String query) {
