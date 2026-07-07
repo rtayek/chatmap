@@ -43,10 +43,12 @@ public final class ChatMapApp extends Application {
     private ImportService importService;
     private ExportService exportService;
     private SearchService searchService;
+    private ChatListState listState;
     private ListView<SearchResult> chatList;
     private TextArea detail;
     private TextField searchField;
     private Label status;
+    private boolean applyingListState;
 
     public static void main(String[] args) {
         launch(args);
@@ -65,6 +67,7 @@ public final class ChatMapApp extends Application {
         importService = new ImportService(chats, messages);
         exportService = new ExportService(chats, messages, projects, tags);
         searchService = new SearchService(search);
+        listState = new ChatListState();
 
         chatList = new ListView<>();
         chatList.setCellFactory(chatListView -> new ListCell<>() {
@@ -75,8 +78,7 @@ public final class ChatMapApp extends Application {
             }
         });
         chatList.getSelectionModel().selectedItemProperty().addListener(
-                (observable, previousResult, selectedResult) -> showChat(
-                        selectedResult == null ? null : selectedResult.chat()));
+                (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
 
         detail = new TextArea();
         detail.setEditable(false);
@@ -140,9 +142,8 @@ public final class ChatMapApp extends Application {
             return;
         }
         Chat imported = importService.importFile(file.toPath());
-        refreshChats();
+        applyListState(listState.showAll(searchService.searchResults(""), "Imported " + imported.title()));
         selectChat(imported.id());
-        status.setText("Imported " + imported.title());
     }
 
     private void exportSelectedChat() throws Exception {
@@ -171,27 +172,32 @@ public final class ChatMapApp extends Application {
             return;
         }
         List<SearchResult> matches = searchService.searchResults(query);
-        setChatItems(matches, matches.size() == 1);
-        status.setText(formatMatchStatus(matches.size()));
+        applyListState(listState.showSearchResults(matches, formatMatchStatus(matches.size())));
         searchField.requestFocus();
         searchField.selectAll();
     }
 
     private void clearSearch() throws Exception {
         searchField.clear();
-        refreshChats();
-        detail.clear();
-        status.setText("Showing all chats");
+        applyListState(listState.showAll(searchService.searchResults(""), "Ready"));
         searchField.requestFocus();
     }
 
-    private void showChat(Chat chat) {
+    private void handleSelectedResult(SearchResult selectedResult) {
+        if (applyingListState) {
+            return;
+        }
+        if (selectedResult == null) {
+            detail.clear();
+            return;
+        }
+        listState.select(selectedResult.chatId());
+        showChatDetails(selectedResult.chatId());
+    }
+
+    private void showChatDetails(long chatId) {
         runWithFeedback(() -> {
-            if (chat == null) {
-                detail.clear();
-                return;
-            }
-            ChatExportModel model = exportService.loadChat(chat.id()).orElse(null);
+            ChatExportModel model = exportService.loadChat(chatId).orElse(null);
             if (model == null) {
                 detail.clear();
                 status.setText("Selected chat no longer exists.");
@@ -210,26 +216,33 @@ public final class ChatMapApp extends Application {
     }
 
     private void refreshChats() throws Exception {
-        setChatItems(searchService.searchResults(""), false);
+        applyListState(listState.showAll(searchService.searchResults(""), "Ready"));
     }
 
-    private void setChatItems(List<SearchResult> items, boolean autoSelectSingle) {
-        chatList.getSelectionModel().clearSelection();
-        chatList.setItems(FXCollections.observableArrayList(items));
-        if (autoSelectSingle && items.size() == 1) {
-            selectChat(items.getFirst().chatId());
-        } else {
+    private void applyListState(ChatListState.Snapshot snapshot) {
+        applyingListState = true;
+        try {
+            chatList.getSelectionModel().clearSelection();
+            chatList.setItems(FXCollections.observableArrayList(snapshot.currentItems()));
+        } finally {
+            applyingListState = false;
+        }
+        status.setText(snapshot.statusText());
+        if (snapshot.selectedChatId() == null) {
+            detail.clear();
+        } else if (!selectChat(snapshot.selectedChatId())) {
             detail.clear();
         }
     }
 
-    private void selectChat(long chatId) {
+    private boolean selectChat(long chatId) {
         for (SearchResult result : chatList.getItems()) {
             if (result.chatId() == chatId) {
                 chatList.getSelectionModel().select(result);
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     private void runWithFeedback(ThrowingRunnable action) {
