@@ -12,7 +12,7 @@ package chatmap.domain;
  * without losing access to the user's chats.
  */
 public enum Source {
-    plainText("plainText"), // maybe should have spaces for table names.
+    plainText("plainText"),
     markdown("markdown"),
     chatgptJson("chatgptJson"),
     unknown("unknown");

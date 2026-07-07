@@ -56,6 +56,14 @@ public final class TagRepository {
         }
     }
 
+    public void update(Tag tag) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE tags SET name = ? WHERE id = ?")) {
+            ps.setString(1, tag.name());
+            ps.setLong(2, tag.id());
+            ps.executeUpdate();
+        }
+    }
+
     public void delete(long id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("DELETE FROM tags WHERE id = ?")) {
             ps.setLong(1, id);

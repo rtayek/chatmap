@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
@@ -90,6 +92,31 @@ public final class ChatRepository {
         }
     }
 
+    public List<Chat> findByProject(long projectId) throws SQLException {
+        String sql = "SELECT id, projectId, source, title, createdAt, updatedAt, importedAt, archived "
+                + "FROM chats WHERE projectId = ? ORDER BY importedAt, id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, projectId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return readAll(rs);
+            }
+        }
+    }
+
+    public List<Chat> findByTag(long tagId) throws SQLException {
+        String sql = "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, c.importedAt, c.archived "
+                + "FROM chats c "
+                + "JOIN chatTags ct ON ct.chatId = c.id "
+                + "WHERE ct.tagId = ? "
+                + "ORDER BY c.importedAt, c.id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, tagId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return readAll(rs);
+            }
+        }
+    }
+
     public void updateTitle(long id, String title) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET title = ? WHERE id = ?")) {
             ps.setString(1, title);
@@ -110,5 +137,13 @@ public final class ChatRepository {
                 rs.getString("updatedAt"),
                 rs.getString("importedAt"),
                 rs.getInt("archived") != 0);
+    }
+
+    private static List<Chat> readAll(ResultSet rs) throws SQLException {
+        List<Chat> chats = new ArrayList<>();
+        while (rs.next()) {
+            chats.add(read(rs));
+        }
+        return chats;
     }
 }
