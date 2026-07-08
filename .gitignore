@@ -78,6 +78,9 @@ local.properties
 tmp/
 temp/
 out/
+commit-message.txt
+testfile.txt
+*.tmp
 
 ###############################################################################
 # Coverage / analysis tools (if enabled later)

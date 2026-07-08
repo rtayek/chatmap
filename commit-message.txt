@@ -1,5 +1,0 @@
-stabilize basic chat list search UI
-
-Simplify JavaFX chat list/search behavior so imported chats remain selectable,
-search results can be selected, and the detail pane updates predictably.
-Verify plain text and Markdown samples through the manual smoke workflow.
