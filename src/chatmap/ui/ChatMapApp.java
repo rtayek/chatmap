@@ -40,10 +40,7 @@ import javafx.stage.Stage;
 public final class ChatMapApp extends Application {
 
     private Connection conn;
-    private ImportService importService;
-    private ExportService exportService;
-    private SearchService searchService;
-    private ChatListState listState;
+    private ChatMapController controller;
     private ListView<SearchResult> chatList;
     private TextArea detail;
     private TextField searchField;
@@ -65,10 +62,10 @@ public final class ChatMapApp extends Application {
         ProjectRepository projects = new ProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
         SearchRepository search = new SearchRepository(conn);
-        importService = new ImportService(chats, messages);
-        exportService = new ExportService(chats, messages, projects, tags);
-        searchService = new SearchService(search);
-        listState = new ChatListState();
+        controller = new ChatMapController(
+                new ImportService(chats, messages),
+                new ExportService(chats, messages, projects, tags),
+                new SearchService(search));
 
         chatList = new ListView<>();
         chatList.setCellFactory(chatListView -> new ListCell<>() {
@@ -144,9 +141,7 @@ public final class ChatMapApp extends Application {
         if (file == null) {
             return;
         }
-        Chat imported = importService.importFile(file.toPath());
-        applyListState(listState.showAll(searchService.searchResults(""), "Imported " + imported.title()));
-        selectChat(imported.id());
+        applyListState(controller.importFile(file.toPath()));
     }
 
     private void exportSelectedChat() throws Exception {
@@ -164,25 +159,20 @@ public final class ChatMapApp extends Application {
         if (file == null) {
             return;
         }
-        boolean exported = exportService.writeChatMarkdown(selected.id(), file.toPath());
+        boolean exported = controller.exportChatMarkdown(selected.id(), file.toPath());
         status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists.");
     }
 
     private void searchChats() throws Exception {
         String query = searchField.getText();
-        if (query == null || query.trim().isEmpty()) {
-            clearSearch();
-            return;
-        }
-        List<SearchResult> matches = searchService.searchResults(query);
-        applyListState(listState.showSearchResults(matches, formatMatchStatus(matches.size())));
+        applyListState(controller.searchChats(query));
         searchField.requestFocus();
         searchField.selectAll();
     }
 
     private void clearSearch() throws Exception {
         searchField.clear();
-        applyListState(listState.showAll(searchService.searchResults(""), "Ready"));
+        applyListState(controller.loadAllChats());
         searchField.requestFocus();
     }
 
@@ -195,13 +185,13 @@ public final class ChatMapApp extends Application {
             detail.clear();
             return;
         }
-        listState.select(selectedResult.chatId());
+        controller.selectChat(selectedResult.chatId());
         showChatDetails(selectedResult.chatId());
     }
 
     private void showChatDetails(long chatId) {
         runWithFeedback(() -> {
-            ChatExportModel model = exportService.loadChat(chatId).orElse(null);
+            ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
             if (model == null) {
                 detail.clear();
                 status.setText("Selected chat no longer exists.");
@@ -220,7 +210,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void refreshChats() throws Exception {
-        applyListState(listState.showAll(searchService.searchResults(""), "Ready"));
+        applyListState(controller.loadAllChats());
     }
 
     private void applyListState(ChatListState.Snapshot snapshot) {
@@ -296,16 +286,6 @@ public final class ChatMapApp extends Application {
                 .map(Tag::name)
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("");
-    }
-
-    private static String formatMatchStatus(int matches) {
-        if (matches == 0) {
-            return "No matches";
-        }
-        if (matches == 1) {
-            return "1 match";
-        }
-        return matches + " matches";
     }
 
     @FunctionalInterface

@@ -98,7 +98,7 @@ SearchRepository
 
 importText
 fallbackTitle
-messageText
+text
 rawJson
 
 projects
@@ -152,13 +152,13 @@ Message
 - id
 - chatId
 - role
-- messageText
+- text
 - sequence
 - timestamp
 - rawJson
 ```
 
-`messageText` is the normalized searchable text.
+`text` is the normalized searchable text.
 
 `rawJson` preserves the original source payload when available.
 
