@@ -1,6 +1,7 @@
 package chatmap.exporter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -9,6 +10,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -21,6 +23,9 @@ import chatmap.storage.MessageRepository;
 class MarkdownExporterTest {
 
     private Connection conn;
+
+    @TempDir
+    private Path tempDir;
 
     @AfterEach
     void tearDown() throws Exception {
@@ -61,6 +66,26 @@ class MarkdownExporterTest {
 
         assertEquals(List.of(first, second), loaded.messages());
         assertEquals(golden("stored-chat.md"), markdown);
+    }
+
+    @Test
+    void exportServiceWritesSelectedChatMarkdownFile() throws Exception {
+        conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
+        ChatRepository chats = new ChatRepository(conn);
+        MessageRepository messages = new MessageRepository(conn);
+        ExportService exportService = new ExportService(chats, messages);
+
+        Chat storedChat = chats.insert(new Chat(0, null, Source.markdown, "UI Export Chat",
+                null, null, "2026-07-06T00:00:00Z", false));
+        messages.insert(new Message(0, storedChat.id(), "unknown",
+                "Export this selected chat.", 0, null, null));
+        Path outputPath = tempDir.resolve("selected-chat.md");
+
+        assertTrue(exportService.writeChatMarkdown(storedChat.id(), outputPath));
+        String markdown = Files.readString(outputPath);
+        assertTrue(markdown.contains("# UI Export Chat"));
+        assertTrue(markdown.contains("Source: markdown"));
+        assertTrue(markdown.contains("Export this selected chat."));
     }
 
     private static String golden(String name) throws Exception {

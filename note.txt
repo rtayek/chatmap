@@ -1,3 +1,5 @@
 Version 1 manages conversations.
 
 Version 2 manages knowledge.
+
+The system should maximize information gain while minimizing cognitive load.

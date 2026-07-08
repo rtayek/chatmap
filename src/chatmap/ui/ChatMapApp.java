@@ -47,6 +47,7 @@ public final class ChatMapApp extends Application {
     private ListView<SearchResult> chatList;
     private TextArea detail;
     private TextField searchField;
+    private Button exportChatButton;
     private Label status;
     private boolean applyingListState;
 
@@ -90,12 +91,14 @@ public final class ChatMapApp extends Application {
             runWithFeedback(this::searchChats);
         });
         status = new Label("Ready");
+        exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
+        exportChatButton.setDisable(true);
 
         ToolBar toolbar = new ToolBar(
                 button("Import Text", () -> importFile("Import text", "*.txt")),
                 button("Import Markdown", () -> importFile("Import Markdown", "*.md", "*.markdown")),
                 button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
-                button("Export Chat Markdown", this::exportSelectedChat));
+                exportChatButton);
         HBox searchBar = new HBox(8,
                 searchField,
                 button("Search", this::searchChats),
@@ -187,6 +190,7 @@ public final class ChatMapApp extends Application {
         if (applyingListState) {
             return;
         }
+        updateExportActionState();
         if (selectedResult == null) {
             detail.clear();
             return;
@@ -230,8 +234,10 @@ public final class ChatMapApp extends Application {
         status.setText(snapshot.statusText());
         if (snapshot.selectedChatId() == null) {
             detail.clear();
+            updateExportActionState();
         } else if (!selectChat(snapshot.selectedChatId())) {
             detail.clear();
+            updateExportActionState();
         }
     }
 
@@ -243,6 +249,12 @@ public final class ChatMapApp extends Application {
             }
         }
         return false;
+    }
+
+    private void updateExportActionState() {
+        if (exportChatButton != null) {
+            exportChatButton.setDisable(chatList.getSelectionModel().getSelectedItem() == null);
+        }
     }
 
     private void runWithFeedback(ThrowingRunnable action) {
