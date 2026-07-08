@@ -4,7 +4,7 @@
 
 ChatMap is a local desktop application for managing AI chat histories.
 
-The MVP turns exported or pasted chats into organized, searchable, exportable project knowledge.
+The MVP turns imported chats into organized, searchable, exportable project knowledge.
 
 Core workflow:
 
@@ -16,7 +16,7 @@ Import → Normalize → Store → Search → Organize → Export
 
 The MVP supports:
 
-* importing plain text, Markdown, pasted conversations, and later ChatGPT JSON
+* importing plain text, Markdown, and ChatGPT JSON files
 * storing chats in SQLite
 * searching message text with SQLite FTS5
 * organizing chats with projects and tags
@@ -30,7 +30,7 @@ The MVP does not require AI, Python, cloud sync, browser automation, or a visual
 Java desktop app
 │
 ├── ui
-│   └── JavaFX screens and later card canvas
+│   └── JavaFX list/detail application
 │
 ├── service
 │   ├── import orchestration
@@ -50,9 +50,6 @@ Java desktop app
 ├── storage
 │   ├── repositories
 │   └── SQLite schema
-│
-└── ai
-    └── optional future LLM integration
 ```
 
 ## Design Rules
@@ -71,8 +68,6 @@ Java desktop app
 * Storage: SQLite
 * Search: SQLite FTS5
 * Tests: JUnit with temporary SQLite databases
-* AI: optional later, Java client first
-* Python: optional later only if Java SDKs become limiting
 
 ## Naming Rules
 
@@ -203,12 +198,11 @@ Repository tests must verify that insert, update, and delete operations keep FTS
 
 All importers produce normalized chat data.
 
-Initial import behavior:
+Current import behavior:
 
 ```text
 Plain text → one Chat → one Message
 Markdown   → one Chat → one Message
-Pasted text → PlainTextImporter path
 ChatGPT JSON → flattened Messages with rawJson preserved
 ```
 
@@ -223,8 +217,6 @@ Exporters receive fully hydrated export models from `ExportService`.
 Export targets:
 
 * single chat
-* selected chats
-* project
 * deterministic no-LLM handoff
 
 The no-LLM handoff is structured extraction, not semantic compression.
@@ -238,34 +230,22 @@ Search uses SQLite FTS5 for message text.
 `SearchRepository` owns queries involving:
 
 * message text
-* chat title
 * project filter
 * tag filter
 * archived filter
 
-Initial ranking:
+Results are returned in deterministic chat import order. Duplicate message matches produce one result per chat.
+
+## Current Implementation
 
 ```text
-1. exact title matches
-2. message matches
-```
-
-## Build Order
-
-```text
-1. Domain model
-2. SQLite schema with FTS5 and triggers
-3. Repository tests
-4. PlainTextImporter
-5. MarkdownExporter
-6. MarkdownImporter
-7. Project/tag management
-8. No-LLM handoff export
-9. ChatGPT JSON importer
-10. Simple JavaFX list/detail UI
-11. Simple card canvas
-12. Optional Java LLM integration
-13. Optional Python helper
+1. Domain model and SQLite storage
+2. FTS5 message search with synchronization triggers
+3. Plain text, Markdown, and ChatGPT JSON import
+4. Project and tag organization
+5. Single-chat Markdown export
+6. Deterministic project handoff export
+7. JavaFX list/detail, import, search, and export workflow
 ```
 
 ## Non-Goals for MVP

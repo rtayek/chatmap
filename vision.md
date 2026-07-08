@@ -259,21 +259,11 @@ No rendering format should become the canonical representation.
 
 ---
 
-# Near-Term Priority
+# Near-Term Boundary
 
 The immediate objective is **not** building this entire vision.
 
-The next practical step is mastering OpenClaw.
-
-Experience with OpenClaw should inform:
-
-- prompt design
-- extraction workflows
-- automation
-- provider abstraction
-- user interaction
-
-Only after practical experience should the semantic extraction system be implemented.
+ChatMap should first remain useful as a deterministic tool for importing, storing, searching, organizing, and exporting chats. Semantic extraction should be introduced only after its model and review workflow are understood.
 
 ---
 

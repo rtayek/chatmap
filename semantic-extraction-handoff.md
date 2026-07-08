@@ -80,84 +80,9 @@ Responsibilities:
 
 The chat manager should not merely summarize. It should extract state.
 
-## Suggested Canonical Files
+## Durable Project Files
 
-Different projects may use different filenames, but the recurring useful files are:
-
-- `README.md`
-- `design.md`
-- `architecture.md`
-- `handoff.md`
-- `working-context.md`
-- `todo.md`
-- `decisions.md`
-- `patterns.md`
-
-The files should not all duplicate each other.
-
-Suggested split:
-
-### `design.md`
-
-Concise current design.
-
-Contains:
-
-- purpose
-- MVP scope
-- architecture
-- data model
-- key design rules
-- technology choices
-- build order
-
-### `handoff.md`
-
-Detailed context for another AI or developer.
-
-Contains:
-
-- current project state
-- stable decisions
-- constraints
-- non-goals
-- known risks
-- next tasks
-- references to important files
-
-### `working-context.md`
-
-Short-lived current work state.
-
-Contains:
-
-- current branch/task
-- recent changes
-- current failing tests or issues
-- immediate next action
-
-### `decisions.md`
-
-Durable decisions only.
-
-Contains:
-
-- decision
-- rationale
-- consequences
-- date or context if useful
-
-### `patterns.md`
-
-Reusable implementation/design patterns.
-
-Contains:
-
-- naming conventions
-- testing patterns
-- repository/service boundaries
-- UI state rules
-- import/export contracts
+Semantic extraction should update a small set of project-owned files chosen by each project. Those files should have distinct responsibilities and should not duplicate one another. The extraction model must not require a particular documentation layout.
 
 ## Extraction Template
 
@@ -213,7 +138,7 @@ The ChatMap project is itself an implementation of these ideas.
 
 ChatMap’s MVP purpose:
 
-> Turn exported or pasted AI chats into organized, searchable, exportable project knowledge.
+> Turn imported AI chats into organized, searchable, exportable project knowledge.
 
 Core ChatMap workflow:
 
@@ -221,15 +146,15 @@ Core ChatMap workflow:
 Import → Normalize → Store → Search → Organize → Export
 ```
 
-ChatMap should eventually support semantic extraction as one of its main values.
+ChatMap may eventually support semantic extraction as one of its main values.
 
-The first implementation does not need AI. It can start with deterministic import, search, organization, and Markdown export.
+The current implementation does not need AI. It provides deterministic import, search, organization, and Markdown export.
 
 Later, LLM-assisted extraction can produce higher-level handoffs, but the non-AI workflow should remain useful.
 
 ## Recommended Semantic Extraction Modes
 
-ChatMap should eventually support multiple export modes.
+ChatMap supports deterministic export modes today. Semantic export is a future mode.
 
 ### Raw Transcript Export
 
@@ -282,7 +207,7 @@ Extracts:
 - next actions
 - suggested canonical file updates
 
-This should come later, after the deterministic pipeline works.
+This should build on the existing deterministic pipeline rather than replace it.
 
 ## MVP Advice
 
@@ -400,14 +325,7 @@ A practical design is:
 
 ## Next Implementation Direction
 
-For ChatMap, the practical direction is:
-
-1. Stabilize basic import/search/export UI.
-2. Keep `design.md` concise.
-3. Keep `handoff.md` detailed.
-4. Add project/tag UI only after basic UI is stable.
-5. Add deterministic handoff export before AI extraction.
-6. Add LLM-assisted semantic extraction only after deterministic handoffs are useful.
+ChatMap already has the deterministic import, storage, search, organization, and export foundation. Future semantic extraction should build on that foundation without making AI necessary for existing workflows.
 
 ## Short Summary
 

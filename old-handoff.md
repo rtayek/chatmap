@@ -1,5 +1,7 @@
 # ChatMap MVP Handoff
 
+> Historical background only. This document is not the current design or implementation contract.
+
 ## Project Summary
 
 ChatMap is a local desktop application for importing, organizing, searching, and exporting AI chat histories.
