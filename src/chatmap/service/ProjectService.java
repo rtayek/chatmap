@@ -28,6 +28,10 @@ public final class ProjectService {
         return projects.findById(projectId);
     }
 
+    public List<Project> listAll() throws SQLException {
+        return projects.findAll();
+    }
+
     public void update(Project project) throws SQLException {
         projects.update(project);
     }

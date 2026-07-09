@@ -35,19 +35,50 @@ public final class SearchRepository {
     }
 
     public List<SearchResult> listAllResults() throws SQLException {
-        String sql = "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, c.importedAt, "
+        return listResults(SearchOptions.none());
+    }
+
+    public List<SearchResult> listResults(SearchOptions options) throws SQLException {
+        SearchOptions filters = options == null ? SearchOptions.none() : options;
+        StringBuilder sql = new StringBuilder(
+                "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, c.importedAt, "
                 + "c.archived, p.name AS projectName "
                 + "FROM chats c "
-                + "LEFT JOIN projects p ON p.id = c.projectId "
-                + "ORDER BY c.importedAt, c.id";
-        try (PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
-            List<SearchResult> results = new ArrayList<>();
-            while (rs.next()) {
-                Chat chat = readChat(rs);
-                results.add(new SearchResult(chat, rs.getString("projectName"), findTagsByChat(chat.id()), null));
+                + "LEFT JOIN projects p ON p.id = c.projectId ");
+        if (filters.tagId() != null) {
+            sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
+        }
+        sql.append("WHERE 1 = 1 ");
+        if (filters.projectId() != null) {
+            sql.append("AND c.projectId = ? ");
+        }
+        if (filters.tagId() != null) {
+            sql.append("AND ct.tagId = ? ");
+        }
+        if (filters.archived() != null) {
+            sql.append("AND c.archived = ? ");
+        }
+        sql.append("ORDER BY c.importedAt, c.id");
+
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int parameter = 1;
+            if (filters.projectId() != null) {
+                ps.setLong(parameter++, filters.projectId());
             }
-            return results;
+            if (filters.tagId() != null) {
+                ps.setLong(parameter++, filters.tagId());
+            }
+            if (filters.archived() != null) {
+                ps.setInt(parameter, filters.archived() ? 1 : 0);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                List<SearchResult> results = new ArrayList<>();
+                while (rs.next()) {
+                    Chat chat = readChat(rs);
+                    results.add(new SearchResult(chat, rs.getString("projectName"), findTagsByChat(chat.id()), null));
+                }
+                return results;
+            }
         }
     }
 

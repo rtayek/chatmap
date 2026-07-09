@@ -5,6 +5,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import chatmap.domain.Project;
@@ -44,6 +46,19 @@ public final class ProjectRepository {
                 }
                 return Optional.of(read(rs));
             }
+        }
+    }
+
+    public List<Project> findAll() throws SQLException {
+        String sql = "SELECT id, name, description, createdAt, updatedAt "
+                + "FROM projects ORDER BY name COLLATE NOCASE, id";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            List<Project> results = new ArrayList<>();
+            while (rs.next()) {
+                results.add(read(rs));
+            }
+            return results;
         }
     }
 

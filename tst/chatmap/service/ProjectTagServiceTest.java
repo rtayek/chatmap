@@ -47,8 +47,11 @@ class ProjectTagServiceTest {
     void managesProjectCrud() throws Exception {
         Project created = projectService.create(new Project(0, "Client Work", "Initial",
                 "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Project alpha = projectService.create(new Project(0, "Alpha", null,
+                "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
 
         assertEquals("Client Work", projectService.findById(created.id()).orElseThrow().name());
+        assertEquals(List.of(alpha, created), projectService.listAll());
 
         projectService.update(new Project(created.id(), "Research", "Updated",
                 created.createdAt(), "2026-07-06T01:00:00Z"));
@@ -90,8 +93,10 @@ class ProjectTagServiceTest {
     @Test
     void managesTagCrud() throws Exception {
         Tag created = tagService.create(new Tag(0, "MVP"));
+        Tag alpha = tagService.create(new Tag(0, "Alpha"));
 
         assertEquals(created, tagService.findByName("mvp").orElseThrow());
+        assertEquals(List.of(alpha, created), tagService.listAll());
 
         tagService.update(new Tag(created.id(), "Search"));
 

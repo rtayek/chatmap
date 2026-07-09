@@ -36,7 +36,7 @@ public final class SearchService {
     public List<SearchResult> searchResults(String query, SearchOptions options) throws SQLException {
         String trimmed = query == null ? "" : query.trim();
         if (trimmed.isEmpty()) {
-            return search.listAllResults();
+            return search.listResults(options);
         }
         return search.searchResultsByMessageText(toFtsPrefixQuery(trimmed), options);
     }

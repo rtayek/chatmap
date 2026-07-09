@@ -56,6 +56,18 @@ public final class TagRepository {
         }
     }
 
+    public List<Tag> findAll() throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT id, name FROM tags ORDER BY name COLLATE NOCASE, id");
+                ResultSet rs = ps.executeQuery()) {
+            List<Tag> results = new ArrayList<>();
+            while (rs.next()) {
+                results.add(read(rs));
+            }
+            return results;
+        }
+    }
+
     public void update(Tag tag) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("UPDATE tags SET name = ? WHERE id = ?")) {
             ps.setString(1, tag.name());

@@ -32,6 +32,10 @@ public final class TagService {
         return tags.findByName(name);
     }
 
+    public List<Tag> listAll() throws SQLException {
+        return tags.findAll();
+    }
+
     public void update(Tag tag) throws SQLException {
         tags.update(tag);
     }

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
+import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
@@ -123,6 +124,23 @@ class SearchServiceTest {
         assertEquals(List.of(first.id(), second.id()), searchService.searchResults("   ").stream()
                 .map(SearchResult::chatId)
                 .toList());
+    }
+
+    @Test
+    void emptySearchAppliesProjectAndTagFilters() throws Exception {
+        Project project = projects.insert(new Project(
+                0, "Filtered", null, "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Tag tag = tags.insert(new Tag(0, "MVP"));
+        Chat match = insertChat("Match", "2026-07-06T00:00:00Z");
+        Chat projectOnly = insertChat("Project only", "2026-07-06T00:01:00Z");
+        chats.assignProject(match.id(), project.id());
+        chats.assignProject(projectOnly.id(), project.id());
+        tags.assignToChat(match.id(), tag.id());
+
+        List<SearchResult> results = searchService.searchResults(
+                "", new SearchOptions(project.id(), tag.id(), null));
+
+        assertEquals(List.of(match.id()), results.stream().map(SearchResult::chatId).toList());
     }
 
     @Test
