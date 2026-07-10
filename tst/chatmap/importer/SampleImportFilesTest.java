@@ -22,7 +22,9 @@ class SampleImportFilesTest {
 
         assertEquals("ChatMap plain text sample", imported.chat().title());
         assertEquals(Source.plainText, imported.chat().source());
-        assertEquals(1, imported.messages().size());
+        assertEquals(2, imported.messages().size());
+        assertEquals("user", imported.messages().get(0).role());
+        assertEquals("assistant", imported.messages().get(1).role());
         assertTrue(imported.messages().getFirst().text().contains("ChatMap"));
     }
 
@@ -34,7 +36,9 @@ class SampleImportFilesTest {
 
         assertEquals("ChatMap Markdown Sample", imported.chat().title());
         assertEquals(Source.markdown, imported.chat().source());
-        assertEquals(1, imported.messages().size());
+        assertEquals(2, imported.messages().size());
+        assertEquals("user", imported.messages().get(0).role());
+        assertEquals("assistant", imported.messages().get(1).role());
         assertTrue(imported.messages().getFirst().text().contains("ChatMap"));
     }
 

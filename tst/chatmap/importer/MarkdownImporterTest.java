@@ -60,6 +60,23 @@ class MarkdownImporterTest {
     }
 
     @Test
+    void importsRolePrefixedMarkdownAsSeparateMessages() {
+        String markdown = "# Transcript\n\n User: Question line\n\nQuestion detail.\n"
+                + "ASSISTANT: Answer line\n\nAnswer detail.\n"
+                + "system: System note.";
+
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
+
+        assertEquals("Transcript", imported.chat().title());
+        assertEquals(List.of("user", "assistant", "system"),
+                imported.messages().stream().map(Message::role).toList());
+        assertEquals("Question line\n\nQuestion detail.",
+                imported.messages().get(0).text());
+        assertEquals("Answer line\n\nAnswer detail.", imported.messages().get(1).text());
+        assertEquals("System note.", imported.messages().get(2).text());
+    }
+
+    @Test
     void importedMarkdownPersistsAndCanBeSearchedWithFts() throws Exception {
         String markdown = "# Searchable Markdown\n\nThis note mentions deterministic indexing.";
         ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);

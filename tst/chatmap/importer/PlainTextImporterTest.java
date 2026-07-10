@@ -30,11 +30,11 @@ class PlainTextImporterTest {
     }
 
     @Test
-    void createsOneNormalizedChatWithOneUnknownMessage() throws Exception {
-        String text = Files.readString(Path.of("samples", "plainTextSample.txt"));
+    void textWithoutRolePrefixesCreatesOneUnknownMessage() {
+        String text = "Plain text without transcript role markers.\n\nSecond paragraph.";
         ImportedChat imported = new PlainTextImporter().importText(text, importedAt);
 
-        assertEquals("ChatMap plain text sample", imported.chat().title());
+        assertEquals("Plain text without transcript role markers.", imported.chat().title());
         assertEquals(chatmap.domain.Source.plainText, imported.chat().source());
         assertEquals(importedAt, imported.chat().importedAt());
         assertEquals(false, imported.chat().archived());
@@ -47,6 +47,21 @@ class PlainTextImporterTest {
         assertEquals(0, message.sequence());
         assertEquals(null, message.timestamp());
         assertEquals(null, message.rawJson());
+    }
+
+    @Test
+    void importsRolePrefixedTranscriptAsSeparateMessages() {
+        String text = "  uSeR: First line\n\nSecond paragraph.\n"
+                + " Assistant: Answer line\n\nMore detail.";
+
+        ImportedChat imported = new PlainTextImporter().importText("Transcript", text, importedAt);
+
+        assertEquals(List.of("user", "assistant"),
+                imported.messages().stream().map(Message::role).toList());
+        assertEquals(List.of("First line\n\nSecond paragraph.", "Answer line\n\nMore detail."),
+                imported.messages().stream().map(Message::text).toList());
+        assertEquals(List.of(0, 1),
+                imported.messages().stream().map(Message::sequence).toList());
     }
 
     @Test

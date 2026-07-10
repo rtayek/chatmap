@@ -1,6 +1,7 @@
 package chatmap.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
@@ -50,7 +51,11 @@ class SampleRoundTripTest {
         assertTrue(markdown.contains("# plainTextSample.txt"));
         assertTrue(markdown.contains("Source: plainText"));
         assertTrue(markdown.contains("ChatMap plain text sample"));
-        assertTrue(markdown.contains("Assistant: Import a chat file"));
+        assertTrue(markdown.contains("## user"));
+        assertTrue(markdown.contains("How can I use ChatMap to organize imported chats?"));
+        assertTrue(markdown.contains("## assistant"));
+        assertTrue(markdown.contains("Import a chat file, search for ChatMap"));
+        assertFalse(markdown.contains("## unknown"));
     }
 
     @Test
@@ -62,8 +67,11 @@ class SampleRoundTripTest {
         String markdown = exportService.exportChatMarkdown(chat.id()).orElseThrow();
         assertTrue(markdown.contains("# ChatMap Markdown Sample"));
         assertTrue(markdown.contains("Source: markdown"));
-        assertTrue(markdown.contains("User: Can ChatMap import Markdown notes?"));
-        assertTrue(markdown.contains("Assistant: Yes."));
+        assertTrue(markdown.contains("## user"));
+        assertTrue(markdown.contains("Can ChatMap import Markdown notes?"));
+        assertTrue(markdown.contains("## assistant"));
+        assertTrue(markdown.contains("Yes. The Markdown importer preserves"));
+        assertFalse(markdown.contains("## unknown"));
     }
 
     @Test
