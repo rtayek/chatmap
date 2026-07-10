@@ -7,7 +7,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 
-/** Minimal plain text importer: one input text becomes one chat and one message. */
+/** Imports plain text as a transcript when role prefixes are present. */
 public final class PlainTextImporter {
 
     public static final String unknownRole = "unknown";
@@ -22,8 +22,11 @@ public final class PlainTextImporter {
         Objects.requireNonNull(importedAt, "importedAt");
 
         Chat chat = new Chat(0, null, Source.plainText, title, null, null, importedAt, false);
-        Message message = new Message(0, 0, unknownRole, text, 0, null, null);
-        return new ImportedChat(chat, List.of(message));
+        List<Message> messages = RolePrefixedTranscriptParser.parse(text);
+        if (messages.isEmpty()) {
+            messages = List.of(new Message(0, 0, unknownRole, text, 0, null, null));
+        }
+        return new ImportedChat(chat, messages);
     }
 
     private static String deriveTitle(String text) {
