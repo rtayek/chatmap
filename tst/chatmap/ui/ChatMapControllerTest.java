@@ -18,17 +18,21 @@ import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
+import chatmap.backend.ClaudeCliClient;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
+import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
 import chatmap.service.SearchService;
+import chatmap.service.SummaryService;
 import chatmap.service.TagService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
 import chatmap.storage.SearchRepository;
+import chatmap.storage.SummaryRepository;
 import chatmap.storage.TagRepository;
 
 class ChatMapControllerTest {
@@ -50,12 +54,20 @@ class ChatMapControllerTest {
         messages = new MessageRepository(conn);
         projectService = new ProjectService(new ProjectRepository(conn), chats);
         tagService = new TagService(new TagRepository(conn), chats);
+        ImportService importService = new ImportService(chats, messages);
+        SummaryService summaryService = new SummaryService(chats, messages,
+                new SummaryRepository(conn), new TagRepository(conn),
+                new ClaudeCliClient(java.time.Duration.ofMinutes(3)));
+        LiveChatFetchService liveChatFetchService =
+                new LiveChatFetchService(java.util.List.of(), importService, chats);
         controller = new ChatMapController(
-                new ImportService(chats, messages),
+                importService,
                 new ExportService(chats, messages),
                 new SearchService(new SearchRepository(conn)),
                 projectService,
-                tagService);
+                tagService,
+                summaryService,
+                liveChatFetchService);
     }
 
     @AfterEach

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ChatSummary;
 import chatmap.domain.Project;
 import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
@@ -15,8 +16,10 @@ import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
+import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
 import chatmap.service.SearchService;
+import chatmap.service.SummaryService;
 import chatmap.service.TagService;
 
 /** Coordinates application operations without depending on JavaFX widgets. */
@@ -27,6 +30,8 @@ public final class ChatMapController {
     private final SearchService searchService;
     private final ProjectService projectService;
     private final TagService tagService;
+    private final SummaryService summaryService;
+    private final LiveChatFetchService liveChatFetchService;
     private final ChatListState listState;
     private String currentQuery = "";
     private Long currentProjectId;
@@ -37,12 +42,16 @@ public final class ChatMapController {
             ExportService exportService,
             SearchService searchService,
             ProjectService projectService,
-            TagService tagService) {
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService) {
         this.importService = importService;
         this.exportService = exportService;
         this.searchService = searchService;
         this.projectService = projectService;
         this.tagService = tagService;
+        this.summaryService = summaryService;
+        this.liveChatFetchService = liveChatFetchService;
         listState = new ChatListState();
     }
 
@@ -75,8 +84,36 @@ public final class ChatMapController {
         return listState.select(chatId);
     }
 
+    /**
+     * Fetches the latest live chat (importing it) and selects it, using the same
+     * fallback order as the CLI: live provider, else the most recent stored chat.
+     * Blocking (HTTP with retry/backoff) — callers should run it off the UI thread.
+     */
+    public ChatListState.Snapshot fetchLatestChat() throws Exception {
+        LiveChatFetchService.Resolution resolution = liveChatFetchService.resolve(null);
+        currentQuery = "";
+        currentProjectId = null;
+        currentTagId = null;
+        listState.showAll(searchService.searchResults(""), "Using " + resolution.how());
+        return listState.select(resolution.chatId());
+    }
+
+    /**
+     * Summarizes and tags the given chat, then re-selects it so the new tags (and
+     * summary, via {@link #latestSummary}) are reflected. Blocking (calls the
+     * claude CLI) — callers should run it off the UI thread.
+     */
+    public ChatListState.Snapshot summarizeAndTag(long chatId) throws Exception {
+        summaryService.summarize(chatId);
+        return refreshCurrent("Summarized and tagged chat " + chatId, chatId);
+    }
+
     public Optional<ChatExportModel> loadChatDetails(long chatId) throws SQLException {
         return exportService.loadChat(chatId);
+    }
+
+    public Optional<ChatSummary> latestSummary(long chatId) throws SQLException {
+        return summaryService.latestSummary(chatId);
     }
 
     public boolean exportChatMarkdown(long chatId, Path outputPath) throws SQLException, IOException {

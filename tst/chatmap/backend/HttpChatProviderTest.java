@@ -130,4 +130,21 @@ class HttpChatProviderTest {
         assertThrows(Exception.class, () -> provider(deadPort, noOpLauncher).latestChat());
         assertEquals(1, launches.get(), "launch should be attempted once");
     }
+
+    // --- zero-config default launcher (Part 1) ---
+
+    @Test
+    void defaultLauncherIsWiredWhenScriptExists(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws Exception {
+        java.nio.file.Path script = dir.resolve("claude-web-latest-server.sh");
+        java.nio.file.Files.writeString(script, "#!/bin/sh\n");
+        assertTrue(HttpChatProvider.defaultScriptLauncher(script).isPresent());
+    }
+
+    @Test
+    void defaultLauncherIsAbsentWhenScriptMissing(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
+        java.nio.file.Path missing = dir.resolve("nope.sh");
+        assertTrue(HttpChatProvider.defaultScriptLauncher(missing).isEmpty(),
+                "a missing sibling script must mean no launcher (clean fall-through)");
+    }
 }

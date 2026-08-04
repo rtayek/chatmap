@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 import chatmap.backend.ClaudeCliClient;
 import chatmap.domain.Chat;
@@ -47,6 +48,11 @@ public final class SummaryService {
         this.summaries = summaries;
         this.tags = tags;
         this.claude = claude;
+    }
+
+    /** The most recent summary for a chat, if it has been summarized. Read-only. */
+    public Optional<ChatSummary> latestSummary(long chatId) throws SQLException {
+        return summaries.findLatestForChat(chatId);
     }
 
     /** Summarizes and tags the given chat, saving both. Returns the stored summary. */

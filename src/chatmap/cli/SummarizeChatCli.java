@@ -2,19 +2,16 @@ package chatmap.cli;
 
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
 import chatmap.backend.HttpChatProvider;
-import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
-import chatmap.importer.ImportedChat;
 import chatmap.service.ImportService;
+import chatmap.service.LiveChatFetchService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
@@ -38,9 +35,6 @@ import chatmap.service.SummaryService;
  */
 public final class SummarizeChatCli {
 
-    /** Outcome of choosing which chat to summarize: its id plus how it was chosen (for logging). */
-    record Resolution(long chatId, String how) {}
-
     public static void main(String[] args) {
         Long requestedChatId = null;
         if (args.length >= 1) {
@@ -62,11 +56,13 @@ public final class SummarizeChatCli {
 
             List<ChatProvider> providers = new ArrayList<>();
             HttpChatProvider.fromEnv().ifPresent(providers::add);
+            LiveChatFetchService fetchService =
+                    new LiveChatFetchService(providers, importService, chats);
 
-            Resolution resolution;
+            LiveChatFetchService.Resolution resolution;
             try {
-                resolution = resolveChatId(requestedChatId, providers, chats, importService);
-            } catch (NoChatAvailableException e) {
+                resolution = fetchService.resolve(requestedChatId);
+            } catch (LiveChatFetchService.NoChatAvailableException e) {
                 System.err.println(e.getMessage());
                 System.exit(1);
                 return;
@@ -93,68 +89,6 @@ public final class SummarizeChatCli {
             String which = requestedChatId != null ? String.valueOf(requestedChatId) : "(most recent)";
             System.err.println("Could not summarize chat " + which + ": " + e.getMessage());
             System.exit(1);
-        }
-    }
-
-    /**
-     * Chooses which chat to summarize when no explicit chatId is given.
-     *
-     * Priority: an explicit {@code requestedChatId} wins; otherwise the last
-     * live chat from the first available provider is imported and used; if no
-     * provider yields one (or all fail), it falls back to the most recently
-     * imported chat already stored locally.
-     *
-     * @throws NoChatAvailableException when no provider has a live chat and the
-     *         local database is empty.
-     */
-    static Resolution resolveChatId(Long requestedChatId, List<ChatProvider> providers,
-            ChatRepository chats, ImportService importService)
-            throws SQLException, NoChatAvailableException {
-
-        if (requestedChatId != null) {
-            return new Resolution(requestedChatId, "requested chat " + requestedChatId);
-        }
-
-        for (ChatProvider provider : providers) {
-            try {
-                Optional<ImportedChat> live = provider.latestChat();
-                if (live.isPresent()) {
-                    Chat stored = importService.persist(live.get());
-                    return new Resolution(stored.id(),
-                            "last live chat from " + provider.name() + " (\"" + stored.title() + "\")");
-                }
-                System.err.println("Provider " + provider.name() + " has no live chat; trying next.");
-            } catch (Exception e) {
-                System.err.println("Provider " + provider.name() + " unavailable: " + e.getMessage());
-            }
-        }
-
-        Optional<Chat> latest = mostRecentChat(chats);
-        if (latest.isPresent()) {
-            return new Resolution(latest.get().id(),
-                    "most recent stored chat " + latest.get().id() + " (\"" + latest.get().title() + "\")");
-        }
-        throw new NoChatAvailableException(
-                "No live provider chat and no stored chats; nothing to summarize.");
-    }
-
-    /**
-     * The chat used as the local fallback: the most recently imported one.
-     * {@link ChatRepository#findAll()} is ordered by importedAt then id, so the
-     * last element is the most recent. Empty when there are no chats.
-     */
-    static Optional<Chat> mostRecentChat(ChatRepository chats) throws SQLException {
-        List<Chat> all = chats.findAll();
-        if (all.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(all.get(all.size() - 1));
-    }
-
-    /** Raised when there is neither a live provider chat nor a stored chat to summarize. */
-    static final class NoChatAvailableException extends Exception {
-        NoChatAvailableException(String message) {
-            super(message);
         }
     }
 }

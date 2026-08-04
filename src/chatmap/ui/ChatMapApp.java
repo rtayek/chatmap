@@ -2,10 +2,16 @@ package chatmap.ui;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import chatmap.backend.ChatProvider;
+import chatmap.backend.ClaudeCliClient;
+import chatmap.backend.HttpChatProvider;
 import chatmap.domain.Chat;
+import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
@@ -13,16 +19,20 @@ import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
+import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
 import chatmap.service.SearchService;
+import chatmap.service.SummaryService;
 import chatmap.service.TagService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
 import chatmap.storage.SearchRepository;
+import chatmap.storage.SummaryRepository;
 import chatmap.storage.TagRepository;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
@@ -54,6 +64,8 @@ public final class ChatMapApp extends Application {
     private ComboBox<Project> projectChoice;
     private ComboBox<Tag> tagChoice;
     private Button exportChatButton;
+    private Button getLatestChatButton;
+    private Button summarizeButton;
     private Label status;
     private boolean applyingListState;
 
@@ -70,13 +82,25 @@ public final class ChatMapApp extends Application {
         MessageRepository messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
+        SummaryRepository summaries = new SummaryRepository(conn);
         SearchRepository search = new SearchRepository(conn);
+
+        ImportService importService = new ImportService(chats, messages);
+        SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
+                new ClaudeCliClient(Duration.ofMinutes(3)));
+        List<ChatProvider> providers = new ArrayList<>();
+        HttpChatProvider.fromEnv().ifPresent(providers::add);
+        LiveChatFetchService liveChatFetchService =
+                new LiveChatFetchService(providers, importService, chats);
+
         controller = new ChatMapController(
-                new ImportService(chats, messages),
+                importService,
                 new ExportService(chats, messages, projects, tags),
                 new SearchService(search),
                 new ProjectService(projects, chats),
-                new TagService(tags, chats));
+                new TagService(tags, chats),
+                summaryService,
+                liveChatFetchService);
 
         chatList = new ListView<>();
         chatList.setCellFactory(chatListView -> new ListCell<>() {
@@ -101,12 +125,17 @@ public final class ChatMapApp extends Application {
         status = new Label("Ready");
         exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
         exportChatButton.setDisable(true);
+        getLatestChatButton = button("Get latest chat", this::getLatestChat);
+        summarizeButton = button("Summarize & tag", this::summarizeSelectedChat);
+        summarizeButton.setDisable(true);
 
         ToolBar toolbar = new ToolBar(
                 button("Import Text", () -> importFile("Import text", "*.txt")),
                 button("Import Markdown", () -> importFile("Import Markdown", "*.md", "*.markdown")),
                 button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
-                exportChatButton);
+                exportChatButton,
+                getLatestChatButton,
+                summarizeButton);
         HBox searchBar = new HBox(8,
                 searchField,
                 button("Search", this::searchChats),
@@ -196,6 +225,50 @@ public final class ChatMapApp extends Application {
         }
         boolean exported = controller.exportChatMarkdown(selected.id(), file.toPath());
         status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists.");
+    }
+
+    private void getLatestChat() {
+        // Blocking HTTP with retry/backoff; run off the FX thread so the UI stays responsive.
+        runInBackground("Fetching latest chat...", getLatestChatButton, controller::fetchLatestChat);
+    }
+
+    private void summarizeSelectedChat() {
+        Long chatId = selectedChatId();
+        if (chatId == null) {
+            status.setText("Select a chat to summarize.");
+            return;
+        }
+        // Blocking claude CLI call; run off the FX thread.
+        runInBackground("Summarizing chat " + chatId + "...", summarizeButton,
+                () -> controller.summarizeAndTag(chatId));
+    }
+
+    /**
+     * Runs a blocking controller call on a background thread, showing feedback: sets
+     * the pending status and disables the triggering button while in flight, then
+     * applies the resulting snapshot (or reports the error) back on the FX thread.
+     */
+    private void runInBackground(String pendingStatus, Button triggerButton, BackgroundCall call) {
+        status.setText(pendingStatus);
+        if (triggerButton != null) {
+            triggerButton.setDisable(true);
+        }
+        Thread worker = new Thread(() -> {
+            try {
+                ChatListState.Snapshot snapshot = call.run();
+                Platform.runLater(() -> {
+                    applyListState(snapshot);
+                    updateSelectionActionStates();
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    updateSelectionActionStates();
+                    reportError(e);
+                });
+            }
+        }, "chatmap-background");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     private void searchChats() throws Exception {
@@ -314,7 +387,7 @@ public final class ChatMapApp extends Application {
         if (applyingListState) {
             return;
         }
-        updateExportActionState();
+        updateSelectionActionStates();
         if (selectedResult == null) {
             detail.clear();
             return;
@@ -335,6 +408,11 @@ public final class ChatMapApp extends Application {
             out.append(model.chat().title()).append("\n");
             out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
             out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
+            ChatSummary summary = controller.latestSummary(chatId).orElse(null);
+            if (summary != null) {
+                out.append("AI Summary (").append(summary.generatedBy()).append("): ")
+                        .append(summary.summary()).append("\n\n");
+            }
             for (Message message : model.messages()) {
                 out.append("[").append(message.role()).append("]\n");
                 out.append(message.text()).append("\n\n");
@@ -358,10 +436,10 @@ public final class ChatMapApp extends Application {
         status.setText(snapshot.statusText());
         if (snapshot.selectedChatId() == null) {
             detail.clear();
-            updateExportActionState();
+            updateSelectionActionStates();
         } else if (!selectChat(snapshot.selectedChatId())) {
             detail.clear();
-            updateExportActionState();
+            updateSelectionActionStates();
         }
     }
 
@@ -375,9 +453,13 @@ public final class ChatMapApp extends Application {
         return false;
     }
 
-    private void updateExportActionState() {
+    private void updateSelectionActionStates() {
+        boolean noSelection = chatList.getSelectionModel().getSelectedItem() == null;
         if (exportChatButton != null) {
-            exportChatButton.setDisable(chatList.getSelectionModel().getSelectedItem() == null);
+            exportChatButton.setDisable(noSelection);
+        }
+        if (summarizeButton != null) {
+            summarizeButton.setDisable(noSelection);
         }
     }
 
@@ -385,13 +467,17 @@ public final class ChatMapApp extends Application {
         try {
             action.run();
         } catch (Exception e) {
-            status.setText("Error: " + e.getMessage());
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("ChatMap");
-            alert.setHeaderText("Operation failed");
-            alert.setContentText(e.getMessage());
-            alert.showAndWait();
+            reportError(e);
         }
+    }
+
+    private void reportError(Exception e) {
+        status.setText("Error: " + e.getMessage());
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("ChatMap");
+        alert.setHeaderText("Operation failed");
+        alert.setContentText(e.getMessage());
+        alert.showAndWait();
     }
 
     private static String safeFileName(String title) {
@@ -453,5 +539,10 @@ public final class ChatMapApp extends Application {
     @FunctionalInterface
     private interface ThrowingRunnable {
         void run() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface BackgroundCall {
+        ChatListState.Snapshot run() throws Exception;
     }
 }

@@ -13,18 +13,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import chatmap.backend.ClaudeCliClient;
 import chatmap.domain.Project;
 import chatmap.domain.Tag;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
+import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
 import chatmap.service.SearchService;
+import chatmap.service.SummaryService;
 import chatmap.service.TagService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
 import chatmap.storage.SearchRepository;
+import chatmap.storage.SummaryRepository;
 import chatmap.storage.TagRepository;
 
 class ChatMapMvpWorkflowTest {
@@ -42,12 +46,20 @@ class ChatMapMvpWorkflowTest {
         MessageRepository messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
+        ImportService importService = new ImportService(chats, messages);
+        SummaryService summaryService = new SummaryService(chats, messages,
+                new SummaryRepository(conn), tags,
+                new ClaudeCliClient(java.time.Duration.ofMinutes(3)));
+        LiveChatFetchService liveChatFetchService =
+                new LiveChatFetchService(List.of(), importService, chats);
         controller = new ChatMapController(
-                new ImportService(chats, messages),
+                importService,
                 new ExportService(chats, messages, projects, tags),
                 new SearchService(new SearchRepository(conn)),
                 new ProjectService(projects, chats),
-                new TagService(tags, chats));
+                new TagService(tags, chats),
+                summaryService,
+                liveChatFetchService);
     }
 
     @AfterEach

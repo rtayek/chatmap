@@ -5,6 +5,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
@@ -34,8 +36,23 @@ import chatmap.importer.MarkdownImporter;
  * listening, the command is run once and the request is retried with a short
  * backoff (the local server plus its browser take a few seconds to come up)
  * before giving up.
+ *
+ * With nothing configured, {@link #fromEnv()} still enables the provider using
+ * built-in defaults: the local MyClaw {@code claude-web-server} URL, and — only
+ * if a sibling MyClaw checkout's launch script is actually present — that script
+ * as the launch command. So a zero-config {@code summarizeChat} still attempts
+ * the live chat first, on a machine laid out that way, rather than skipping it.
  */
 public final class HttpChatProvider implements ChatProvider {
+
+    /** MyClaw's claude-web-server default endpoint; used when CHATMAP_PROVIDER_URL is unset. */
+    static final String DEFAULT_URL = "http://127.0.0.1:8722/latest-chat";
+
+    /** Best-effort default: a sibling MyClaw checkout's launch script, relative to ChatMap's cwd. */
+    static final String DEFAULT_LAUNCH_SCRIPT = "../myclaw/claude-web-latest-server.sh";
+
+    /** Display name used when CHATMAP_PROVIDER_NAME is unset. */
+    static final String DEFAULT_NAME = "Claude (web)";
 
     /** Starts the local provider server. A seam so tests need not spawn a process. */
     @FunctionalInterface
@@ -71,27 +88,57 @@ public final class HttpChatProvider implements ChatProvider {
         this.retryInterval = Objects.requireNonNull(retryInterval, "retryInterval");
     }
 
-    /** Builds a provider from environment variables, or empty when none is configured. */
+    /**
+     * Builds a provider from environment variables, falling back to built-in
+     * defaults when they are unset (so the provider is enabled by default, not
+     * disabled). Always returns a provider.
+     */
     public static Optional<HttpChatProvider> fromEnv() {
         String url = System.getenv("CHATMAP_PROVIDER_URL");
         if (url == null || url.isBlank()) {
-            return Optional.empty();
+            url = DEFAULT_URL; // zero-config: point at MyClaw's local claude-web-server
         }
         URI endpoint = URI.create(url.strip());
+
         String name = System.getenv("CHATMAP_PROVIDER_NAME");
         if (name == null || name.isBlank()) {
-            name = endpoint.getHost() != null ? endpoint.getHost() : url;
+            name = DEFAULT_NAME;
         }
-        String token = System.getenv("CHATMAP_PROVIDER_TOKEN");
 
-        String launchCmd = System.getenv("CHATMAP_PROVIDER_LAUNCH_CMD");
-        ServerLauncher launcher = (launchCmd == null || launchCmd.isBlank())
-                ? null
-                : shellLauncher(launchCmd.strip());
+        String token = System.getenv("CHATMAP_PROVIDER_TOKEN");
 
         return Optional.of(new HttpChatProvider(name, endpoint, token,
                 HttpClient.newHttpClient(), Duration.ofSeconds(30),
-                launcher, Duration.ofSeconds(20), Duration.ofSeconds(1)));
+                resolveLauncher(), Duration.ofSeconds(20), Duration.ofSeconds(1)));
+    }
+
+    /**
+     * The launcher used by {@link #fromEnv()}: an explicit CHATMAP_PROVIDER_LAUNCH_CMD
+     * is trusted as-is; otherwise the sibling MyClaw script is used only if it
+     * actually exists on disk. A missing default script means "no launcher" — the
+     * unreachable-with-no-launcher path then throws and the caller falls back to the
+     * most recent stored chat, exactly as before. We check existence up front so a
+     * wrong guess never produces a failed launch attempt.
+     */
+    static ServerLauncher resolveLauncher() {
+        String launchCmd = System.getenv("CHATMAP_PROVIDER_LAUNCH_CMD");
+        if (launchCmd != null && !launchCmd.isBlank()) {
+            return shellLauncher(launchCmd.strip());
+        }
+        return defaultScriptLauncher(Path.of(DEFAULT_LAUNCH_SCRIPT)).orElse(null);
+    }
+
+    /**
+     * The default launcher, gated on the script actually existing. A missing
+     * script yields empty (== "no launcher"), so a wrong guess about directory
+     * layout never turns into a failed launch attempt.
+     */
+    static Optional<ServerLauncher> defaultScriptLauncher(Path script) {
+        if (Files.isRegularFile(script)) {
+            // Forward slashes so `sh` is happy even when Path renders backslashes on Windows.
+            return Optional.of(shellLauncher("sh " + script.toString().replace('\\', '/')));
+        }
+        return Optional.empty();
     }
 
     /** Runs a command through the OS shell as a detached background process. */

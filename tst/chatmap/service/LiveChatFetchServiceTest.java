@@ -1,4 +1,4 @@
-package chatmap.cli;
+package chatmap.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,18 +13,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import chatmap.backend.ChatProvider;
-import chatmap.cli.SummarizeChatCli.NoChatAvailableException;
-import chatmap.cli.SummarizeChatCli.Resolution;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
-import chatmap.service.ImportService;
+import chatmap.service.LiveChatFetchService.NoChatAvailableException;
+import chatmap.service.LiveChatFetchService.Resolution;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
 
-class SummarizeChatCliTest {
+class LiveChatFetchServiceTest {
 
     private Connection conn;
     private ChatRepository chats;
@@ -44,12 +43,15 @@ class SummarizeChatCliTest {
         }
     }
 
+    private LiveChatFetchService service(ChatProvider... providers) {
+        return new LiveChatFetchService(List.of(providers), importService, chats);
+    }
+
     // --- mostRecentChat (the local fallback) ---
 
     @Test
     void mostRecentChatIsEmptyWhenNoChats() throws Exception {
-        assertTrue(SummarizeChatCli.mostRecentChat(chats).isEmpty(),
-                "With no chats, the fallback should be empty");
+        assertTrue(service().mostRecentChat().isEmpty());
     }
 
     @Test
@@ -58,36 +60,29 @@ class SummarizeChatCliTest {
         insertChat("Middle", "2026-07-15T00:00:00Z");
         Chat newest = insertChat("Newest", "2026-08-01T00:00:00Z");
 
-        Optional<Chat> latest = SummarizeChatCli.mostRecentChat(chats);
+        Optional<Chat> latest = service().mostRecentChat();
 
         assertTrue(latest.isPresent());
         assertEquals(newest.id(), latest.get().id());
         assertEquals("Newest", latest.get().title());
     }
 
-    // --- resolveChatId (the new provider-first default) ---
+    // --- resolve (the provider-first fallback order) ---
 
     @Test
     void explicitChatIdWinsOverProviders() throws Exception {
-        ChatProvider provider = stubProvider("ShouldNotBeUsed", liveChat("Live"));
-
-        Resolution resolution = SummarizeChatCli.resolveChatId(
-                42L, List.of(provider), chats, importService);
+        Resolution resolution = service(stubProvider("ShouldNotBeUsed", liveChat("Live"))).resolve(42L);
 
         assertEquals(42L, resolution.chatId());
-        // Provider must not have run: nothing imported.
-        assertTrue(chats.findAll().isEmpty(), "Explicit id should not trigger a provider fetch");
+        assertTrue(chats.findAll().isEmpty(), "explicit id should not trigger a provider fetch");
     }
 
     @Test
     void defaultsToLastLiveProviderChatAndImportsIt() throws Exception {
-        ChatProvider provider = stubProvider("Claude", liveChat("Yesterday's session"));
-
-        Resolution resolution = SummarizeChatCli.resolveChatId(
-                null, List.of(provider), chats, importService);
+        Resolution resolution = service(stubProvider("Claude", liveChat("Yesterday's session"))).resolve(null);
 
         List<Chat> stored = chats.findAll();
-        assertEquals(1, stored.size(), "The live chat should have been imported");
+        assertEquals(1, stored.size());
         assertEquals(stored.get(0).id(), resolution.chatId());
         assertEquals("Yesterday's session", stored.get(0).title());
         assertTrue(resolution.how().contains("Claude"), resolution.how());
@@ -96,10 +91,7 @@ class SummarizeChatCliTest {
     @Test
     void fallsBackToMostRecentWhenProviderHasNoLiveChat() throws Exception {
         insertChat("Stored", "2026-08-01T00:00:00Z");
-        ChatProvider empty = stubProvider("Claude", null); // Optional.empty()
-
-        Resolution resolution = SummarizeChatCli.resolveChatId(
-                null, List.of(empty), chats, importService);
+        Resolution resolution = service(stubProvider("Claude", null)).resolve(null);
 
         assertEquals("Stored", chats.findById(resolution.chatId()).orElseThrow().title());
         assertTrue(resolution.how().contains("most recent"), resolution.how());
@@ -115,34 +107,26 @@ class SummarizeChatCliTest {
             }
         };
 
-        Resolution resolution = SummarizeChatCli.resolveChatId(
-                null, List.of(failing), chats, importService);
-
-        assertEquals(stored.id(), resolution.chatId());
+        assertEquals(stored.id(), service(failing).resolve(null).chatId());
     }
 
     @Test
     void throwsWhenNoProviderChatAndNoStoredChats() {
-        assertThrows(NoChatAvailableException.class, () ->
-                SummarizeChatCli.resolveChatId(null, List.of(), chats, importService));
+        assertThrows(NoChatAvailableException.class, () -> service().resolve(null));
     }
 
     // --- helpers ---
 
     private Chat insertChat(String title, String importedAt) throws Exception {
-        return chats.insert(new Chat(0, null, Source.plainText, title,
-                null, null, importedAt, false));
+        return chats.insert(new Chat(0, null, Source.plainText, title, null, null, importedAt, false));
     }
 
-    /** A one-message imported chat, ready to persist. */
     private static ImportedChat liveChat(String title) {
-        Chat chat = new Chat(0, null, Source.markdown, title,
-                null, null, "2026-08-04T00:00:00Z", false);
+        Chat chat = new Chat(0, null, Source.markdown, title, null, null, "2026-08-04T00:00:00Z", false);
         Message message = new Message(0, 0, "user", "hello from the provider", 0, null, null);
         return new ImportedChat(chat, List.of(message));
     }
 
-    /** A provider returning the given imported chat, or empty when {@code live} is null. */
     private static ChatProvider stubProvider(String name, ImportedChat live) {
         return new ChatProvider() {
             @Override public String name() { return name; }
