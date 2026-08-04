@@ -1,0 +1,19 @@
+package chatmap.domain;
+
+/**
+ * An AI-generated summary of a chat.
+ *
+ * This is a derived artifact, not source data: it never replaces or edits
+ * the chat's messages, and a chat may have more than one summary over time
+ * (id is unique per row, not per chat). generatedBy records which backend
+ * produced it (e.g. "claude"), so it stays honest about provenance and can
+ * later support summarizing with a different backend than the one that
+ * produced the chat.
+ */
+public record ChatSummary(
+        long id,
+        long chatId,
+        String summary,
+        String generatedBy,
+        String generatedAt) {
+}

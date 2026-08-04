@@ -58,6 +58,17 @@ tasks.register<JavaExec>("consolidateChats") {
     args = listOf("..", "./consolidated_chats")
 }
 
+tasks.register<JavaExec>("summarizeChat") {
+    group = "application"
+    description = "Summarizes and tags one already-imported chat by id. Usage: -Pargs=<chatId>"
+    mainClass.set("chatmap.cli.SummarizeChatCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args = (project.property("args") as String).split(" ")
+    }
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")

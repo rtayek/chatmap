@@ -56,6 +56,19 @@ CREATE TABLE IF NOT EXISTS chatTags (
 
 CREATE INDEX IF NOT EXISTS chatTagsTagIndex ON chatTags(tagId);
 
+-- AI-generated summaries. Derived artifacts only: never referenced by
+-- messages.text or used to rewrite it. A chat may accumulate more than one
+-- summary row over time (e.g. regenerated later, or by a different backend).
+CREATE TABLE IF NOT EXISTS chatSummaries (
+    id           INTEGER PRIMARY KEY,
+    chatId       INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    summary      TEXT NOT NULL,
+    generatedBy  TEXT NOT NULL,
+    generatedAt  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS chatSummariesChatIndex ON chatSummaries(chatId, generatedAt);
+
 -- ---------------------------------------------------------------------------
 -- Full-text search: external-content FTS5 table over messages.text.
 --
