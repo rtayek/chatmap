@@ -1,9 +1,12 @@
 package chatmap.cli;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -107,7 +110,7 @@ public final class ChatConsolidatorCli {
         }
     }
 
-    private static Map<String, List<Path>> scanWorkspace(Path root) throws IOException {
+    static Map<String, List<Path>> scanWorkspace(Path root) throws IOException {
         Map<String, List<Path>> map = new HashMap<>();
 
         if (!Files.exists(root) || !Files.isDirectory(root)) {
@@ -116,8 +119,7 @@ public final class ChatConsolidatorCli {
 
         try (Stream<Path> stream = Files.list(root)) {
             stream.filter(Files::isDirectory)
-                  .filter(p -> !IGNORE_DIRS.contains(p.getFileName().toString()))
-                  .filter(p -> !p.getFileName().toString().startsWith("."))
+                  .filter(p -> !isIgnoredDirName(p.getFileName().toString()))
                   .forEach(projDir -> {
                       List<Path> found = findChatFiles(projDir);
                       if (!found.isEmpty()) {
@@ -128,32 +130,75 @@ public final class ChatConsolidatorCli {
         return map;
     }
 
-    private static List<Path> findChatFiles(Path dir) {
+    static List<Path> findChatFiles(Path dir) {
         List<Path> list = new ArrayList<>();
-        try (Stream<Path> stream = Files.walk(dir)) {
-            stream.filter(Files::isRegularFile)
-                  .filter(p -> !isIgnoredPath(p))
-                  .filter(ChatConsolidatorCli::isCandidateChatFile)
-                  .forEach(list::add);
+        try {
+            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path subDir, BasicFileAttributes attrs) {
+                    // Prune ignored/hidden subtrees instead of walking into them: faster,
+                    // and avoids errors from unreadable dirs like .git or node_modules.
+                    if (!subDir.equals(dir) && isIgnoredDirName(subDir.getFileName().toString())) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (isCandidateChatFile(file)) {
+                        list.add(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    return FileVisitResult.CONTINUE; // skip anything we cannot read
+                }
+            });
         } catch (IOException e) {
-            // ignore inaccessible dirs
+            // ignore inaccessible roots
         }
         return list;
     }
 
-    private static boolean isIgnoredPath(Path path) {
-        for (Path part : path) {
-            if (IGNORE_DIRS.contains(part.toString()) || part.toString().startsWith(".")) {
-                return true;
-            }
+    /**
+     * True for directory names we never descend into. Matches the ignore list
+     * and dot-prefixed hidden dirs (.git, .claude, ...), but explicitly not the
+     * path-traversal segments "." and "..", which are not hidden directories --
+     * treating ".." as hidden was what made a relative root like ".." match
+     * nothing.
+     */
+    static boolean isIgnoredDirName(String name) {
+        if (name.equals(".") || name.equals("..")) {
+            return false;
         }
-        return false;
+        return IGNORE_DIRS.contains(name) || name.startsWith(".");
     }
 
-    private static boolean isCandidateChatFile(Path file) {
+    static boolean isCandidateChatFile(Path file) {
         String name = file.getFileName().toString().toLowerCase();
         if (name.endsWith(".java") || name.endsWith(".class") || name.endsWith(".jar")
                 || name.endsWith(".gradle") || name.endsWith(".xml") || name.endsWith(".properties")) {
+            return false;
+        }
+        // Source/script files whose names happen to contain a keyword (e.g.
+        // "chatgpt-web-SESSIONS.sh") are not transcripts; exclude them.
+        if (name.endsWith(".sh") || name.endsWith(".bat") || name.endsWith(".ps1")
+                || name.endsWith(".py") || name.endsWith(".js") || name.endsWith(".ts")
+                || name.endsWith(".kt") || name.endsWith(".go") || name.endsWith(".rb")) {
+            return false;
+        }
+        // Binary/image files whose names happen to contain a keyword (e.g. "weCHAT_qr.png")
+        // are not transcripts; exclude them so they are never fed to a text importer.
+        if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")
+                || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".svg")
+                || name.endsWith(".pdf") || name.endsWith(".zip") || name.endsWith(".gz")) {
+            return false;
+        }
+        // Our own consolidated output must never be re-ingested (feedback loop).
+        if (name.endsWith("_consolidated.md")) {
             return false;
         }
 
