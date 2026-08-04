@@ -33,6 +33,16 @@ public final class Database {
         this.jdbcUrl = jdbcUrl;
     }
 
+    /** Opens an in-memory SQLite connection with foreign keys enabled. Caller closes it. */
+    public static Connection connectInMemory() throws SQLException {
+        return new Database("jdbc:sqlite::memory:").open();
+    }
+
+    /** Applies schema.sql to the given connection. */
+    public static void initialize(Connection conn) throws SQLException, IOException {
+        applySchema(conn);
+    }
+
     /** Opens a connection with foreign keys enabled. Caller closes it. */
     public Connection open() throws SQLException {
         Connection conn = DriverManager.getConnection(jdbcUrl);

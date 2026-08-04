@@ -49,7 +49,17 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
+tasks.register<JavaExec>("consolidateChats") {
+    group = "application"
+    description = "Scans workspace projects and consolidates chats into project handoffs."
+    mainClass.set("chatmap.cli.ChatConsolidatorCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    args = listOf("..", "./consolidated_chats")
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
+

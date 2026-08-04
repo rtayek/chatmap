@@ -51,8 +51,8 @@ class PlainTextImporterTest {
 
     @Test
     void importsRolePrefixedTranscriptAsSeparateMessages() {
-        String text = "  uSeR: First line\n\nSecond paragraph.\n"
-                + " Assistant: Answer line\n\nMore detail.";
+        String text = "Transcript preamble\n\n  uSeR: \n\nFirst line\n\nSecond paragraph.\n\n"
+                + " Assistant: Answer line\n\nMore detail.\n\n";
 
         ImportedChat imported = new PlainTextImporter().importText("Transcript", text, importedAt);
 

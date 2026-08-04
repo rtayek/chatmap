@@ -60,20 +60,54 @@ class MarkdownImporterTest {
     }
 
     @Test
-    void importsRolePrefixedMarkdownAsSeparateMessages() {
-        String markdown = "# Transcript\n\n User: Question line\n\nQuestion detail.\n"
-                + "ASSISTANT: Answer line\n\nAnswer detail.\n"
-                + "system: System note.";
+    void importsRolePrefixedMarkdownWithUserAndAssistantMessages() {
+        String markdown = "# Transcript\n\n User: \n\nQuestion line\n\nQuestion detail.\n\n"
+                + "ASSISTANT: Answer line\n\nAnswer detail.\n\n";
 
         ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
 
         assertEquals("Transcript", imported.chat().title());
-        assertEquals(List.of("user", "assistant", "system"),
+        assertEquals(List.of("user", "assistant"),
                 imported.messages().stream().map(Message::role).toList());
         assertEquals("Question line\n\nQuestion detail.",
                 imported.messages().get(0).text());
         assertEquals("Answer line\n\nAnswer detail.", imported.messages().get(1).text());
-        assertEquals("System note.", imported.messages().get(2).text());
+    }
+
+    @Test
+    void importsRolePrefixedMarkdownWithSystemUserAndAssistantMessages() {
+        String markdown = "# Transcript\n\nSystem: System note.\n"
+                + "User: Question line\n"
+                + "Assistant: Answer line";
+
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
+
+        assertEquals("Transcript", imported.chat().title());
+        assertEquals(List.of("system", "user", "assistant"),
+                imported.messages().stream().map(Message::role).toList());
+        assertEquals("System note.", imported.messages().get(0).text());
+        assertEquals("Question line", imported.messages().get(1).text());
+        assertEquals("Answer line", imported.messages().get(2).text());
+    }
+
+    @Test
+    void rolePrefixedMarkdownDoesNotIncludeTitleHeadingInMessageText() {
+        String markdown = "# Transcript\n\nUser: Question line";
+
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
+
+        assertEquals("Transcript", imported.chat().title());
+        assertEquals("Question line", imported.messages().getFirst().text());
+    }
+
+    @Test
+    void rolePrefixedMarkdownIgnoresPreambleBeforeFirstRole() {
+        String markdown = "Preamble note\n\nUser: Question line";
+
+        ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
+
+        assertEquals("fallback.md", imported.chat().title());
+        assertEquals("Question line", imported.messages().getFirst().text());
     }
 
     @Test

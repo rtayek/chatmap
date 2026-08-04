@@ -19,7 +19,6 @@ final class RolePrefixedTranscriptParser {
 
     static List<Message> parse(String text) {
         String[] lines = text.split("\\R", -1);
-        List<String> preamble = new ArrayList<>();
         List<Message> messages = new ArrayList<>();
         List<String> messageLines = null;
         String role = null;
@@ -32,15 +31,10 @@ final class RolePrefixedTranscriptParser {
                 }
                 role = matcher.group(1).toLowerCase(Locale.ROOT);
                 messageLines = new ArrayList<>();
-                if (messages.isEmpty() && !preamble.isEmpty()) {
-                    messageLines.addAll(preamble);
-                }
                 if (!matcher.group(2).isEmpty()) {
                     messageLines.add(matcher.group(2));
                 }
-            } else if (messageLines == null) {
-                preamble.add(line);
-            } else {
+            } else if (messageLines != null) {
                 messageLines.add(line);
             }
         }
@@ -52,6 +46,18 @@ final class RolePrefixedTranscriptParser {
     }
 
     private static Message message(int sequence, String role, List<String> lines) {
-        return new Message(0, 0, role, String.join("\n", lines), sequence, null, null);
+        return new Message(0, 0, role, String.join("\n", trimBlankLines(lines)), sequence, null, null);
+    }
+
+    private static List<String> trimBlankLines(List<String> lines) {
+        int first = 0;
+        int last = lines.size();
+        while (first < last && lines.get(first).isBlank()) {
+            first++;
+        }
+        while (last > first && lines.get(last - 1).isBlank()) {
+            last--;
+        }
+        return lines.subList(first, last);
     }
 }

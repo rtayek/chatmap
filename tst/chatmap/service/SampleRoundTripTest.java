@@ -50,7 +50,6 @@ class SampleRoundTripTest {
         String markdown = exportService.exportChatMarkdown(chat.id()).orElseThrow();
         assertTrue(markdown.contains("# plainTextSample.txt"));
         assertTrue(markdown.contains("Source: plainText"));
-        assertTrue(markdown.contains("ChatMap plain text sample"));
         assertTrue(markdown.contains("## user"));
         assertTrue(markdown.contains("How can I use ChatMap to organize imported chats?"));
         assertTrue(markdown.contains("## assistant"));
