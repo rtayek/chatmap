@@ -3,6 +3,7 @@ package chatmap.backend;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
@@ -39,7 +40,10 @@ public final class ClaudeCliClient {
 
         Process process;
         try {
-            process = new ProcessBuilder("claude", "-p", prompt).start();
+            // Prompt goes on stdin, not as an argv: a multi-line prompt passed as a
+            // command-line argument is truncated at the first newline by the Windows
+            // `claude` shim, so the CLI would see only the first line.
+            process = new ProcessBuilder("claude", "-p").start();
         } catch (IOException e) {
             throw new IOException("Could not start claude CLI: " + e.getMessage(), e);
         }
@@ -49,7 +53,9 @@ public final class ClaudeCliClient {
         Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream()));
 
         try {
-            process.getOutputStream().close();
+            try (OutputStream stdin = process.getOutputStream()) {
+                stdin.write(prompt.getBytes(StandardCharsets.UTF_8));
+            }
 
             boolean finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (!finished) {
