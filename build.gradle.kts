@@ -88,8 +88,14 @@ tasks.withType<Test>().configureEach {
 val copyLibs by tasks.registering(Sync::class) {
     description = "Copies all dependency jars into lib/ for a non-Buildship Eclipse setup."
     group = "ide"
-    from(configurations.testRuntimeClasspath) // superset: main runtime + test deps
+    // Union of every config the eclipse plugin lists in .classpath, so lib/ never
+    // misses a referenced jar (e.g. compile-only transitives like apiguardian).
+    from(configurations.compileClasspath)
+    from(configurations.runtimeClasspath)
+    from(configurations.testCompileClasspath)
+    from(configurations.testRuntimeClasspath)
     into(layout.projectDirectory.dir("lib"))
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 eclipse {
