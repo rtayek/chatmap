@@ -8,7 +8,7 @@ import java.util.List;
 
 import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
-import chatmap.backend.HttpChatProvider;
+import chatmap.backend.ClaudeWebChatProvider;
 import chatmap.domain.ChatSummary;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
@@ -55,7 +55,7 @@ public final class SummarizeChatCli {
             ImportService importService = new ImportService(chats, messages);
 
             List<ChatProvider> providers = new ArrayList<>();
-            HttpChatProvider.fromEnv().ifPresent(providers::add);
+            providers.add(new ClaudeWebChatProvider());
             LiveChatFetchService fetchService =
                     new LiveChatFetchService(providers, importService, chats);
 

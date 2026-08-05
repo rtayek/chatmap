@@ -9,7 +9,7 @@ import java.util.Optional;
 
 import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
-import chatmap.backend.HttpChatProvider;
+import chatmap.backend.ClaudeWebChatProvider;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -89,7 +89,7 @@ public final class ChatMapApp extends Application {
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
                 new ClaudeCliClient(Duration.ofMinutes(3)));
         List<ChatProvider> providers = new ArrayList<>();
-        HttpChatProvider.fromEnv().ifPresent(providers::add);
+        providers.add(new ClaudeWebChatProvider());
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(providers, importService, chats);
 
