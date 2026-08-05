@@ -48,10 +48,16 @@ public final class GeminiWebChatProvider implements ChatProvider {
             return Optional.empty();
         }
         return Optional.of(toImportedChat(
-                transcript.get().title(), transcript.get().turns(), Instant.now().toString()));
+                transcript.get().title(), transcript.get().url(),
+                transcript.get().turns(), Instant.now().toString()));
     }
 
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt) {
-        return WebTranscripts.toImportedChat(title, turns, importedAt, FALLBACK_TITLE);
+        return toImportedChat(title, null, turns, importedAt);
+    }
+
+    static ImportedChat toImportedChat(String title, String sourceUri, List<ClaudeTurn> turns, String importedAt) {
+        return WebTranscripts.toImportedChat(title, turns, importedAt, FALLBACK_TITLE,
+                chatmap.domain.Source.geminiWeb, ProviderIdentity.geminiWebId(sourceUri), sourceUri);
     }
 }

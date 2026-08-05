@@ -60,6 +60,13 @@ public final class MessageRepository {
         }
     }
 
+    public void deleteByChat(long chatId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM messages WHERE chatId = ?")) {
+            ps.setLong(1, chatId);
+            ps.executeUpdate();
+        }
+    }
+
     /** Messages of a chat in sequence order. */
     public List<Message> findByChat(long chatId) throws SQLException {
         String sql = "SELECT id, chatId, role, text, sequence, timestamp, rawJson "

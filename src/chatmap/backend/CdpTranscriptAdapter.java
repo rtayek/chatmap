@@ -25,8 +25,8 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     /** A conversation's display title and its full URL. */
     record ChatWebSummary(String title, String url) {}
 
-    /** The most recent conversation's title plus its turns, ready to import. */
-    record Transcript(String title, List<ClaudeTurn> turns) {
+    /** The most recent conversation's title, URL, and turns, ready to import. */
+    record Transcript(String title, String url, List<ClaudeTurn> turns) {
         Transcript {
             turns = List.copyOf(turns);
         }
@@ -51,7 +51,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     abstract List<ClaudeTurn> readTurns(Page page);
 
     /** A newest conversation that has been opened: its title and the loaded page. */
-    record OpenConversation(String title, Page page) {}
+    record OpenConversation(String title, String url, Page page) {}
 
     /**
      * Opens the newest conversation and returns its title + loaded page. The
@@ -64,7 +64,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             return Optional.empty();
         }
         ChatWebSummary latest = chats.get(0);
-        return Optional.of(new OpenConversation(latest.title(), openPage(latest.url())));
+        return Optional.of(new OpenConversation(latest.title(), latest.url(), openPage(latest.url())));
     }
 
     /**
@@ -87,7 +87,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             if (turns.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new Transcript(conversation.get().title(), turns));
+            return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));
         } catch (Exception unavailable) {
             return Optional.empty();
         } finally {

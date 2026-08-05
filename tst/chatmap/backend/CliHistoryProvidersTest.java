@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.domain.Message;
+import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 
 /**
@@ -64,8 +65,10 @@ class CliHistoryProvidersTest {
         assertEquals("hello there", parsed.turns().get(0).text());
         assertEquals("hi back", parsed.turns().get(1).text(), "thinking block must be dropped");
 
-        ImportedChat chat = ClaudeCodeHistoryProvider.buildFrom(file).orElseThrow();
+        ImportedChat chat = ClaudeCodeHistoryProvider.buildFrom(dir, file).orElseThrow();
         assertEquals("My Session", chat.chat().title());
+        assertEquals(Source.claudeCode, chat.chat().source());
+        assertEquals("session.jsonl", chat.chat().externalConversationId());
         assertEquals(2, chat.messages().size());
     }
 
@@ -135,10 +138,12 @@ class CliHistoryProvidersTest {
         Files.write(file, List.of(
                 "{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":\"a\"}}",
                 "{\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"b\"}}"));
-        ImportedChat chat = CodexCliHistoryProvider.buildFrom(file).orElseThrow();
+        ImportedChat chat = CodexCliHistoryProvider.buildFrom(dir, file).orElseThrow();
         List<Message> m = chat.messages();
         assertEquals(0, m.get(0).sequence());
         assertEquals(1, m.get(1).sequence());
         assertFalse(chat.chat().title().isBlank());
+        assertEquals(Source.codexCli, chat.chat().source());
+        assertEquals("rollout-seq.jsonl", chat.chat().externalConversationId());
     }
 }

@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Opens SQLite connections and applies schema.sql.
@@ -41,6 +44,7 @@ public final class Database {
     /** Applies schema.sql to the given connection. */
     public static void initialize(Connection conn) throws SQLException, IOException {
         applySchema(conn);
+        applyMigrations(conn);
     }
 
     /** Opens a connection with foreign keys enabled. Caller closes it. */
@@ -57,6 +61,7 @@ public final class Database {
         Connection conn = open();
         try {
             applySchema(conn);
+            applyMigrations(conn);
         } catch (SQLException | IOException e) {
             try {
                 conn.close();
@@ -106,6 +111,42 @@ public final class Database {
                 st.execute(leftover);
             }
         }
+    }
+
+    /** Applies additive migrations that CREATE TABLE IF NOT EXISTS cannot perform on old databases. */
+    public static void applyMigrations(Connection conn) throws SQLException {
+        addColumnIfMissing(conn, "chats", "externalConversationId", "TEXT");
+        addColumnIfMissing(conn, "chats", "sourceUri", "TEXT");
+        addColumnIfMissing(conn, "chats", "contentHash", "TEXT");
+        addColumnIfMissing(conn, "chats", "sourceUpdatedAt", "TEXT");
+        addColumnIfMissing(conn, "chats", "lastImportedAt", "TEXT");
+        addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
+
+        try (Statement st = conn.createStatement()) {
+            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
+                    + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
+        }
+    }
+
+    private static void addColumnIfMissing(Connection conn, String table, String column, String type)
+            throws SQLException {
+        if (columns(conn, table).contains(column)) {
+            return;
+        }
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE " + table + " ADD COLUMN " + column + " " + type);
+        }
+    }
+
+    private static Set<String> columns(Connection conn, String table) throws SQLException {
+        Set<String> columns = new HashSet<>();
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                columns.add(rs.getString("name"));
+            }
+        }
+        return columns;
     }
 
     private static String readSchemaResource() throws IOException {

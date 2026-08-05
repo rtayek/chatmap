@@ -42,7 +42,8 @@ public final class SearchRepository {
         SearchOptions filters = options == null ? SearchOptions.none() : options;
         StringBuilder sql = new StringBuilder(
                 "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, c.importedAt, "
-                + "c.archived, p.name AS projectName "
+                + "c.archived, c.externalConversationId, c.sourceUri, c.contentHash, c.sourceUpdatedAt, "
+                + "c.lastImportedAt, p.name AS projectName "
                 + "FROM chats c "
                 + "LEFT JOIN projects p ON p.id = c.projectId ");
         if (filters.tagId() != null) {
@@ -92,7 +93,8 @@ public final class SearchRepository {
         }
         SearchOptions filters = options == null ? SearchOptions.none() : options;
         StringBuilder sql = new StringBuilder("SELECT c.id, c.projectId, c.source, c.title, c.createdAt, "
-                + "c.updatedAt, c.importedAt, c.archived, p.name AS projectName, "
+                + "c.updatedAt, c.importedAt, c.archived, c.externalConversationId, c.sourceUri, "
+                + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt, p.name AS projectName, "
                 + "snippet(messageFts, 0, '[', ']', '...', 12) AS snippet "
                 + "FROM messageFts "
                 + "JOIN messages m ON m.id = messageFts.rowid "
@@ -167,6 +169,11 @@ public final class SearchRepository {
                 rs.getString("createdAt"),
                 rs.getString("updatedAt"),
                 rs.getString("importedAt"),
-                rs.getInt("archived") != 0);
+                rs.getInt("archived") != 0,
+                rs.getString("externalConversationId"),
+                rs.getString("sourceUri"),
+                rs.getString("contentHash"),
+                rs.getString("sourceUpdatedAt"),
+                rs.getString("lastImportedAt"));
     }
 }

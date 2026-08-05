@@ -64,7 +64,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
             newest.click(new Locator.ClickOptions().setTimeout(6000));
             page.waitForTimeout(3000);
             return Optional.of(new OpenConversation(
-                    title == null || title.isBlank() ? "Gemini conversation" : title, page));
+                    title == null || title.isBlank() ? "Gemini conversation" : title, page.url(), page));
         } catch (Exception unavailable) {
             return Optional.empty();
         }

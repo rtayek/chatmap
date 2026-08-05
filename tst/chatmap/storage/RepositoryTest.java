@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
@@ -26,6 +27,7 @@ class RepositoryTest {
     private ChatRepository chats;
     private MessageRepository messages;
     private TagRepository tags;
+    private SummaryRepository summaries;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -34,6 +36,7 @@ class RepositoryTest {
         chats = new ChatRepository(conn);
         messages = new MessageRepository(conn);
         tags = new TagRepository(conn);
+        summaries = new SummaryRepository(conn);
     }
 
     @AfterEach
@@ -139,5 +142,33 @@ class RepositoryTest {
         tags.insert(new Tag(0, "SQLite"));
 
         assertThrows(SQLException.class, () -> tags.insert(new Tag(0, "sqlite")));
+    }
+
+    @Test
+    void enforcesUniqueExternalProviderIdentity() throws Exception {
+        chats.insert(new Chat(0, null, Source.chatGptWeb, "First", null, null,
+                "2026-08-05T00:00:00Z", false, "same-id", "https://chatgpt.com/c/same-id",
+                "hash-one", null, "2026-08-05T00:00:00Z"));
+
+        assertThrows(SQLException.class, () -> chats.insert(new Chat(0, null, Source.chatGptWeb,
+                "Second", null, null, "2026-08-05T00:00:00Z", false, "same-id",
+                "https://chatgpt.com/c/same-id", "hash-two", null, "2026-08-05T00:00:00Z")));
+    }
+
+    @Test
+    void latestSummaryOnlyReturnsCurrentContentHash() throws Exception {
+        Chat chat = chats.insert(new Chat(0, null, Source.chatGptWeb, "Summarized", null, null,
+                "2026-08-05T00:00:00Z", false, "summary-id", "https://chatgpt.com/c/summary-id",
+                "old-hash", null, "2026-08-05T00:00:00Z"));
+        ChatSummary summary = summaries.insert(new ChatSummary(0, chat.id(), "Old summary",
+                "claude", "2026-08-05T00:01:00Z", "old-hash"));
+
+        assertEquals(summary, summaries.findLatestForChat(chat.id()).orElseThrow());
+
+        chats.updateImportMetadata(chat.id(), chat.sourceUri(), "new-hash",
+                chat.sourceUpdatedAt(), "2026-08-05T00:02:00Z");
+
+        assertTrue(summaries.findLatestForChat(chat.id()).isEmpty());
+        assertEquals(summary, summaries.findLatestStoredForChat(chat.id()).orElseThrow());
     }
 }

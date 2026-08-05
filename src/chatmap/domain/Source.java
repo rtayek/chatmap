@@ -15,6 +15,12 @@ public enum Source {
     plainText("plainText"),
     markdown("markdown"),
     chatgptJson("chatgptJson"),
+    claudeWeb("claudeWeb"),
+    chatGptWeb("chatGptWeb"),
+    geminiWeb("geminiWeb"),
+    claudeCode("claudeCode"),
+    codexCli("codexCli"),
+    geminiCli("geminiCli"),
     unknown("unknown");
 
     private final String dbValue;

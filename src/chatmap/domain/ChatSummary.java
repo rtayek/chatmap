@@ -15,5 +15,11 @@ public record ChatSummary(
         long chatId,
         String summary,
         String generatedBy,
-        String generatedAt) {
+        String generatedAt,
+        String contentHash) {
+
+    public ChatSummary(long id, long chatId, String summary, String generatedBy,
+            String generatedAt) {
+        this(id, chatId, summary, generatedBy, generatedAt, null);
+    }
 }

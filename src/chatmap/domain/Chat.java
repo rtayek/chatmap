@@ -15,5 +15,16 @@ public record Chat(
         String createdAt,
         String updatedAt,
         String importedAt,
-        boolean archived) {
+        boolean archived,
+        String externalConversationId,
+        String sourceUri,
+        String contentHash,
+        String sourceUpdatedAt,
+        String lastImportedAt) {
+
+    public Chat(long id, Long projectId, Source source, String title, String createdAt,
+            String updatedAt, String importedAt, boolean archived) {
+        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
+                null, null, null, updatedAt, importedAt);
+    }
 }

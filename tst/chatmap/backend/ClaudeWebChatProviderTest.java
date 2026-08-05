@@ -26,7 +26,7 @@ final class ClaudeWebChatProviderTest {
                 "2026-08-04T00:00:00Z");
 
         assertEquals("My session", chat.chat().title());
-        assertEquals(Source.markdown, chat.chat().source());
+        assertEquals(Source.claudeWeb, chat.chat().source());
         assertEquals("2026-08-04T00:00:00Z", chat.chat().importedAt());
 
         List<Message> messages = chat.messages();
@@ -37,6 +37,18 @@ final class ClaudeWebChatProviderTest {
         assertEquals("assistant", messages.get(1).role());
         assertEquals("Use flexbox.", messages.get(1).text());
         assertEquals(1, messages.get(1).sequence());
+    }
+
+    @Test
+    void extractsExternalIdentityFromClaudeUrl() {
+        ImportedChat chat = ClaudeWebChatProvider.toImportedChat(
+                "My session",
+                "https://claude.ai/chat/123e4567-e89b-12d3-a456-426614174000",
+                List.of(new ClaudeTurn("user", "hi")),
+                "2026-08-04T00:00:00Z");
+
+        assertEquals("123e4567-e89b-12d3-a456-426614174000", chat.chat().externalConversationId());
+        assertEquals("https://claude.ai/chat/123e4567-e89b-12d3-a456-426614174000", chat.chat().sourceUri());
     }
 
     @Test

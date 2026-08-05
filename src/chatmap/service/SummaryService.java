@@ -1,6 +1,7 @@
 package chatmap.service;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -65,24 +66,43 @@ public final class SummaryService {
         String response = claude.ask(prompt);
 
         Parsed parsed = parse(response);
+        String contentHash = chat.contentHash() == null
+                ? ChatContentHasher.hash(chatMessages)
+                : chat.contentHash();
 
-        ChatSummary stored = summaries.insert(
-                new ChatSummary(0, chatId, parsed.summaryText(), GENERATED_BY, Instant.now().toString()));
+        Connection conn = summaries.connection();
+        boolean autoCommit = conn.getAutoCommit();
+        try {
+            conn.setAutoCommit(false);
+            if (chat.contentHash() == null) {
+                chats.updateImportMetadata(chatId, chat.sourceUri(), contentHash,
+                        chat.sourceUpdatedAt(), chat.lastImportedAt());
+            }
+            ChatSummary stored = summaries.insert(
+                    new ChatSummary(0, chatId, parsed.summaryText(), GENERATED_BY,
+                            Instant.now().toString(), contentHash));
 
-        for (String tagName : parsed.tagNames()) {
-            Tag tag = tags.findByName(tagName).orElseGet(() -> insertQuietly(tagName));
-            tags.assignToChat(chatId, tag.id());
+            for (String tagName : parsed.tagNames()) {
+                Tag tag = getOrCreateTag(tagName);
+                tags.assignToChat(chatId, tag.id());
+            }
+
+            conn.commit();
+            return stored;
+        } catch (SQLException | RuntimeException e) {
+            conn.rollback();
+            throw e;
+        } finally {
+            conn.setAutoCommit(autoCommit);
         }
-
-        return stored;
     }
 
-    private Tag insertQuietly(String tagName) {
-        try {
-            return tags.insert(new Tag(0, tagName));
-        } catch (SQLException e) {
-            throw new IllegalStateException("Could not create tag: " + tagName, e);
+    private Tag getOrCreateTag(String tagName) throws SQLException {
+        Optional<Tag> existing = tags.findByName(tagName);
+        if (existing.isPresent()) {
+            return existing.get();
         }
+        return tags.insert(new Tag(0, tagName));
     }
 
     /** Builds the prompt sent to the backend. Package-visible for tests. */

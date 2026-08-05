@@ -38,16 +38,23 @@ public final class GeminiCliHistoryProvider implements ChatProvider {
     @Override
     public Optional<ImportedChat> latestChat() {
         Path root = Path.of(System.getProperty("user.home"), ".gemini", "tmp");
-        return LocalCliSessions.newestSessionFile(root).flatMap(GeminiCliHistoryProvider::buildFrom);
+        return LocalCliSessions.newestSessionFile(root).flatMap(file -> buildFrom(root, file));
     }
 
     static Optional<ImportedChat> buildFrom(Path file) {
+        return buildFrom(file.getParent(), file);
+    }
+
+    static Optional<ImportedChat> buildFrom(Path root, Path file) {
         List<ClaudeTurn> turns = parse(file);
         if (turns.isEmpty()) {
             return Optional.empty();
         }
         String title = file.getFileName().toString().replaceFirst("\\.jsonl$", "");
-        return Optional.of(LocalCliSessions.toImportedChat(title, turns, LocalCliSessions.modifiedAt(file)));
+        String modifiedAt = LocalCliSessions.modifiedAt(file);
+        return Optional.of(LocalCliSessions.toImportedChat(title, turns, modifiedAt,
+                chatmap.domain.Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
+                file.toAbsolutePath().normalize().toUri().toString()));
     }
 
     static List<ClaudeTurn> parse(Path file) {

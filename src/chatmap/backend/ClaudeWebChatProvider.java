@@ -59,7 +59,8 @@ public final class ClaudeWebChatProvider implements ChatProvider {
             return Optional.empty();
         }
         return Optional.of(toImportedChat(
-                transcript.get().title(), transcript.get().turns(), Instant.now().toString()));
+                transcript.get().title(), transcript.get().url(),
+                transcript.get().turns(), Instant.now().toString()));
     }
 
     /**
@@ -69,8 +70,13 @@ public final class ClaudeWebChatProvider implements ChatProvider {
      * assistant / unknown); a blank title falls back to a sensible default.
      */
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt) {
+        return toImportedChat(title, null, turns, importedAt);
+    }
+
+    static ImportedChat toImportedChat(String title, String sourceUri, List<ClaudeTurn> turns, String importedAt) {
         String chatTitle = (title == null || title.isBlank()) ? "Claude (web) live chat" : title.strip();
-        Chat chat = new Chat(0, null, Source.markdown, chatTitle, null, null, importedAt, false);
+        Chat chat = new Chat(0, null, Source.claudeWeb, chatTitle, null, null, importedAt, false,
+                ProviderIdentity.claudeWebId(sourceUri), sourceUri, null, null, importedAt);
 
         List<Message> messages = new ArrayList<>();
         int sequence = 0;

@@ -34,11 +34,15 @@ public final class ClaudeCodeHistoryProvider implements ChatProvider {
     @Override
     public Optional<ImportedChat> latestChat() {
         Path root = Path.of(System.getProperty("user.home"), ".claude", "projects");
-        return LocalCliSessions.newestSessionFile(root).flatMap(ClaudeCodeHistoryProvider::buildFrom);
+        return LocalCliSessions.newestSessionFile(root).flatMap(file -> buildFrom(root, file));
     }
 
     /** Parses one session file into an ImportedChat, or empty when it holds no message turns. */
     static Optional<ImportedChat> buildFrom(Path file) {
+        return buildFrom(file.getParent(), file);
+    }
+
+    static Optional<ImportedChat> buildFrom(Path root, Path file) {
         Parsed parsed = parse(file);
         if (parsed.turns().isEmpty()) {
             return Optional.empty();
@@ -46,7 +50,10 @@ public final class ClaudeCodeHistoryProvider implements ChatProvider {
         String title = parsed.title() != null && !parsed.title().isBlank()
                 ? parsed.title()
                 : fileTitle(file);
-        return Optional.of(LocalCliSessions.toImportedChat(title, parsed.turns(), LocalCliSessions.modifiedAt(file)));
+        String modifiedAt = LocalCliSessions.modifiedAt(file);
+        return Optional.of(LocalCliSessions.toImportedChat(title, parsed.turns(), modifiedAt,
+                chatmap.domain.Source.claudeCode, ProviderIdentity.cliSessionId(root, file),
+                file.toAbsolutePath().normalize().toUri().toString()));
     }
 
     static Parsed parse(Path file) {

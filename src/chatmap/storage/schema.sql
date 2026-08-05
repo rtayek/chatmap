@@ -24,7 +24,12 @@ CREATE TABLE IF NOT EXISTS chats (
     createdAt   TEXT,
     updatedAt   TEXT,
     importedAt  TEXT NOT NULL,
-    archived    INTEGER NOT NULL DEFAULT 0
+    archived    INTEGER NOT NULL DEFAULT 0,
+    externalConversationId TEXT,
+    sourceUri   TEXT,
+    contentHash TEXT,
+    sourceUpdatedAt TEXT,
+    lastImportedAt TEXT
 );
 
 CREATE INDEX IF NOT EXISTS chatsProjectIndex ON chats(projectId);
@@ -64,7 +69,8 @@ CREATE TABLE IF NOT EXISTS chatSummaries (
     chatId       INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
     summary      TEXT NOT NULL,
     generatedBy  TEXT NOT NULL,
-    generatedAt  TEXT NOT NULL
+    generatedAt  TEXT NOT NULL,
+    contentHash  TEXT
 );
 
 CREATE INDEX IF NOT EXISTS chatSummariesChatIndex ON chatSummaries(chatId, generatedAt);

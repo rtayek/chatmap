@@ -65,9 +65,12 @@ class WebProvidersTest {
     void chatGptProviderBuildsChatWithSequentialMessages() {
         ImportedChat chat = ChatGptWebChatProvider.toImportedChat(
                 "GPT session",
+                "https://chatgpt.com/c/chat-123",
                 List.of(new ClaudeTurn("user", "q"), new ClaudeTurn("assistant", "a")),
                 "2026-08-04T00:00:00Z");
         assertEquals("GPT session", chat.chat().title());
+        assertEquals(Source.chatGptWeb, chat.chat().source());
+        assertEquals("chat-123", chat.chat().externalConversationId());
         List<Message> m = chat.messages();
         assertEquals(0, m.get(0).sequence());
         assertEquals(1, m.get(1).sequence());
@@ -97,6 +100,8 @@ class WebProvidersTest {
         ImportedChat chat = GeminiWebChatProvider.toImportedChat(
                 null, List.of(new ClaudeTurn("assistant", "x")), "2026-08-04T00:00:00Z");
         assertEquals("Gemini (web) live chat", chat.chat().title());
+        assertEquals(Source.geminiWeb, chat.chat().source());
+        assertEquals(null, chat.chat().externalConversationId());
     }
 
     // --- ordering: all six providers, web first ---

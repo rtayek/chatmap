@@ -34,8 +34,8 @@ public final class ClaudeWebAdapter implements AutoCloseable {
     /** A conversation's display title and its full URL. */
     public record ChatWebSummary(String title, String url) {}
 
-    /** The most recent conversation's title plus its turns, ready to import. */
-    public record Transcript(String title, List<ClaudeTurn> turns) {
+    /** The most recent conversation's title, URL, and turns, ready to import. */
+    public record Transcript(String title, String url, List<ClaudeTurn> turns) {
         public Transcript {
             turns = List.copyOf(turns);
         }
@@ -71,7 +71,7 @@ public final class ClaudeWebAdapter implements AutoCloseable {
             if (turns.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new Transcript(latest.get().title(), turns));
+            return Optional.of(new Transcript(latest.get().title(), latest.get().url(), turns));
         } catch (Exception unavailable) {
             return Optional.empty();
         } finally {
