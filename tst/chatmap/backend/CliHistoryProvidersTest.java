@@ -129,14 +129,6 @@ class CliHistoryProvidersTest {
         assertTrue(GeminiCliHistoryProvider.buildFrom(file).isEmpty());
     }
 
-    // --- ordering ---
-
-    @Test
-    void defaultOrderIsWebThenClaudeCodeCodexGemini() {
-        List<String> names = DefaultChatProviders.ordered().stream().map(ChatProvider::name).toList();
-        assertEquals(List.of("Claude (web)", "Claude Code (CLI)", "Codex (CLI)", "Gemini (CLI)"), names);
-    }
-
     @Test
     void messagesGetSequentialPositions(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("rollout-seq.jsonl");

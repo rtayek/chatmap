@@ -7,20 +7,27 @@ import java.util.List;
  * in one place so the CLI and the JavaFX app never drift apart.
  *
  * {@code LiveChatFetchService} tries providers in order and takes the first that
- * yields a chat, so order is priority. The chosen order:
+ * yields a chat, so order is priority. Six sources: three vendors (Claude,
+ * ChatGPT, Gemini) each in two access modes (web over CDP, local CLI history).
+ * The chosen order — web providers first, then CLI histories:
  *
  * <ol>
- *   <li>{@link ClaudeWebChatProvider} — the live claude.ai conversation. First
- *       because it is the "latest live chat" this feature was built around; if
- *       nothing is reachable it returns empty quickly and we move on.</li>
+ *   <li>{@link ClaudeWebChatProvider} — live claude.ai; first because it is the
+ *       "latest live chat" this feature was built around, and it is the verified
+ *       web reader.</li>
+ *   <li>{@link ChatGptWebChatProvider} — live chatgpt.com.</li>
+ *   <li>{@link GeminiWebChatProvider} — live gemini.google.com (selectors
+ *       unverified; returns empty until confirmed, so it never blocks the rest).</li>
  *   <li>{@link ClaudeCodeHistoryProvider} — this project's own CLI tool, the most
  *       likely local session to want.</li>
  *   <li>{@link CodexCliHistoryProvider}</li>
  *   <li>{@link GeminiCliHistoryProvider}</li>
  * </ol>
  *
- * The three CLI-history providers only read files already on disk, so listing
- * them costs nothing when their tool was never used (they return empty).
+ * The web providers share one CDP Chrome (the first launches it; the rest attach),
+ * and each returns empty quickly when its site is not reachable/logged in. The
+ * three CLI-history providers only read files already on disk, so they cost
+ * nothing when their tool was never used.
  */
 public final class DefaultChatProviders {
 
@@ -30,6 +37,8 @@ public final class DefaultChatProviders {
     public static List<ChatProvider> ordered() {
         return List.of(
                 new ClaudeWebChatProvider(),
+                new ChatGptWebChatProvider(),
+                new GeminiWebChatProvider(),
                 new ClaudeCodeHistoryProvider(),
                 new CodexCliHistoryProvider(),
                 new GeminiCliHistoryProvider());
