@@ -16,8 +16,7 @@ import java.util.List;
  *       "latest live chat" this feature was built around, and it is the verified
  *       web reader.</li>
  *   <li>{@link ChatGptWebChatProvider} — live chatgpt.com.</li>
- *   <li>{@link GeminiWebChatProvider} — live gemini.google.com (selectors
- *       unverified; returns empty until confirmed, so it never blocks the rest).</li>
+ *   <li>{@link GeminiWebChatProvider} — live gemini.google.com.</li>
  *   <li>{@link ClaudeCodeHistoryProvider} — this project's own CLI tool, the most
  *       likely local session to want.</li>
  *   <li>{@link CodexCliHistoryProvider}</li>

@@ -50,6 +50,23 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     /** The turns of an open conversation page, in order (role + text). */
     abstract List<ClaudeTurn> readTurns(Page page);
 
+    /** A newest conversation that has been opened: its title and the loaded page. */
+    record OpenConversation(String title, Page page) {}
+
+    /**
+     * Opens the newest conversation and returns its title + loaded page. The
+     * default navigates by URL from {@link #listChats(Page)}; sites whose sidebar
+     * navigates via JS (no conversation URL to open) override this to click.
+     */
+    Optional<OpenConversation> openLatestConversation() {
+        List<ChatWebSummary> chats = listChats(openPage(siteBaseUrl()));
+        if (chats.isEmpty()) {
+            return Optional.empty();
+        }
+        ChatWebSummary latest = chats.get(0);
+        return Optional.of(new OpenConversation(latest.title(), openPage(latest.url())));
+    }
+
     /**
      * The most recent conversation as title + merged turns, or empty when nothing
      * is reachable (browser not running, not logged in, no chats, or the layout no
@@ -61,17 +78,16 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             if (!connectViaCdpOnly()) {
                 return Optional.empty();
             }
-            List<ChatWebSummary> chats = listChats(openPage(siteBaseUrl()));
-            if (chats.isEmpty()) {
+            Optional<OpenConversation> conversation = openLatestConversation();
+            if (conversation.isEmpty()) {
                 return Optional.empty();
             }
-            ChatWebSummary latest = chats.get(0);
             List<ClaudeTurn> turns =
-                    WebTranscripts.mergeConsecutiveSameRole(readTurns(openPage(latest.url())));
+                    WebTranscripts.mergeConsecutiveSameRole(readTurns(conversation.get().page()));
             if (turns.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new Transcript(latest.title(), turns));
+            return Optional.of(new Transcript(conversation.get().title(), turns));
         } catch (Exception unavailable) {
             return Optional.empty();
         } finally {
@@ -103,8 +119,12 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
                 ? browser.newContext()
                 : browser.contexts().get(0);
 
+        // Reuse a tab only if it is already AT (or deeper than) the target url. The
+        // reverse match (target contains page url) is deliberately dropped: it made
+        // opening ".../c/<id>" wrongly reuse a "chatgpt.com/" home tab (a prefix)
+        // and never navigate to the conversation.
         Optional<Page> existing = context.pages().stream()
-                .filter(page -> page.url().contains(url) || url.contains(page.url()))
+                .filter(page -> page.url().contains(url))
                 .findFirst();
         if (existing.isPresent()) {
             Page page = existing.get();

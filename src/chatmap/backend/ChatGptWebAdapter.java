@@ -18,9 +18,9 @@ import com.microsoft.playwright.Page;
  * "tool"); only user and assistant turns are kept — system/tool turns are not
  * conversation content.
  *
- * NOTE: selectors are best-effort and should be verified against the live logged-in
- * page; {@code data-message-author-role} has been ChatGPT's stable role marker, but
- * adjust here if the DOM has changed.
+ * Verified against the live logged-in page (2026-08-04): the sidebar
+ * {@code a[href*='/c/']} links and the {@code data-message-author-role} turn
+ * markers both matched and read a real conversation correctly.
  */
 public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
 

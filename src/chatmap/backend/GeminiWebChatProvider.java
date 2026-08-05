@@ -9,10 +9,7 @@ import chatmap.importer.ImportedChat;
 /**
  * A {@link ChatProvider} that reads the latest gemini.google.com conversation
  * in-process over CDP. Sibling of {@link ClaudeWebChatProvider} for Gemini.
- *
- * NOTE: the underlying {@link GeminiWebAdapter} selectors are unverified against a
- * live page; until confirmed this provider will typically return empty and fall
- * through, which is safe.
+ * The underlying {@link GeminiWebAdapter} was verified against the live page.
  */
 public final class GeminiWebChatProvider implements ChatProvider {
 

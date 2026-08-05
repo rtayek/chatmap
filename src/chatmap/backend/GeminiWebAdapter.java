@@ -1,12 +1,10 @@
 package chatmap.backend;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
+import java.util.Optional;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -17,14 +15,15 @@ import com.microsoft.playwright.Page;
 /**
  * Reads the most recent gemini.google.com conversation over CDP.
  *
- * UNVERIFIED: unlike the Claude and ChatGPT web paths, gemini.google.com's DOM
- * could not be checked against a live logged-in page when this was written, and
- * there was no existing code to port. The selectors below are a best-effort guess
- * at Gemini's Angular structure (user turns in {@code <user-query>}, model turns
- * in {@code <model-response>} custom elements). If they do not match, the adapter
- * returns empty cleanly (no crash) — the provider then falls through like any other
- * unavailable source. These selectors MUST be verified/adjusted against the live
- * page before this provider can be relied on.
+ * Verified against the live logged-in page (2026-08-04). Gemini is an Angular app:
+ * conversations are {@code [data-test-id="conversation"]} sidebar items that
+ * navigate via the router on a real click (there is no conversation URL to open
+ * directly), so {@link #openLatestConversation()} clicks the newest item rather
+ * than navigating by URL. Once loaded, turns are {@code <user-query>} and
+ * {@code <model-response>} custom elements; the clean text is in {@code .query-text}
+ * (user) and {@code .markdown} (model) — the elements' own innerText carries "You
+ * said…" / "Gemini said…" accessibility prefixes, which reading the inner content
+ * elements avoids.
  */
 public final class GeminiWebAdapter extends CdpTranscriptAdapter {
 
@@ -39,41 +38,36 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         return BASE_URL;
     }
 
+    /** Not used: Gemini navigates by click, so {@link #openLatestConversation()} is overridden. */
     @Override
     List<ChatWebSummary> listChats(Page page) {
-        Objects.requireNonNull(page, "page");
-        try {
-            page.waitForSelector("a[href*='/app/']", new Page.WaitForSelectorOptions().setTimeout(4000));
-        } catch (Exception ignored) {
-            // Recent-conversation links may be absent; fall back to the app page itself below.
-        }
+        return List.of();
+    }
 
-        List<ChatWebSummary> summaries = new ArrayList<>();
-        Set<String> seenUrls = new LinkedHashSet<>();
-        Locator links = page.locator("a[href*='/app/']");
-        int count = links.count();
-        for (int i = 0; i < count; i++) {
-            Locator link = links.nth(i);
-            String href = link.getAttribute("href");
-            if (href == null || href.isBlank() || href.endsWith("/app")) {
-                continue;
+    @Override
+    Optional<OpenConversation> openLatestConversation() {
+        Page page = openPage(siteBaseUrl());
+        try {
+            Locator conversations = page.locator("[data-test-id='conversation']");
+            if (conversations.count() == 0) {
+                // Expand the side nav so the conversation list renders.
+                page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
+                        .first().click(new Locator.ClickOptions().setTimeout(4000));
+                page.waitForTimeout(1500);
+                conversations = page.locator("[data-test-id='conversation']");
             }
-            String fullUrl = href.startsWith("/") ? "https://gemini.google.com" + href : href;
-            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.firstNonBlank(
-                    WebTranscripts.safeInnerText(link), link.getAttribute("aria-label")));
-            if (title == null || title.isBlank()) {
-                title = "Untitled Chat";
+            if (conversations.count() == 0) {
+                return Optional.empty();
             }
-            if (seenUrls.add(fullUrl)) {
-                summaries.add(new ChatWebSummary(title, fullUrl));
-            }
+            Locator newest = conversations.first();
+            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(newest));
+            newest.click(new Locator.ClickOptions().setTimeout(6000));
+            page.waitForTimeout(3000);
+            return Optional.of(new OpenConversation(
+                    title == null || title.isBlank() ? "Gemini conversation" : title, page));
+        } catch (Exception unavailable) {
+            return Optional.empty();
         }
-        // If no named conversations were found, treat the current app page (which shows
-        // the latest conversation) as the single candidate.
-        if (summaries.isEmpty()) {
-            summaries.add(new ChatWebSummary("Gemini conversation", page.url()));
-        }
-        return summaries;
     }
 
     @Override
@@ -86,11 +80,17 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
             // No messages in time -> empty transcript.
         }
 
+        // Read each turn's clean content element (avoids the a11y "You said"/"Gemini said" prefix).
         Object raw = page.evaluate("() => {"
-                + "const nodes=[...document.querySelectorAll('user-query, model-response')];"
-                + "return JSON.stringify(nodes.map(n=>({"
-                + "role:n.tagName.toLowerCase()==='user-query'?'user':'assistant',"
-                + "text:(n.innerText||'').trim()})));}");
+                + "const out=[];"
+                + "document.querySelectorAll('user-query, model-response').forEach(n=>{"
+                + "const isUser=n.tagName.toLowerCase()==='user-query';"
+                + "const c=isUser?(n.querySelector('.query-text')||n)"
+                + ":(n.querySelector('.markdown, message-content')||n);"
+                // Strip Gemini's screen-reader "You said" / "Gemini said" turn prefix.
+                + "const text=(c.innerText||'').trim().replace(/^(You said|Gemini said)\\s+/i,'');"
+                + "out.push({role:isUser?'user':'assistant',text});});"
+                + "return JSON.stringify(out);}");
         return parseTurnsJson(raw == null ? "[]" : raw.toString());
     }
 
