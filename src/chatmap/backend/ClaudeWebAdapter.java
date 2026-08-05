@@ -133,8 +133,10 @@ public final class ClaudeWebAdapter implements AutoCloseable {
                 continue;
             }
             String fullUrl = href.startsWith("/") ? CLAUDE_BASE_URL + href : href;
-            String title = firstNonBlank(
-                    safeInnerText(link), link.getAttribute("title"), link.getAttribute("aria-label"));
+            // The sidebar title is split into two identical spans (data-testid
+            // 'chat-title-split'), so innerText repeats it — collapse the repeat.
+            String title = collapseRepeatedLines(firstNonBlank(
+                    safeInnerText(link), link.getAttribute("title"), link.getAttribute("aria-label")));
             if (title == null || title.isBlank()) {
                 title = "Untitled Chat";
             }
@@ -152,11 +154,20 @@ public final class ClaudeWebAdapter implements AutoCloseable {
      *
      * NOTE: these selectors are best-effort and MUST be verified against a live
      * logged-in page; adjust the candidate lists below if claude.ai has changed.
+     * The first candidate was verified against the live DOM on 2026-08-04: user
+     * turns carry {@code data-testid='user-message'} and assistant response prose
+     * lives in {@code font-claude-response-body} elements. Note the sibling
+     * {@code font-claude-response} class holds Claude's collapsed *thinking*
+     * summary, not the answer, so it is deliberately not selected. Assistant
+     * responses render as several body paragraphs; consecutive same-role turns
+     * are merged back into one message below. The later candidates are older
+     * fallbacks.
      */
     List<ClaudeTurn> readClaudeTranscript(Page page) {
         Objects.requireNonNull(page, "page");
 
         String[] turnSelectorCandidates = {
+                "[data-testid='user-message'], .font-claude-response-body",
                 "div[data-testid='user-message'], div[data-testid='assistant-message']",
                 "[data-testid='user-message'], .font-claude-message",
                 "div.font-user-message, div.font-claude-message",
@@ -185,10 +196,24 @@ public final class ClaudeWebAdapter implements AutoCloseable {
                 result.add(new ClaudeTurn(inferRole(turn), text.strip()));
             }
             if (!result.isEmpty()) {
-                return result;
+                return mergeConsecutiveSameRole(result);
             }
         }
         return List.of();
+    }
+
+    /** Merges runs of same-role turns into one, so a multi-paragraph answer is one message. */
+    private static List<ClaudeTurn> mergeConsecutiveSameRole(List<ClaudeTurn> turns) {
+        List<ClaudeTurn> merged = new ArrayList<>();
+        for (ClaudeTurn turn : turns) {
+            if (!merged.isEmpty() && merged.get(merged.size() - 1).role().equals(turn.role())) {
+                ClaudeTurn previous = merged.remove(merged.size() - 1);
+                merged.add(new ClaudeTurn(previous.role(), previous.text() + "\n\n" + turn.text()));
+            } else {
+                merged.add(turn);
+            }
+        }
+        return merged;
     }
 
     /** Finds an already-open page for the URL or opens a new one. Uses the CDP browser only. */
@@ -250,6 +275,27 @@ public final class ClaudeWebAdapter implements AutoCloseable {
             }
         }
         return null;
+    }
+
+    /** Joins the distinct non-blank lines of a value, collapsing adjacent repeats. */
+    private static String collapseRepeatedLines(String text) {
+        if (text == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        String previous = null;
+        for (String line : text.split("\\R")) {
+            String trimmed = line.strip();
+            if (trimmed.isEmpty() || trimmed.equals(previous)) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(trimmed);
+            previous = trimmed;
+        }
+        return sb.toString();
     }
 
     @Override
