@@ -3,12 +3,11 @@ package chatmap.cli;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
-import chatmap.backend.ClaudeWebChatProvider;
+import chatmap.backend.DefaultChatProviders;
 import chatmap.domain.ChatSummary;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
@@ -54,8 +53,7 @@ public final class SummarizeChatCli {
             MessageRepository messages = new MessageRepository(conn);
             ImportService importService = new ImportService(chats, messages);
 
-            List<ChatProvider> providers = new ArrayList<>();
-            providers.add(new ClaudeWebChatProvider());
+            List<ChatProvider> providers = DefaultChatProviders.ordered();
             LiveChatFetchService fetchService =
                     new LiveChatFetchService(providers, importService, chats);
 
