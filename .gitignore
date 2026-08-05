@@ -88,3 +88,8 @@ testfile.txt
 bin/
 coverage/
 *.exec
+
+# Playwright's driver bundle is ~190MB (>GitHub limit). Generated into lib/ by
+# `./gradlew copyLibs`; not committed. Eclipse compiles against playwright-*.jar
+# (the API); the bundle is only Playwright's runtime driver.
+lib/driver-bundle-*.jar
