@@ -44,6 +44,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
@@ -60,6 +61,7 @@ import javafx.util.StringConverter;
 
 /** Minimal JavaFX list/detail UI for file import and selected-chat Markdown export. */
 public final class ChatMapApp extends Application {
+    private static final String COMPACT_BUTTON_STYLE = "-fx-padding: 3 7 3 7;";
 
     private Connection conn;
     private ChatMapController controller;
@@ -186,14 +188,16 @@ public final class ChatMapApp extends Application {
 
         root = new BorderPane();
         root.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));
-        root.setLeft(chatList);
-        root.setCenter(detail);
+        chatList.setMinWidth(180);
+        detail.setMinWidth(300);
+        SplitPane content = new SplitPane(chatList, detail);
+        content.setDividerPositions(0.32);
+        root.setCenter(content);
         root.setBottom(new VBox(status));
         BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
         BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));
         BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));
-        BorderPane.setMargin(chatList, new Insets(8));
-        BorderPane.setMargin(detail, new Insets(8));
+        BorderPane.setMargin(content, new Insets(8));
         BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
 
         refreshOrganizationChoices();
@@ -215,6 +219,7 @@ public final class ChatMapApp extends Application {
 
     private Button button(String text, ThrowingRunnable action) {
         Button button = new Button(text);
+        button.setStyle(COMPACT_BUTTON_STYLE);
         button.setOnAction(actionEvent -> {
             actionEvent.consume();
             runWithFeedback(action);
