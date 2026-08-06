@@ -71,6 +71,10 @@ replay_pid*
 ###############################################################################
 .gradle.properties
 local.properties
+.envrc
+
+# Private local ChatMap runtime data
+/.chatmap-local/
 
 ###############################################################################
 # Temporary / scratch

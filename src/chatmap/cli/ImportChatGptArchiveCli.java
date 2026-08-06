@@ -1,8 +1,10 @@
 package chatmap.cli;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.sql.Connection;
 
+import chatmap.config.ChatMapPaths;
 import chatmap.service.ChatGptArchiveImportService;
 import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
 import chatmap.service.ImportService;
@@ -20,7 +22,15 @@ public final class ImportChatGptArchiveCli {
             return;
         }
         Path archive = Path.of(args[0]);
-        Path dbPath = Path.of(System.getProperty("user.home"), ".chatmap", "chatmap.db");
+        Path dbPath = ChatMapPaths.databasePath();
+
+        try {
+            Files.createDirectories(dbPath.getParent());
+        } catch (Exception e) {
+            System.err.println("Could not create ChatMap data directory: " + e.getMessage());
+            System.exit(1);
+            return;
+        }
 
         try (Connection conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize()) {
             ChatRepository chats = new ChatRepository(conn);

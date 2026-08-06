@@ -1,6 +1,7 @@
 package chatmap.ui;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.time.Duration;
 import java.util.List;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
 import chatmap.backend.DefaultChatProviders;
+import chatmap.config.ChatMapPaths;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -81,8 +83,8 @@ public final class ChatMapApp extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        Path dbPath = Path.of(System.getProperty("user.home"), ".chatmap", "chatmap.db");
-        dbPath.toFile().getParentFile().mkdirs();
+        Path dbPath = ChatMapPaths.databasePath();
+        Files.createDirectories(dbPath.getParent());
         conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);

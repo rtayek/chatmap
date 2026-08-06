@@ -1,6 +1,7 @@
 package chatmap.cli;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.time.Duration;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.List;
 import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
 import chatmap.backend.DefaultChatProviders;
+import chatmap.config.ChatMapPaths;
 import chatmap.domain.ChatSummary;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
@@ -22,7 +24,7 @@ import chatmap.service.SummaryService;
  * Command-line entry point for the one deliberate extra step: summarize and
  * tag one already-imported chat using the configured Claude CLI client.
  *
- * Uses the same database file as the JavaFX app (~/.chatmap/chatmap.db), so
+ * Uses the same configured database file as the JavaFX app, so
  * it can summarize chats imported through either the app or the consolidator
  * CLI. Does not touch the import/export flow at all.
  *
@@ -46,7 +48,15 @@ public final class SummarizeChatCli {
             }
         }
 
-        Path dbPath = Path.of(System.getProperty("user.home"), ".chatmap", "chatmap.db");
+        Path dbPath = ChatMapPaths.databasePath();
+
+        try {
+            Files.createDirectories(dbPath.getParent());
+        } catch (Exception e) {
+            System.err.println("Could not create ChatMap data directory: " + e.getMessage());
+            System.exit(1);
+            return;
+        }
 
         try (Connection conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize()) {
             ChatRepository chats = new ChatRepository(conn);
