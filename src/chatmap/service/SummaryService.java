@@ -28,9 +28,9 @@ import chatmap.storage.TagRepository;
  * edits chats or messages. Calling it twice on the same chat produces two
  * summary rows, both kept (see SummaryRepository.findAllForChat).
  *
- * For now this always summarizes with the same backend that produced the
- * chat (currently: Claude only). Using a different backend to review is a
- * possible later step, deliberately not built yet.
+ * For now this always summarizes with the configured Claude CLI client,
+ * regardless of the chat's original provider. Using another backend or a
+ * review workflow is deliberately not built yet.
  */
 public final class SummaryService {
 

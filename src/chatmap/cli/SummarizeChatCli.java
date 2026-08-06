@@ -20,7 +20,7 @@ import chatmap.service.SummaryService;
 
 /**
  * Command-line entry point for the one deliberate extra step: summarize and
- * tag one already-imported chat, using the same backend that produced it.
+ * tag one already-imported chat using the configured Claude CLI client.
  *
  * Uses the same database file as the JavaFX app (~/.chatmap/chatmap.db), so
  * it can summarize chats imported through either the app or the consolidator

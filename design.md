@@ -22,7 +22,8 @@ The MVP supports:
 * organizing chats with projects and tags
 * exporting chats and handoffs as Markdown
 
-The MVP does not require AI, Python, cloud sync, browser automation, or a visual canvas.
+Optional provider readers and Claude summary/tag generation exist, but the MVP
+does not require AI, Python, cloud sync, browser automation, or a visual canvas.
 
 ## Architecture
 
@@ -36,12 +37,16 @@ Java desktop app
 │   ├── import orchestration
 │   ├── project/tag management
 │   ├── search
-│   └── export orchestration
+│   ├── export orchestration
+│   └── optional summary/tag generation
 │
 ├── importer
 │   ├── PlainTextImporter
 │   ├── MarkdownImporter
 │   └── ChatGptJsonImporter
+│
+├── backend
+│   └── optional web, CLI-history, and Claude-summary adapters
 │
 ├── exporter
 │   ├── MarkdownExporter
@@ -250,7 +255,7 @@ Results are returned in deterministic chat import order. Duplicate message match
 
 ## Non-Goals for MVP
 
-Do not build first:
+Not required for the deterministic MVP:
 
 * live ChatGPT, Claude, or Gemini sync
 * browser automation

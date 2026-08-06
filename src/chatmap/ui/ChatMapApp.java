@@ -45,6 +45,9 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToolBar;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -65,6 +68,9 @@ public final class ChatMapApp extends Application {
     private Button exportChatButton;
     private Button getLatestChatButton;
     private Button summarizeButton;
+    private ComboBox<Integer> fontSizeChoice;
+    private FontSizeState fontSizeState;
+    private BorderPane root;
     private Label status;
     private boolean applyingListState;
 
@@ -114,6 +120,15 @@ public final class ChatMapApp extends Application {
         detail = new TextArea();
         detail.setEditable(false);
         detail.setWrapText(true);
+        fontSizeState = new FontSizeState();
+        fontSizeChoice = new ComboBox<>(FXCollections.observableArrayList(FontSizeState.SIZES));
+        fontSizeChoice.setValue(fontSizeState.current());
+        fontSizeChoice.setOnAction(actionEvent -> {
+            Integer selectedSize = fontSizeChoice.getValue();
+            if (selectedSize != null) {
+                applyFontSize(fontSizeState.set(selectedSize));
+            }
+        });
         searchField = new TextField();
         searchField.setPromptText("Search message text");
         searchField.setOnAction(actionEvent -> {
@@ -123,7 +138,7 @@ public final class ChatMapApp extends Application {
         status = new Label("Ready");
         exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
         exportChatButton.setDisable(true);
-        getLatestChatButton = button("Get latest chat", this::getLatestChat);
+        getLatestChatButton = button("Import available chat", this::getLatestChat);
         summarizeButton = button("Summarize & tag", this::summarizeSelectedChat);
         summarizeButton.setDisable(true);
 
@@ -133,7 +148,9 @@ public final class ChatMapApp extends Application {
                 button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
                 exportChatButton,
                 getLatestChatButton,
-                summarizeButton);
+                summarizeButton,
+                new Label("Font"),
+                fontSizeChoice);
         HBox searchBar = new HBox(8,
                 searchField,
                 button("Search", this::searchChats),
@@ -160,7 +177,7 @@ public final class ChatMapApp extends Application {
                 button("Filter", this::filterByTag),
                 button("Clear Filters", this::clearSearchAndFilters));
 
-        BorderPane root = new BorderPane();
+        root = new BorderPane();
         root.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));
         root.setLeft(chatList);
         root.setCenter(detail);
@@ -175,7 +192,10 @@ public final class ChatMapApp extends Application {
         refreshOrganizationChoices();
         refreshChats();
         stage.setTitle("ChatMap");
-        stage.setScene(new Scene(root, 900, 600));
+        applyFontSize(fontSizeState.current());
+        Scene scene = new Scene(root, 900, 600);
+        registerFontShortcuts(scene);
+        stage.setScene(scene);
         stage.show();
     }
 
@@ -226,8 +246,8 @@ public final class ChatMapApp extends Application {
     }
 
     private void getLatestChat() {
-        // Blocking HTTP with retry/backoff; run off the FX thread so the UI stays responsive.
-        runInBackground("Fetching latest chat...", getLatestChatButton, controller::fetchLatestChat);
+        // Provider reads may block; run off the FX thread so the UI stays responsive.
+        runInBackground("Importing available chat...", getLatestChatButton, controller::fetchLatestChat);
     }
 
     private void summarizeSelectedChat() {
@@ -476,6 +496,30 @@ public final class ChatMapApp extends Application {
         alert.setHeaderText("Operation failed");
         alert.setContentText(e.getMessage());
         alert.showAndWait();
+    }
+
+    private void applyFontSize(int size) {
+        if (root != null) {
+            root.setStyle("-fx-font-size: " + size + "pt;");
+        }
+        if (fontSizeChoice != null && !Integer.valueOf(size).equals(fontSizeChoice.getValue())) {
+            fontSizeChoice.setValue(size);
+        }
+    }
+
+    private void registerFontShortcuts(Scene scene) {
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.EQUALS, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.increase()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.ADD, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.increase()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.MINUS, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.decrease()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.SUBTRACT, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.decrease()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.reset()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.NUMPAD0, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.reset()));
     }
 
     private static String safeFileName(String title) {
