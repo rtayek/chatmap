@@ -17,6 +17,7 @@ import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
+import chatmap.service.ChatGptArchiveImportService;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
@@ -91,6 +92,8 @@ public final class ChatMapApp extends Application {
         SearchRepository search = new SearchRepository(conn);
 
         ImportService importService = new ImportService(chats, messages);
+        ChatGptArchiveImportService archiveImportService =
+                new ChatGptArchiveImportService(importService, chats);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
                 new ClaudeCliClient(Duration.ofMinutes(3)));
         List<ChatProvider> providers = DefaultChatProviders.ordered();
@@ -104,7 +107,8 @@ public final class ChatMapApp extends Application {
                 new ProjectService(projects, chats),
                 new TagService(tags, chats),
                 summaryService,
-                liveChatFetchService);
+                liveChatFetchService,
+                archiveImportService);
 
         chatList = new ListView<>();
         chatList.setCellFactory(chatListView -> new ListCell<>() {
@@ -146,6 +150,7 @@ public final class ChatMapApp extends Application {
                 button("Import Text", () -> importFile("Import text", "*.txt")),
                 button("Import Markdown", () -> importFile("Import Markdown", "*.md", "*.markdown")),
                 button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
+                button("Import ChatGPT Archive", this::importChatGptArchive),
                 exportChatButton,
                 getLatestChatButton,
                 summarizeButton,
@@ -243,6 +248,18 @@ public final class ChatMapApp extends Application {
         }
         boolean exported = controller.exportChatMarkdown(selected.id(), file.toPath());
         status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists.");
+    }
+
+    private void importChatGptArchive() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Import ChatGPT archive");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("ChatGPT ZIP archive", "*.zip"));
+        java.io.File file = chooser.showOpenDialog(chatList.getScene().getWindow());
+        if (file == null) {
+            return;
+        }
+        runInBackground("Importing ChatGPT archive...", null,
+                () -> controller.importChatGptArchive(file.toPath()));
     }
 
     private void getLatestChat() {

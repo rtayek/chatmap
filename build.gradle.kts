@@ -77,6 +77,17 @@ tasks.register<JavaExec>("summarizeChat") {
     }
 }
 
+tasks.register<JavaExec>("importChatGptArchive") {
+    group = "application"
+    description = "Imports a ChatGPT export ZIP. Usage: -Pargs=<chatgpt-export.zip>"
+    mainClass.set("chatmap.cli.ImportChatGptArchiveCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args = (project.property("args") as String).split(" ")
+    }
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -120,4 +131,3 @@ eclipse {
 }
 
 tasks.named("eclipseClasspath") { dependsOn(copyLibs) }
-

@@ -15,6 +15,8 @@ import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
+import chatmap.service.ChatGptArchiveImportService;
+import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
@@ -32,6 +34,7 @@ public final class ChatMapController {
     private final TagService tagService;
     private final SummaryService summaryService;
     private final LiveChatFetchService liveChatFetchService;
+    private final ChatGptArchiveImportService archiveImportService;
     private final ChatListState listState;
     private String currentQuery = "";
     private Long currentProjectId;
@@ -45,6 +48,19 @@ public final class ChatMapController {
             TagService tagService,
             SummaryService summaryService,
             LiveChatFetchService liveChatFetchService) {
+        this(importService, exportService, searchService, projectService, tagService,
+                summaryService, liveChatFetchService, null);
+    }
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService) {
         this.importService = importService;
         this.exportService = exportService;
         this.searchService = searchService;
@@ -52,6 +68,7 @@ public final class ChatMapController {
         this.tagService = tagService;
         this.summaryService = summaryService;
         this.liveChatFetchService = liveChatFetchService;
+        this.archiveImportService = archiveImportService;
         listState = new ChatListState();
     }
 
@@ -78,6 +95,17 @@ public final class ChatMapController {
         currentTagId = null;
         listState.showAll(searchService.searchResults(""), "Imported " + imported.title());
         return listState.select(imported.id());
+    }
+
+    public ChatListState.Snapshot importChatGptArchive(Path zipFile) throws Exception {
+        if (archiveImportService == null) {
+            throw new IllegalStateException("ChatGPT archive import is not configured.");
+        }
+        BulkImportResult result = archiveImportService.importArchive(zipFile);
+        currentQuery = "";
+        currentProjectId = null;
+        currentTagId = null;
+        return listState.showAll(searchService.searchResults(""), result.summary());
     }
 
     public ChatListState.Snapshot selectChat(long chatId) {
