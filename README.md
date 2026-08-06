@@ -28,4 +28,8 @@ The Gradle build configures OpenJFX 25.0.1 and runs `chatmap.ui.ChatMapLauncher`
 
 ## Local Data
 
-By default, ChatMap stores runtime data in `${user.home}/.chatmap`. Set `CHATMAP_HOME` to override that location. This checkout uses the ignored `.chatmap-local/` directory for private local runtime data; never commit `.chatmap-local/`.
+ChatMap home contains local runtime data such as `chatmap.db`, backups, reports, and future generated indexes. The default database is `chatmap.db` inside the selected ChatMap home.
+
+Home resolution order is: `--home <directory>`, nonblank `CHATMAP_HOME`, existing `./.chatmap-local`, then existing `${user.home}/.chatmap`. If none exists, ChatMap fails instead of creating an unexpected empty database.
+
+This checkout uses the ignored `.chatmap-local/` directory for private local runtime data. Never commit `.chatmap-local/`. The normal launch command is `./gradlew run`.

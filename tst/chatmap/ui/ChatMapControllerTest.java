@@ -88,7 +88,7 @@ class ChatMapControllerTest {
                 .map(result -> result.chatId())
                 .toList());
         assertEquals(ChatListMode.allChats, snapshot.currentMode());
-        assertEquals("Ready", snapshot.statusText());
+        assertEquals("Loaded 2 chats.", snapshot.statusText());
     }
 
     @Test

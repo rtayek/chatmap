@@ -10,6 +10,8 @@ import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
 import chatmap.backend.DefaultChatProviders;
 import chatmap.config.ChatMapPaths;
+import chatmap.config.ChatMapPaths.ParsedArguments;
+import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.ChatSummary;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
@@ -28,7 +30,7 @@ import chatmap.service.SummaryService;
  * it can summarize chats imported through either the app or the consolidator
  * CLI. Does not touch the import/export flow at all.
  *
- * Usage: summarizeChat [chatId]
+ * Usage: summarizeChat [--home <directory>] [chatId]
  *
  * With no argument, the target is chosen in this order:
  *   1. the last live chat from a configured provider (imported on the fly), else
@@ -37,21 +39,37 @@ import chatmap.service.SummaryService;
 public final class SummarizeChatCli {
 
     public static void main(String[] args) {
+        ParsedArguments parsedArguments;
+        try {
+            parsedArguments = ChatMapPaths.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.err.println("Usage: summarizeChat [--home <directory>] [chatId]");
+            System.exit(1);
+            return;
+        }
+        if (parsedArguments.remainingArgs().size() > 1) {
+            System.err.println("Usage: summarizeChat [--home <directory>] [chatId]");
+            System.exit(1);
+            return;
+        }
         Long requestedChatId = null;
-        if (args.length >= 1) {
+        if (!parsedArguments.remainingArgs().isEmpty()) {
             try {
-                requestedChatId = Long.parseLong(args[0]);
+                requestedChatId = Long.parseLong(parsedArguments.remainingArgs().getFirst());
             } catch (NumberFormatException e) {
-                System.err.println("chatId must be a number, got: " + args[0]);
+                System.err.println("chatId must be a number, got: " + parsedArguments.remainingArgs().getFirst());
                 System.exit(1);
                 return;
             }
         }
 
-        Path dbPath = ChatMapPaths.databasePath();
+        ResolvedPaths paths = parsedArguments.paths();
+        Path dbPath = paths.databasePath();
+        System.out.println(ChatMapPaths.diagnostics(paths));
 
         try {
-            Files.createDirectories(dbPath.getParent());
+            Files.createDirectories(paths.homeDirectory());
         } catch (Exception e) {
             System.err.println("Could not create ChatMap data directory: " + e.getMessage());
             System.exit(1);

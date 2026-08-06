@@ -57,11 +57,16 @@ application {
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
+tasks.named<JavaExec>("run") {
+    workingDir = layout.projectDirectory.asFile
+}
+
 tasks.register<JavaExec>("consolidateChats") {
     group = "application"
     description = "Scans workspace projects and consolidates chats into project handoffs."
     mainClass.set("chatmap.cli.ChatConsolidatorCli")
     classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     args = listOf("..", "./consolidated_chats")
 }
@@ -71,9 +76,10 @@ tasks.register<JavaExec>("summarizeChat") {
     description = "Summarizes and tags one already-imported chat by id. Usage: -Pargs=<chatId>"
     mainClass.set("chatmap.cli.SummarizeChatCli")
     classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     if (project.hasProperty("args")) {
-        args = (project.property("args") as String).split(" ")
+        args(project.property("args").toString())
     }
 }
 
@@ -82,9 +88,10 @@ tasks.register<JavaExec>("importChatGptArchive") {
     description = "Imports a ChatGPT export ZIP. Usage: -Pargs=<chatgpt-export.zip>"
     mainClass.set("chatmap.cli.ImportChatGptArchiveCli")
     classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     if (project.hasProperty("args")) {
-        args = (project.property("args") as String).split(" ")
+        args(project.property("args").toString())
     }
 }
 
@@ -110,6 +117,12 @@ val copyLibs by tasks.registering(Sync::class) {
 }
 
 eclipse {
+    project {
+        natures.remove("org.eclipse.buildship.core.gradleprojectnature")
+        buildCommands.removeIf {
+            it.name == "org.eclipse.buildship.core.gradleprojectbuilder"
+        }
+    }
     classpath {
         file {
             whenMerged {
@@ -131,3 +144,14 @@ eclipse {
 }
 
 tasks.named("eclipseClasspath") { dependsOn(copyLibs) }
+
+tasks.named("eclipseJdt") {
+    doLast {
+        val prefs = layout.projectDirectory.file(".settings/org.eclipse.jdt.core.prefs").asFile
+        if (prefs.isFile) {
+            val cleaned = prefs.readLines()
+                .dropWhile { it == "#" || it.matches(Regex("#[A-Z][A-Za-z]{2} .* \\d{4}")) }
+            prefs.writeText(cleaned.joinToString(System.lineSeparator(), postfix = System.lineSeparator()))
+        }
+    }
+}

@@ -76,7 +76,8 @@ public final class ChatMapController {
         currentQuery = "";
         currentProjectId = null;
         currentTagId = null;
-        return listState.showAll(searchService.searchResults(""), "Ready");
+        List<SearchResult> results = searchService.searchResults("");
+        return listState.showAll(results, "Loaded " + results.size() + " chats.");
     }
 
     public ChatListState.Snapshot searchChats(String query) throws SQLException {

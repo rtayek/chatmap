@@ -11,6 +11,8 @@ import chatmap.backend.ChatProvider;
 import chatmap.backend.ClaudeCliClient;
 import chatmap.backend.DefaultChatProviders;
 import chatmap.config.ChatMapPaths;
+import chatmap.config.ChatMapPaths.ParsedArguments;
+import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -85,8 +87,14 @@ public final class ChatMapApp extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        Path dbPath = ChatMapPaths.databasePath();
-        Files.createDirectories(dbPath.getParent());
+        ParsedArguments parsedArguments = ChatMapPaths.parse(getParameters().getRaw());
+        if (!parsedArguments.remainingArgs().isEmpty()) {
+            throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
+        }
+        ResolvedPaths paths = parsedArguments.paths();
+        System.out.println(ChatMapPaths.diagnostics(paths));
+        Path dbPath = paths.databasePath();
+        Files.createDirectories(paths.homeDirectory());
         conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);
@@ -201,7 +209,9 @@ public final class ChatMapApp extends Application {
         BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
 
         refreshOrganizationChoices();
-        refreshChats();
+        ChatListState.Snapshot initialChats = controller.loadAllChats();
+        applyListState(initialChats);
+        System.out.println(initialChats.statusText());
         stage.setTitle("ChatMap");
         applyFontSize(fontSizeState.current());
         Scene scene = new Scene(root, 900, 600);

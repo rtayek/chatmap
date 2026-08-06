@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.sql.Connection;
 
 import chatmap.config.ChatMapPaths;
+import chatmap.config.ChatMapPaths.ParsedArguments;
+import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.service.ChatGptArchiveImportService;
 import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
 import chatmap.service.ImportService;
@@ -16,16 +18,27 @@ import chatmap.storage.MessageRepository;
 public final class ImportChatGptArchiveCli {
 
     public static void main(String[] args) {
-        if (args.length != 1) {
-            System.err.println("Usage: importChatGptArchive <chatgpt-export.zip>");
+        ParsedArguments parsedArguments;
+        try {
+            parsedArguments = ChatMapPaths.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            System.err.println("Usage: importChatGptArchive [--home <directory>] <chatgpt-export.zip>");
             System.exit(1);
             return;
         }
-        Path archive = Path.of(args[0]);
-        Path dbPath = ChatMapPaths.databasePath();
+        if (parsedArguments.remainingArgs().size() != 1) {
+            System.err.println("Usage: importChatGptArchive [--home <directory>] <chatgpt-export.zip>");
+            System.exit(1);
+            return;
+        }
+        Path archive = Path.of(parsedArguments.remainingArgs().getFirst());
+        ResolvedPaths paths = parsedArguments.paths();
+        Path dbPath = paths.databasePath();
+        System.out.println(ChatMapPaths.diagnostics(paths));
 
         try {
-            Files.createDirectories(dbPath.getParent());
+            Files.createDirectories(paths.homeDirectory());
         } catch (Exception e) {
             System.err.println("Could not create ChatMap data directory: " + e.getMessage());
             System.exit(1);
