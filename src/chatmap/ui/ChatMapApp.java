@@ -80,6 +80,7 @@ public final class ChatMapApp extends Application {
     private BorderPane root;
     private Label status;
     private boolean applyingListState;
+    private SerializedTaskExecutor backgroundExecutor;
 
     public static void main(String[] args) {
         launch(args);
@@ -96,6 +97,7 @@ public final class ChatMapApp extends Application {
         Path dbPath = paths.databasePath();
         Files.createDirectories(paths.homeDirectory());
         conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize();
+        backgroundExecutor = new SerializedTaskExecutor("chatmap-background");
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
@@ -105,7 +107,7 @@ public final class ChatMapApp extends Application {
 
         ImportService importService = new ImportService(chats, messages);
         ChatGptArchiveImportService archiveImportService =
-                new ChatGptArchiveImportService(importService, chats);
+                new ChatGptArchiveImportService(importService);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
                 new ClaudeCliClient(Duration.ofMinutes(3)));
         List<ChatProvider> providers = DefaultChatProviders.ordered();
@@ -222,6 +224,9 @@ public final class ChatMapApp extends Application {
 
     @Override
     public void stop() throws Exception {
+        if (backgroundExecutor != null) {
+            backgroundExecutor.close();
+        }
         if (conn != null) {
             conn.close();
         }
@@ -305,7 +310,7 @@ public final class ChatMapApp extends Application {
         if (triggerButton != null) {
             triggerButton.setDisable(true);
         }
-        Thread worker = new Thread(() -> {
+        backgroundExecutor.submit(() -> {
             try {
                 ChatListState.Snapshot snapshot = call.run();
                 Platform.runLater(() -> {
@@ -318,9 +323,7 @@ public final class ChatMapApp extends Application {
                     reportError(e);
                 });
             }
-        }, "chatmap-background");
-        worker.setDaemon(true);
-        worker.start();
+        });
     }
 
     private void searchChats() throws Exception {

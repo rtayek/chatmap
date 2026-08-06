@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  * Adapted from MyClaw's CommandRunner (myclaw.execution), simplified for
  * ChatMap's single purpose: send a prompt, get text back.
  */
-public final class ClaudeCliClient {
+public final class ClaudeCliClient implements SummaryClient {
 
     private final Duration timeout;
 

@@ -178,38 +178,40 @@ public final class ChatRepository {
         }
     }
 
-    public Chat updateImportMetadata(long id, String sourceUri, String contentHash,
+    public Chat updateImportMetadata(long id, String title, String sourceUri, String contentHash,
             String sourceUpdatedAt, String lastImportedAt) throws SQLException {
-        String sql = "UPDATE chats SET sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, "
+        String sql = "UPDATE chats SET title = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, "
                 + "lastImportedAt = ?, updatedAt = ? WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, sourceUri);
-            ps.setString(2, contentHash);
-            ps.setString(3, sourceUpdatedAt);
-            ps.setString(4, lastImportedAt);
-            ps.setString(5, sourceUpdatedAt);
-            ps.setLong(6, id);
+            ps.setString(1, title);
+            ps.setString(2, sourceUri);
+            ps.setString(3, contentHash);
+            ps.setString(4, sourceUpdatedAt);
+            ps.setString(5, lastImportedAt);
+            ps.setString(6, sourceUpdatedAt);
+            ps.setLong(7, id);
             ps.executeUpdate();
         }
         return findById(id).orElseThrow();
     }
 
-    public Chat updateFromSource(long id, Source source, String createdAt, String updatedAt,
+    public Chat updateFromSource(long id, Source source, String title, String createdAt, String updatedAt,
             String externalConversationId, String sourceUri, String contentHash,
             String sourceUpdatedAt, String lastImportedAt) throws SQLException {
-        String sql = "UPDATE chats SET source = ?, createdAt = ?, updatedAt = ?, "
+        String sql = "UPDATE chats SET source = ?, title = ?, createdAt = ?, updatedAt = ?, "
                 + "externalConversationId = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, "
                 + "lastImportedAt = ? WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, source.dbValue());
-            ps.setString(2, createdAt);
-            ps.setString(3, updatedAt);
-            ps.setString(4, externalConversationId);
-            ps.setString(5, sourceUri);
-            ps.setString(6, contentHash);
-            ps.setString(7, sourceUpdatedAt);
-            ps.setString(8, lastImportedAt);
-            ps.setLong(9, id);
+            ps.setString(2, title);
+            ps.setString(3, createdAt);
+            ps.setString(4, updatedAt);
+            ps.setString(5, externalConversationId);
+            ps.setString(6, sourceUri);
+            ps.setString(7, contentHash);
+            ps.setString(8, sourceUpdatedAt);
+            ps.setString(9, lastImportedAt);
+            ps.setLong(10, id);
             ps.executeUpdate();
         }
         return findById(id).orElseThrow();

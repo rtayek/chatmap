@@ -3,16 +3,46 @@ package chatmap.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Connection;
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.service.SummaryService.Parsed;
+import chatmap.storage.ChatRepository;
+import chatmap.storage.Database;
+import chatmap.storage.MessageRepository;
+import chatmap.storage.SummaryRepository;
+import chatmap.storage.TagRepository;
 
 class SummaryServiceTest {
+
+    private Connection conn;
+    private ChatRepository chats;
+    private MessageRepository messages;
+    private SummaryRepository summaries;
+    private TagRepository tags;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
+        chats = new ChatRepository(conn);
+        messages = new MessageRepository(conn);
+        summaries = new SummaryRepository(conn);
+        tags = new TagRepository(conn);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (conn != null) {
+            conn.close();
+        }
+    }
 
     @Test
     void parsesSummaryAndTagsFromWellFormedResponse() {
@@ -69,5 +99,52 @@ class SummaryServiceTest {
         assertTrue(prompt.contains("ASSISTANT: Yes, with FTS5 for search."));
         assertTrue(prompt.contains("SUMMARY: "));
         assertTrue(prompt.contains("TAGS: "));
+    }
+
+    @Test
+    void successfulSummaryInsideOuterTransactionCanBeRolledBackByCaller() throws Exception {
+        Chat chat = insertChatWithMessage();
+        SummaryService service = new SummaryService(chats, messages, summaries, tags,
+                prompt -> "SUMMARY: Stored summary.\nTAGS: storage");
+
+        conn.setAutoCommit(false);
+        try {
+            service.summarize(chat.id());
+            assertTrue(summaries.findLatestStoredForChat(chat.id()).isPresent());
+            assertEquals(1, tags.findAll().size());
+
+            conn.rollback();
+        } finally {
+            conn.setAutoCommit(true);
+        }
+
+        assertTrue(summaries.findLatestStoredForChat(chat.id()).isEmpty());
+        assertTrue(tags.findAll().isEmpty());
+    }
+
+    @Test
+    void failedSummaryTagAssignmentRollsBackSummaryAndTags() throws Exception {
+        Chat chat = insertChatWithMessage();
+        SummaryService service = new SummaryService(chats, messages, summaries, tags,
+                prompt -> "SUMMARY: Stored summary.\nTAGS: failtag");
+        conn.createStatement().execute("""
+                CREATE TRIGGER fail_chat_tag BEFORE INSERT ON chatTags
+                BEGIN
+                    SELECT RAISE(ABORT, 'tag assignment failed');
+                END
+                """);
+
+        org.junit.jupiter.api.Assertions.assertThrows(java.sql.SQLException.class,
+                () -> service.summarize(chat.id()));
+
+        assertTrue(summaries.findLatestStoredForChat(chat.id()).isEmpty());
+        assertTrue(tags.findAll().isEmpty());
+    }
+
+    private Chat insertChatWithMessage() throws Exception {
+        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Storage Decision",
+                null, null, "2026-01-01T00:00:00Z", false));
+        messages.insert(new Message(0, chat.id(), "user", "Should we use SQLite?", 0, null, null));
+        return chat;
     }
 }

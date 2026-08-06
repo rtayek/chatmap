@@ -90,6 +90,13 @@ class SearchServiceTest {
     }
 
     @Test
+    void punctuationOnlySearchReturnsNoRepositoryMatchesSafely() throws Exception {
+        insertChat("First", "2026-07-06T00:00:00Z");
+
+        assertTrue(searchService.searchChats("!!!").isEmpty());
+    }
+
+    @Test
     void searchAfterImportingPlainTextFindsImportedChat() throws Exception {
         Chat imported = importService.importFile(Path.of("samples", "plainTextSample.txt"));
 

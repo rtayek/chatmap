@@ -177,6 +177,50 @@ class SearchRepositoryTest {
         assertTrue(result.snippet().contains("target"));
     }
 
+    @Test
+    void listResultsHydratesTagsForMultipleChatsInCaseInsensitiveOrder() throws Exception {
+        Chat first = insertChat("First", null, false, "2026-07-06T00:00:00Z");
+        Chat second = insertChat("Second", null, false, "2026-07-06T00:01:00Z");
+        Tag zebra = tags.insert(new Tag(0, "zebra"));
+        Tag Alpha = tags.insert(new Tag(0, "Alpha"));
+        Tag beta = tags.insert(new Tag(0, "beta"));
+        tags.assignToChat(first.id(), zebra.id());
+        tags.assignToChat(first.id(), Alpha.id());
+        tags.assignToChat(second.id(), beta.id());
+
+        List<SearchResult> results = search.listResults(SearchOptions.none());
+
+        assertEquals(List.of(first.id(), second.id()), results.stream().map(SearchResult::chatId).toList());
+        assertEquals(List.of(Alpha, zebra), results.get(0).tags());
+        assertEquals(List.of(beta), results.get(1).tags());
+    }
+
+    @Test
+    void fullTextResultsAreRankedByRelevanceBeforeImportChronology() throws Exception {
+        Chat strongerOlder = insertChat("Stronger", null, false, "2026-07-06T00:00:00Z");
+        Chat weakerNewer = insertChat("Weaker", null, false, "2026-07-06T00:01:00Z");
+        messages.insert(new Message(0, weakerNewer.id(), "user", "needle", 0, null, null));
+        messages.insert(new Message(0, strongerOlder.id(), "user", "needle needle needle", 0, null, null));
+
+        List<SearchResult> results = search.searchResultsByMessageText("needle");
+
+        assertEquals(List.of(strongerOlder.id(), weakerNewer.id()),
+                results.stream().map(SearchResult::chatId).toList());
+    }
+
+    @Test
+    void bestMatchingMessageProvidesSingleResultSnippet() throws Exception {
+        Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
+        messages.insert(new Message(0, chat.id(), "user", "needle", 0, null, null));
+        messages.insert(new Message(0, chat.id(), "assistant", "needle needle needle", 1, null, null));
+
+        List<SearchResult> results = search.searchResultsByMessageText("needle");
+
+        assertEquals(1, results.size());
+        assertEquals(chat.id(), results.getFirst().chatId());
+        assertTrue(results.getFirst().snippet().contains("[needle] [needle] [needle]"));
+    }
+
     private Chat insertChat(String title, Long projectId, boolean archived, String importedAt) throws Exception {
         return chats.insert(new Chat(0, projectId, Source.plainText, title, null, null, importedAt, archived));
     }

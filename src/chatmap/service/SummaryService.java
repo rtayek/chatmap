@@ -1,7 +1,6 @@
 package chatmap.service;
 
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -11,6 +10,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import chatmap.backend.ClaudeCliClient;
+import chatmap.backend.SummaryClient;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -19,6 +19,7 @@ import chatmap.storage.ChatRepository;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.SummaryRepository;
 import chatmap.storage.TagRepository;
+import chatmap.storage.TransactionRunner;
 
 /**
  * Generates an AI summary and tags for an already-imported chat.
@@ -40,15 +41,32 @@ public final class SummaryService {
     private final MessageRepository messages;
     private final SummaryRepository summaries;
     private final TagRepository tags;
-    private final ClaudeCliClient claude;
+    private final SummaryClient claude;
+    private final TransactionRunner transactions;
 
     public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
             TagRepository tags, ClaudeCliClient claude) {
+        this(chats, messages, summaries, tags, claude, new TransactionRunner(chats.connection()));
+    }
+
+    public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
+            TagRepository tags, SummaryClient claude) {
+        this(chats, messages, summaries, tags, claude, new TransactionRunner(chats.connection()));
+    }
+
+    public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
+            TagRepository tags, SummaryClient claude, TransactionRunner transactions) {
+        if (chats.connection() != messages.connection()
+                || chats.connection() != summaries.connection()
+                || chats.connection() != tags.connection()) {
+            throw new IllegalArgumentException("Summary repositories must share one transaction connection.");
+        }
         this.chats = chats;
         this.messages = messages;
         this.summaries = summaries;
         this.tags = tags;
         this.claude = claude;
+        this.transactions = transactions;
     }
 
     /** The most recent summary for a chat, if it has been summarized. Read-only. */
@@ -70,12 +88,9 @@ public final class SummaryService {
                 ? ChatContentHasher.hash(chatMessages)
                 : chat.contentHash();
 
-        Connection conn = summaries.connection();
-        boolean autoCommit = conn.getAutoCommit();
-        try {
-            conn.setAutoCommit(false);
+        return transactions.inTransaction(() -> {
             if (chat.contentHash() == null) {
-                chats.updateImportMetadata(chatId, chat.sourceUri(), contentHash,
+                chats.updateImportMetadata(chatId, chat.title(), chat.sourceUri(), contentHash,
                         chat.sourceUpdatedAt(), chat.lastImportedAt());
             }
             ChatSummary stored = summaries.insert(
@@ -87,14 +102,8 @@ public final class SummaryService {
                 tags.assignToChat(chatId, tag.id());
             }
 
-            conn.commit();
             return stored;
-        } catch (SQLException | RuntimeException e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(autoCommit);
-        }
+        });
     }
 
     private Tag getOrCreateTag(String tagName) throws SQLException {

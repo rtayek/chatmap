@@ -88,7 +88,7 @@ class ChatMapMvpWorkflowTest {
         assertTrue(controller.removeTag(markdownChatId, tag.id()).currentItems().isEmpty());
 
         controller.clearFilters();
-        assertEquals(List.of(plainTextChatId, markdownChatId), chatIds(controller.searchChats("ChatMap")));
+        assertEquals(List.of(markdownChatId, plainTextChatId), chatIds(controller.searchChats("ChatMap")));
 
         controller.selectChat(markdownChatId);
         Path output = tempDir.resolve("markdown-sample-export.md");

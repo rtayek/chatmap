@@ -25,6 +25,10 @@ public final class MessageRepository {
         this.conn = conn;
     }
 
+    public Connection connection() {
+        return conn;
+    }
+
     /** Inserts a message; the id field of the argument is ignored. Returns the stored message with its new id. */
     public Message insert(Message m) throws SQLException {
         String sql = "INSERT INTO messages (chatId, role, text, sequence, timestamp, rawJson) "

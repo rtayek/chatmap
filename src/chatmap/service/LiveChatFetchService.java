@@ -58,7 +58,7 @@ public final class LiveChatFetchService {
             try {
                 Optional<ImportedChat> live = provider.latestChat();
                 if (live.isPresent()) {
-                    Chat stored = importService.persist(live.get());
+                    Chat stored = importService.persist(live.get()).chat();
                     return new Resolution(stored.id(),
                             "last live chat from " + provider.name() + " (\"" + stored.title() + "\")");
                 }

@@ -49,7 +49,7 @@ public final class ImportChatGptArchiveCli {
             ChatRepository chats = new ChatRepository(conn);
             ImportService importService = new ImportService(chats, new MessageRepository(conn));
             ChatGptArchiveImportService archiveImportService =
-                    new ChatGptArchiveImportService(importService, chats);
+                    new ChatGptArchiveImportService(importService);
             BulkImportResult result = archiveImportService.importArchive(archive);
             System.out.println(result.summary());
             System.out.println("conversation entries: " + result.conversationEntries().size());

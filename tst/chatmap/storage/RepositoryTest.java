@@ -165,7 +165,7 @@ class RepositoryTest {
 
         assertEquals(summary, summaries.findLatestForChat(chat.id()).orElseThrow());
 
-        chats.updateImportMetadata(chat.id(), chat.sourceUri(), "new-hash",
+        chats.updateImportMetadata(chat.id(), chat.title(), chat.sourceUri(), "new-hash",
                 chat.sourceUpdatedAt(), "2026-08-05T00:02:00Z");
 
         assertTrue(summaries.findLatestForChat(chat.id()).isEmpty());

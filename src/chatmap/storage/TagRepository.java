@@ -20,6 +20,10 @@ public final class TagRepository {
         this.conn = conn;
     }
 
+    public Connection connection() {
+        return conn;
+    }
+
     public Tag insert(Tag tag) throws SQLException {
         String sql = "INSERT INTO tags (name) VALUES (?)";
         try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {

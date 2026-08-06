@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.sql.Connection;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -18,16 +17,35 @@ import chatmap.importer.MarkdownImporter;
 import chatmap.importer.PlainTextImporter;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.MessageRepository;
+import chatmap.storage.TransactionRunner;
 
 /** Imports selected files through format-specific importers, then persists normalized data. */
 public final class ImportService {
 
+    public enum Outcome {
+        inserted,
+        updated,
+        unchanged
+    }
+
+    public record PersistResult(Chat chat, Outcome outcome) {
+    }
+
     private final ChatRepository chats;
     private final MessageRepository messages;
+    private final TransactionRunner transactions;
 
     public ImportService(ChatRepository chats, MessageRepository messages) {
+        this(chats, messages, new TransactionRunner(chats.connection()));
+    }
+
+    public ImportService(ChatRepository chats, MessageRepository messages, TransactionRunner transactions) {
+        if (chats.connection() != messages.connection()) {
+            throw new IllegalArgumentException("Import repositories must share one transaction connection.");
+        }
         this.chats = chats;
         this.messages = messages;
+        this.transactions = transactions;
     }
 
     public Chat importFile(Path file) throws IOException, SQLException {
@@ -38,68 +56,58 @@ public final class ImportService {
             case "json" -> new ChatGptJsonImporter().importJson(text, importedAt);
             default -> new PlainTextImporter().importText(fileName(file), text, importedAt);
         };
-        return persist(withSourceUri(imported, file.toAbsolutePath().normalize().toUri().toString()));
+        return persist(withSourceUri(imported, file.toAbsolutePath().normalize().toUri().toString())).chat();
     }
 
-    public Chat persist(ImportedChat imported) throws SQLException {
-        Connection conn = chats.connection();
-        boolean autoCommit = conn.getAutoCommit();
-        try {
-            conn.setAutoCommit(false);
-            Chat stored = persistInTransaction(imported);
-            conn.commit();
-            return stored;
-        } catch (SQLException | RuntimeException e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(autoCommit);
-        }
+    public PersistResult persist(ImportedChat imported) throws SQLException {
+        return transactions.inTransaction(() -> persistInTransaction(imported));
     }
 
-    private Chat persistInTransaction(ImportedChat imported) throws SQLException {
-        String contentHash = ChatContentHasher.hash(imported.messages());
-        Chat incoming = withComputedImportMetadata(imported.chat(), contentHash);
+    private PersistResult persistInTransaction(ImportedChat imported) throws SQLException {
+        String transcriptHash = ChatContentHasher.hash(imported.messages());
+        Chat incoming = withComputedImportMetadata(imported.chat(), transcriptHash);
 
         if (incoming.externalConversationId() != null) {
             return persistWithExternalIdentity(incoming, imported.messages());
         }
 
         if (isProviderSource(incoming.source())) {
-            var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), contentHash);
+            var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), transcriptHash);
             if (exactDuplicate.isPresent()) {
                 Chat existing = exactDuplicate.get();
-                return chats.updateImportMetadata(existing.id(), incoming.sourceUri(), contentHash,
-                        incoming.sourceUpdatedAt(), incoming.lastImportedAt());
+                Chat updated = chats.updateImportMetadata(existing.id(), incoming.title(), incoming.sourceUri(),
+                        transcriptHash, incoming.sourceUpdatedAt(), incoming.lastImportedAt());
+                return new PersistResult(updated, Outcome.unchanged);
             }
         }
 
         Chat storedChat = chats.insert(incoming);
         insertMessages(storedChat.id(), imported.messages());
-        return storedChat;
+        return new PersistResult(storedChat, Outcome.inserted);
     }
 
-    private Chat persistWithExternalIdentity(Chat incoming, List<Message> incomingMessages)
+    private PersistResult persistWithExternalIdentity(Chat incoming, List<Message> incomingMessages)
             throws SQLException {
         var existing = chats.findByExternalIdentity(incoming.source(), incoming.externalConversationId());
         if (existing.isEmpty()) {
             Chat storedChat = chats.insert(incoming);
             insertMessages(storedChat.id(), incomingMessages);
-            return storedChat;
+            return new PersistResult(storedChat, Outcome.inserted);
         }
 
         Chat stored = existing.get();
         if (incoming.contentHash().equals(stored.contentHash())) {
-            return chats.updateImportMetadata(stored.id(), incoming.sourceUri(), incoming.contentHash(),
-                    incoming.sourceUpdatedAt(), incoming.lastImportedAt());
+            Chat updated = chats.updateImportMetadata(stored.id(), incoming.title(), incoming.sourceUri(),
+                    incoming.contentHash(), incoming.sourceUpdatedAt(), incoming.lastImportedAt());
+            return new PersistResult(updated, Outcome.unchanged);
         }
 
-        chats.updateFromSource(stored.id(), incoming.source(), incoming.createdAt(), incoming.updatedAt(),
+        chats.updateFromSource(stored.id(), incoming.source(), incoming.title(), incoming.createdAt(), incoming.updatedAt(),
                 incoming.externalConversationId(), incoming.sourceUri(), incoming.contentHash(),
                 incoming.sourceUpdatedAt(), incoming.lastImportedAt());
         messages.deleteByChat(stored.id());
         insertMessages(stored.id(), incomingMessages);
-        return chats.findById(stored.id()).orElseThrow();
+        return new PersistResult(chats.findById(stored.id()).orElseThrow(), Outcome.updated);
     }
 
     private void insertMessages(long chatId, List<Message> incomingMessages) throws SQLException {

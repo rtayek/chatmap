@@ -7,37 +7,25 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import chatmap.domain.Chat;
-import chatmap.domain.Source;
 import chatmap.importer.ChatGptArchiveImporter;
 import chatmap.importer.ChatGptArchiveImporter.ArchiveReadResult;
 import chatmap.importer.ChatGptArchiveImporter.CodexInspection;
 import chatmap.importer.ChatGptArchiveImporter.Failure;
 import chatmap.importer.ChatGptArchiveImporter.ImportedConversation;
-import chatmap.storage.ChatRepository;
 
 /** Persists every usable conversation from a ChatGPT export ZIP. */
 public final class ChatGptArchiveImportService {
 
-    public enum Outcome {
-        inserted,
-        updated,
-        unchanged
-    }
-
     private final ChatGptArchiveImporter archiveImporter;
     private final ImportService importService;
-    private final ChatRepository chats;
 
-    public ChatGptArchiveImportService(ImportService importService, ChatRepository chats) {
-        this(new ChatGptArchiveImporter(), importService, chats);
+    public ChatGptArchiveImportService(ImportService importService) {
+        this(new ChatGptArchiveImporter(), importService);
     }
 
-    ChatGptArchiveImportService(ChatGptArchiveImporter archiveImporter, ImportService importService,
-            ChatRepository chats) {
+    ChatGptArchiveImportService(ChatGptArchiveImporter archiveImporter, ImportService importService) {
         this.archiveImporter = archiveImporter;
         this.importService = importService;
-        this.chats = chats;
     }
 
     public BulkImportResult importArchive(Path zipPath) throws IOException, SQLException {
@@ -49,10 +37,9 @@ public final class ChatGptArchiveImportService {
         List<Failure> failures = new ArrayList<>(read.failures());
 
         for (ImportedConversation conversation : read.conversations()) {
-            Outcome expected = expectedOutcome(conversation);
             try {
-                importService.persist(conversation.importedChat());
-                switch (expected) {
+                ImportService.PersistResult persisted = importService.persist(conversation.importedChat());
+                switch (persisted.outcome()) {
                     case inserted -> inserted++;
                     case updated -> updated++;
                     case unchanged -> unchanged++;
@@ -76,17 +63,6 @@ public final class ChatGptArchiveImportService {
                 read.unsupportedContentCategories(),
                 failures,
                 codex);
-    }
-
-    private Outcome expectedOutcome(ImportedConversation conversation) throws SQLException {
-        String externalId = conversation.externalConversationId();
-        var existing = chats.findByExternalIdentity(Source.chatgptJson, externalId);
-        if (existing.isEmpty()) {
-            return Outcome.inserted;
-        }
-        Chat stored = existing.get();
-        String incomingHash = ChatContentHasher.hash(conversation.importedChat().messages());
-        return incomingHash.equals(stored.contentHash()) ? Outcome.unchanged : Outcome.updated;
     }
 
     private static String concise(Exception e) {

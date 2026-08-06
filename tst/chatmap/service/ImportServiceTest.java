@@ -21,6 +21,8 @@ import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
 import chatmap.importer.ImportedChat;
+import chatmap.service.ImportService.Outcome;
+import chatmap.service.ImportService.PersistResult;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
@@ -82,11 +84,12 @@ class ImportServiceTest {
 
     @Test
     void providerImportStoresSourceAndExternalIdentity() throws Exception {
-        Chat chat = importService.persist(providerChat(
+        PersistResult result = importService.persist(providerChat(
                 Source.chatGptWeb, "abc123", "https://chatgpt.com/c/abc123",
                 "Provider title", List.of("hello")));
 
-        Chat stored = chats.findById(chat.id()).orElseThrow();
+        assertEquals(Outcome.inserted, result.outcome());
+        Chat stored = chats.findById(result.chat().id()).orElseThrow();
         assertEquals(Source.chatGptWeb, stored.source());
         assertEquals("abc123", stored.externalConversationId());
         assertEquals("https://chatgpt.com/c/abc123", stored.sourceUri());
@@ -99,18 +102,36 @@ class ImportServiceTest {
         ImportedChat imported = providerChat(Source.claudeWeb, "claude-1",
                 "https://claude.ai/chat/claude-1", "Same title", List.of("same text"));
 
-        Chat first = importService.persist(imported);
-        Chat second = importService.persist(imported);
+        PersistResult first = importService.persist(imported);
+        PersistResult second = importService.persist(imported);
 
-        assertEquals(first.id(), second.id());
+        assertEquals(Outcome.inserted, first.outcome());
+        assertEquals(Outcome.unchanged, second.outcome());
+        assertEquals(first.chat().id(), second.chat().id());
         assertEquals(1, chats.findAll().size());
-        assertEquals(List.of("same text"), messageTexts(first.id()));
+        assertEquals(List.of("same text"), messageTexts(first.chat().id()));
     }
 
     @Test
-    void changedProviderConversationRefreshesMessagesWithoutLocalTitleOrOrganizingState() throws Exception {
+    void titleOnlyProviderRefreshKeepsMessagesAndReportsUnchanged() throws Exception {
+        PersistResult first = importService.persist(providerChat(Source.claudeWeb, "claude-title",
+                "https://claude.ai/chat/claude-title", "Old source title", List.of("same text")));
+        List<Message> beforeMessages = messages.findByChat(first.chat().id());
+
+        PersistResult second = importService.persist(providerChat(Source.claudeWeb, "claude-title",
+                "https://claude.ai/chat/claude-title", "New source title", List.of("same text")));
+
+        Chat stored = chats.findById(first.chat().id()).orElseThrow();
+        assertEquals(Outcome.unchanged, second.outcome());
+        assertEquals(first.chat().id(), second.chat().id());
+        assertEquals("New source title", stored.title());
+        assertEquals(beforeMessages, messages.findByChat(first.chat().id()));
+    }
+
+    @Test
+    void changedProviderConversationRefreshesTitleMessagesAndPreservesOrganizingState() throws Exception {
         Chat first = importService.persist(providerChat(Source.claudeWeb, "claude-2",
-                "https://claude.ai/chat/claude-2", "Source title", List.of("old alpha")));
+                "https://claude.ai/chat/claude-2", "Source title", List.of("old alpha"))).chat();
         Project project = projects.insert(new Project(0, "Project", null, "2026-01-01T00:00:00Z",
                 "2026-01-01T00:00:00Z"));
         Tag tag = tags.insert(new Tag(0, "important"));
@@ -120,12 +141,13 @@ class ImportServiceTest {
         tags.assignToChat(first.id(), tag.id());
         String originalImportedAt = chats.findById(first.id()).orElseThrow().importedAt();
 
-        Chat refreshed = importService.persist(providerChat(Source.claudeWeb, "claude-2",
+        PersistResult refreshed = importService.persist(providerChat(Source.claudeWeb, "claude-2",
                 "https://claude.ai/chat/claude-2", "Changed source title", List.of("new beta")));
 
-        assertEquals(first.id(), refreshed.id());
+        assertEquals(Outcome.updated, refreshed.outcome());
+        assertEquals(first.id(), refreshed.chat().id());
         Chat stored = chats.findById(first.id()).orElseThrow();
-        assertEquals("Local title", stored.title(), "refresh must not overwrite local title");
+        assertEquals("Changed source title", stored.title());
         assertEquals(project.id(), stored.projectId());
         assertTrue(stored.archived());
         assertEquals(originalImportedAt, stored.importedAt());
@@ -151,10 +173,10 @@ class ImportServiceTest {
     void geminiWebWithoutDurableIdUsesHashOnlyForExactDuplicates() throws Exception {
         ImportedChat first = providerChat(Source.geminiWeb, null, "https://gemini.google.com/app",
                 "Gemini", List.of("same"));
-        Chat stored = importService.persist(first);
-        Chat duplicate = importService.persist(first);
+        Chat stored = importService.persist(first).chat();
+        Chat duplicate = importService.persist(first).chat();
         Chat changed = importService.persist(providerChat(Source.geminiWeb, null,
-                "https://gemini.google.com/app", "Gemini", List.of("changed")));
+                "https://gemini.google.com/app", "Gemini", List.of("changed"))).chat();
 
         assertEquals(stored.id(), duplicate.id());
         assertNotEquals(stored.id(), changed.id());
@@ -177,7 +199,7 @@ class ImportServiceTest {
     @Test
     void failedRefreshRestoresPriorChatMessagesAndFts() throws Exception {
         Chat first = importService.persist(providerChat(Source.chatGptWeb, "rollback",
-                "https://chatgpt.com/c/rollback", "Rollback", List.of("stable original")));
+                "https://chatgpt.com/c/rollback", "Rollback", List.of("stable original"))).chat();
         String originalHash = chats.findById(first.id()).orElseThrow().contentHash();
         ImportedChat invalidRefresh = providerChatWithMessages(Source.chatGptWeb, "rollback",
                 "https://chatgpt.com/c/rollback", "Rollback",
@@ -191,6 +213,48 @@ class ImportServiceTest {
         assertEquals(List.of("stable original"), messageTexts(first.id()));
         assertEquals(1, messages.searchText("stable").size());
         assertTrue(messages.searchText("replacement").isEmpty());
+    }
+
+    @Test
+    void successfulImportInsideOuterTransactionCanBeRolledBackByCaller() throws Exception {
+        conn.setAutoCommit(false);
+        try {
+            PersistResult result = importService.persist(providerChat(Source.chatGptWeb, "outer",
+                    "https://chatgpt.com/c/outer", "Outer", List.of("outer text")));
+
+            assertEquals(Outcome.inserted, result.outcome());
+            assertEquals(1, chats.findAll().size());
+
+            conn.rollback();
+        } finally {
+            conn.setAutoCommit(true);
+        }
+
+        assertTrue(chats.findAll().isEmpty());
+        assertTrue(messages.searchText("outer").isEmpty());
+    }
+
+    @Test
+    void failedImportInsideOuterTransactionKeepsCallerTransactionUsable() throws Exception {
+        conn.setAutoCommit(false);
+        try {
+            Chat survivor = chats.insert(new Chat(0, null, Source.plainText, "Survivor", null, null,
+                    "2026-08-05T00:00:00Z", false));
+            ImportedChat invalid = providerChatWithMessages(Source.chatGptWeb, "bad-outer",
+                    "https://chatgpt.com/c/bad-outer", "Bad",
+                    List.of(new Message(0, 0, "user", "partial text", 0, null, null),
+                            new Message(0, 0, null, "invalid role", 1, null, null)));
+
+            assertThrowsSql(() -> importService.persist(invalid));
+            assertEquals(List.of(survivor), chats.findAll());
+
+            conn.rollback();
+        } finally {
+            conn.setAutoCommit(true);
+        }
+
+        assertTrue(chats.findAll().isEmpty());
+        assertTrue(messages.searchText("partial").isEmpty());
     }
 
     private List<String> messageTexts(long chatId) throws SQLException {

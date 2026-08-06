@@ -72,7 +72,7 @@ public final class ChatMapController {
         listState = new ChatListState();
     }
 
-    public ChatListState.Snapshot loadAllChats() throws SQLException {
+    public synchronized ChatListState.Snapshot loadAllChats() throws SQLException {
         currentQuery = "";
         currentProjectId = null;
         currentTagId = null;
@@ -80,7 +80,7 @@ public final class ChatMapController {
         return listState.showAll(results, "Loaded " + results.size() + " chats.");
     }
 
-    public ChatListState.Snapshot searchChats(String query) throws SQLException {
+    public synchronized ChatListState.Snapshot searchChats(String query) throws SQLException {
         currentQuery = query == null ? "" : query.trim();
         if (currentQuery.isEmpty() && currentProjectId == null && currentTagId == null) {
             return loadAllChats();
@@ -89,7 +89,7 @@ public final class ChatMapController {
         return listState.showSearchResults(matches, formatMatchStatus(matches.size()));
     }
 
-    public ChatListState.Snapshot importFile(Path file) throws IOException, SQLException {
+    public synchronized ChatListState.Snapshot importFile(Path file) throws IOException, SQLException {
         Chat imported = importService.importFile(file);
         currentQuery = "";
         currentProjectId = null;
@@ -98,7 +98,7 @@ public final class ChatMapController {
         return listState.select(imported.id());
     }
 
-    public ChatListState.Snapshot importChatGptArchive(Path zipFile) throws Exception {
+    public synchronized ChatListState.Snapshot importChatGptArchive(Path zipFile) throws Exception {
         if (archiveImportService == null) {
             throw new IllegalStateException("ChatGPT archive import is not configured.");
         }
@@ -109,7 +109,7 @@ public final class ChatMapController {
         return listState.showAll(searchService.searchResults(""), result.summary());
     }
 
-    public ChatListState.Snapshot selectChat(long chatId) {
+    public synchronized ChatListState.Snapshot selectChat(long chatId) {
         return listState.select(chatId);
     }
 
@@ -118,7 +118,7 @@ public final class ChatMapController {
      * fallback order as the CLI: live provider, else the most recent stored chat.
      * Blocking (HTTP with retry/backoff) — callers should run it off the UI thread.
      */
-    public ChatListState.Snapshot fetchLatestChat() throws Exception {
+    public synchronized ChatListState.Snapshot fetchLatestChat() throws Exception {
         LiveChatFetchService.Resolution resolution = liveChatFetchService.resolve(null);
         currentQuery = "";
         currentProjectId = null;
@@ -132,72 +132,72 @@ public final class ChatMapController {
      * summary, via {@link #latestSummary}) are reflected. Blocking (calls the
      * claude CLI) — callers should run it off the UI thread.
      */
-    public ChatListState.Snapshot summarizeAndTag(long chatId) throws Exception {
+    public synchronized ChatListState.Snapshot summarizeAndTag(long chatId) throws Exception {
         summaryService.summarize(chatId);
         return refreshCurrent("Summarized and tagged chat " + chatId, chatId);
     }
 
-    public Optional<ChatExportModel> loadChatDetails(long chatId) throws SQLException {
+    public synchronized Optional<ChatExportModel> loadChatDetails(long chatId) throws SQLException {
         return exportService.loadChat(chatId);
     }
 
-    public Optional<ChatSummary> latestSummary(long chatId) throws SQLException {
+    public synchronized Optional<ChatSummary> latestSummary(long chatId) throws SQLException {
         return summaryService.latestSummary(chatId);
     }
 
-    public boolean exportChatMarkdown(long chatId, Path outputPath) throws SQLException, IOException {
+    public synchronized boolean exportChatMarkdown(long chatId, Path outputPath) throws SQLException, IOException {
         return exportService.writeChatMarkdown(chatId, outputPath);
     }
 
-    public List<Project> listProjects() throws SQLException {
+    public synchronized List<Project> listProjects() throws SQLException {
         return projectService.listAll();
     }
 
-    public Project createProject(String name) throws SQLException {
+    public synchronized Project createProject(String name) throws SQLException {
         String projectName = requireName(name, "Project name");
         String now = Instant.now().toString();
         return projectService.create(new Project(0, projectName, null, now, now));
     }
 
-    public ChatListState.Snapshot assignProject(long chatId, long projectId) throws SQLException {
+    public synchronized ChatListState.Snapshot assignProject(long chatId, long projectId) throws SQLException {
         projectService.assignChat(chatId, projectId);
         return refreshCurrent("Project assigned", chatId);
     }
 
-    public ChatListState.Snapshot clearProject(long chatId) throws SQLException {
+    public synchronized ChatListState.Snapshot clearProject(long chatId) throws SQLException {
         projectService.removeChat(chatId);
         return refreshCurrent("Project cleared", chatId);
     }
 
-    public ChatListState.Snapshot filterByProject(long projectId) throws SQLException {
+    public synchronized ChatListState.Snapshot filterByProject(long projectId) throws SQLException {
         currentProjectId = projectId;
         return filteredSnapshot();
     }
 
-    public List<Tag> listTags() throws SQLException {
+    public synchronized List<Tag> listTags() throws SQLException {
         return tagService.listAll();
     }
 
-    public Tag createTag(String name) throws SQLException {
+    public synchronized Tag createTag(String name) throws SQLException {
         return tagService.create(new Tag(0, requireName(name, "Tag name")));
     }
 
-    public ChatListState.Snapshot addTag(long chatId, long tagId) throws SQLException {
+    public synchronized ChatListState.Snapshot addTag(long chatId, long tagId) throws SQLException {
         tagService.addToChat(chatId, tagId);
         return refreshCurrent("Tag added", chatId);
     }
 
-    public ChatListState.Snapshot removeTag(long chatId, long tagId) throws SQLException {
+    public synchronized ChatListState.Snapshot removeTag(long chatId, long tagId) throws SQLException {
         tagService.removeFromChat(chatId, tagId);
         return refreshCurrent("Tag removed", chatId);
     }
 
-    public ChatListState.Snapshot filterByTag(long tagId) throws SQLException {
+    public synchronized ChatListState.Snapshot filterByTag(long tagId) throws SQLException {
         currentTagId = tagId;
         return filteredSnapshot();
     }
 
-    public ChatListState.Snapshot clearFilters() throws SQLException {
+    public synchronized ChatListState.Snapshot clearFilters() throws SQLException {
         return loadAllChats();
     }
 

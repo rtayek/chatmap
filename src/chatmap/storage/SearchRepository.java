@@ -73,12 +73,12 @@ public final class SearchRepository {
                 ps.setInt(parameter, filters.archived() ? 1 : 0);
             }
             try (ResultSet rs = ps.executeQuery()) {
-                List<SearchResult> results = new ArrayList<>();
+                List<ResultRow> rows = new ArrayList<>();
                 while (rs.next()) {
                     Chat chat = readChat(rs);
-                    results.add(new SearchResult(chat, rs.getString("projectName"), findTagsByChat(chat.id()), null));
+                    rows.add(new ResultRow(chat, rs.getString("projectName"), null));
                 }
-                return results;
+                return withTags(rows);
             }
         }
     }
@@ -95,7 +95,8 @@ public final class SearchRepository {
         StringBuilder sql = new StringBuilder("SELECT c.id, c.projectId, c.source, c.title, c.createdAt, "
                 + "c.updatedAt, c.importedAt, c.archived, c.externalConversationId, c.sourceUri, "
                 + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt, p.name AS projectName, "
-                + "snippet(messageFts, 0, '[', ']', '...', 12) AS snippet "
+                + "snippet(messageFts, 0, '[', ']', '...', 12) AS snippet, "
+                + "bm25(messageFts) AS relevance "
                 + "FROM messageFts "
                 + "JOIN messages m ON m.id = messageFts.rowid "
                 + "JOIN chats c ON c.id = m.chatId ");
@@ -113,7 +114,7 @@ public final class SearchRepository {
         if (filters.archived() != null) {
             sql.append("AND c.archived = ? ");
         }
-        sql.append("ORDER BY c.importedAt, c.id, m.sequence");
+        sql.append("ORDER BY relevance, c.importedAt, c.id, m.sequence, m.id");
 
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int parameter = 1;
@@ -128,34 +129,64 @@ public final class SearchRepository {
                 ps.setInt(parameter++, filters.archived() ? 1 : 0);
             }
             try (ResultSet rs = ps.executeQuery()) {
-                Map<Long, SearchResult> results = new LinkedHashMap<>();
+                Map<Long, ResultRow> rows = new LinkedHashMap<>();
                 while (rs.next()) {
                     Chat chat = readChat(rs);
-                    results.putIfAbsent(chat.id(), new SearchResult(
+                    rows.putIfAbsent(chat.id(), new ResultRow(
                             chat,
                             rs.getString("projectName"),
-                            findTagsByChat(chat.id()),
                             rs.getString("snippet")));
                 }
-                return new ArrayList<>(results.values());
+                return withTags(new ArrayList<>(rows.values()));
             }
         }
     }
 
-    private List<Tag> findTagsByChat(long chatId) throws SQLException {
-        String sql = "SELECT t.id, t.name FROM tags t "
+    private List<SearchResult> withTags(List<ResultRow> rows) throws SQLException {
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, List<Tag>> tagsByChat = findTagsByChatIds(rows.stream()
+                .map(row -> row.chat().id())
+                .toList());
+        List<SearchResult> results = new ArrayList<>();
+        for (ResultRow row : rows) {
+            results.add(new SearchResult(
+                    row.chat(),
+                    row.projectName(),
+                    tagsByChat.getOrDefault(row.chat().id(), List.of()),
+                    row.snippet()));
+        }
+        return results;
+    }
+
+    private Map<Long, List<Tag>> findTagsByChatIds(List<Long> chatIds) throws SQLException {
+        if (chatIds.isEmpty()) {
+            return Map.of();
+        }
+        String placeholders = String.join(",", java.util.Collections.nCopies(chatIds.size(), "?"));
+        String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
                 + "JOIN chatTags ct ON ct.tagId = t.id "
-                + "WHERE ct.chatId = ? ORDER BY t.name COLLATE NOCASE";
+                + "WHERE ct.chatId IN (" + placeholders + ") "
+                + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, chatId);
+            for (int i = 0; i < chatIds.size(); i++) {
+                ps.setLong(i + 1, chatIds.get(i));
+            }
             try (ResultSet rs = ps.executeQuery()) {
-                List<Tag> tags = new ArrayList<>();
+                Map<Long, List<Tag>> tagsByChat = new LinkedHashMap<>();
                 while (rs.next()) {
-                    tags.add(new Tag(rs.getLong("id"), rs.getString("name")));
+                    long chatId = rs.getLong("chatId");
+                    tagsByChat.computeIfAbsent(chatId, ignored -> new ArrayList<>())
+                            .add(new Tag(rs.getLong("id"), rs.getString("name")));
                 }
-                return tags;
+                return tagsByChat;
             }
         }
+    }
+
+    private record ResultRow(Chat chat, String projectName, String snippet) {
     }
 
     private static Chat readChat(ResultSet rs) throws SQLException {

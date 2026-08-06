@@ -43,7 +43,7 @@ class ChatGptArchiveImportServiceTest {
         chats = new ChatRepository(conn);
         messages = new MessageRepository(conn);
         ImportService importService = new ImportService(chats, messages);
-        service = new ChatGptArchiveImportService(importService, chats);
+        service = new ChatGptArchiveImportService(importService);
     }
 
     @AfterEach
