@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class ChromeCdpLauncherTest {
 
     private static PrintStream discard() {
-        return new PrintStream(new ByteArrayOutputStream());
+        return new PrintStream(new ByteArrayOutputStream(), false, StandardCharsets.UTF_8);
     }
 
     /** A loopback server that answers /json/version, standing in for a running Chrome's CDP. */
@@ -109,9 +109,9 @@ final class ChromeCdpLauncherTest {
             }
         };
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
-        boolean up = launcher.ensureChromeRunning("http://127.0.0.1:1", new PrintStream(captured));
+        boolean up = launcher.ensureChromeRunning("http://127.0.0.1:1", new PrintStream(captured, false, StandardCharsets.UTF_8));
         assertFalse(up);
-        assertTrue(captured.toString().contains("Could not launch Chrome automatically"),
-                captured.toString());
+        assertTrue(captured.toString(StandardCharsets.UTF_8).contains("Could not launch Chrome automatically"),
+                captured.toString(StandardCharsets.UTF_8));
     }
 }

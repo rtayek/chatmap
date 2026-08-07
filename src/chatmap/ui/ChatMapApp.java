@@ -476,9 +476,7 @@ public final class ChatMapApp extends Application {
         });
     }
 
-    private void refreshChats() throws Exception {
-        applyListState(controller.loadAllChats());
-    }
+
 
     private void applyListState(ChatListState.Snapshot snapshot) {
         applyingListState = true;

@@ -122,18 +122,18 @@ public final class SummaryService {
         }
 
         return """
-                Read the conversation below and respond with exactly two lines, nothing else.
-
-                Line 1 starts with "SUMMARY: " followed by a two or three sentence plain-language \
-                summary of what was discussed and decided.
-                Line 2 starts with "TAGS: " followed by three to six short lowercase tags, \
-                comma-separated, no punctuation.
-
-                Conversation title: %s
-
-                Conversation:
-                ---
-                %s---
+                Read the conversation below and respond with exactly two lines, nothing else.%n\
+                %n\
+                Line 1 starts with "SUMMARY: " followed by a two or three sentence plain-language %n\
+                summary of what was discussed and decided.%n\
+                Line 2 starts with "TAGS: " followed by three to six short lowercase tags, %n\
+                comma-separated, no punctuation.%n\
+                %n\
+                Conversation title: %s%n\
+                %n\
+                Conversation:%n\
+                ---%n\
+                %s---%n\
                 """.formatted(chat.title(), transcript);
     }
 

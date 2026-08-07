@@ -19,9 +19,7 @@ import java.util.stream.Stream;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Project;
-import chatmap.exporter.ChatExportModel;
 import chatmap.exporter.MarkdownExporter;
-import chatmap.exporter.ProjectHandoffModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
 import chatmap.storage.ChatRepository;
@@ -77,7 +75,7 @@ public final class ChatConsolidatorCli {
                 String projectName = entry.getKey();
                 List<Path> files = entry.getValue();
 
-                System.out.printf("📦 Consolidating Project [%s] (%d files)...\n", projectName, files.size());
+                System.out.printf("📦 Consolidating Project [%s] (%d files)...%n", projectName, files.size());
 
                 Project project = projects.insert(new Project(0, projectName,
                         "Consolidated chats for " + projectName, timestamp, timestamp));
@@ -138,7 +136,9 @@ public final class ChatConsolidatorCli {
                 public FileVisitResult preVisitDirectory(Path subDir, BasicFileAttributes attrs) {
                     // Prune ignored/hidden subtrees instead of walking into them: faster,
                     // and avoids errors from unreadable dirs like .git or node_modules.
-                    if (!subDir.equals(dir) && isIgnoredDirName(subDir.getFileName().toString())) {
+                    Path fn = subDir.getFileName();
+                    String name = (fn != null) ? fn.toString() : "";
+                    if (!subDir.equals(dir) && isIgnoredDirName(name)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     return FileVisitResult.CONTINUE;
@@ -157,7 +157,7 @@ public final class ChatConsolidatorCli {
                     return FileVisitResult.CONTINUE; // skip anything we cannot read
                 }
             });
-        } catch (IOException e) {
+        } catch (IOException ignored) {
             // ignore inaccessible roots
         }
         return list;
@@ -178,7 +178,8 @@ public final class ChatConsolidatorCli {
     }
 
     static boolean isCandidateChatFile(Path file) {
-        String name = file.getFileName().toString().toLowerCase();
+        Path fn = file.getFileName();
+        String name = (fn != null) ? fn.toString().toLowerCase() : "";
         if (name.endsWith(".java") || name.endsWith(".class") || name.endsWith(".jar")
                 || name.endsWith(".gradle") || name.endsWith(".xml") || name.endsWith(".properties")) {
             return false;
@@ -208,7 +209,8 @@ public final class ChatConsolidatorCli {
 
         Path parent = file.getParent();
         if (parent != null) {
-            String pName = parent.getFileName().toString().toLowerCase();
+            Path pFn = parent.getFileName();
+            String pName = (pFn != null) ? pFn.toString().toLowerCase() : "";
             if (pName.equals("chats") || pName.equals("runs")) {
                 return name.endsWith(".md") || name.endsWith(".txt") || name.endsWith(".json");
             }
@@ -236,7 +238,7 @@ public final class ChatConsolidatorCli {
 
         for (int i = 0; i < projectChats.size(); i++) {
             Chat c = projectChats.get(i);
-            sb.append(String.format("| %d | %s | %s | %s |\n", (i + 1), c.title(), c.source().dbValue(), c.importedAt()));
+            sb.append(String.format("| %d | %s | %s | %s |%n", (i + 1), c.title(), c.source().dbValue(), c.importedAt()));
         }
 
         sb.append("\n---\n\n");

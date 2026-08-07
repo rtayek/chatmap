@@ -127,12 +127,14 @@ class SummaryServiceTest {
         Chat chat = insertChatWithMessage();
         SummaryService service = new SummaryService(chats, messages, summaries, tags,
                 prompt -> "SUMMARY: Stored summary.\nTAGS: failtag");
-        conn.createStatement().execute("""
-                CREATE TRIGGER fail_chat_tag BEFORE INSERT ON chatTags
-                BEGIN
-                    SELECT RAISE(ABORT, 'tag assignment failed');
-                END
-                """);
+        try (var stmt = conn.createStatement()) {
+            stmt.execute("""
+                    CREATE TRIGGER fail_chat_tag BEFORE INSERT ON chatTags
+                    BEGIN
+                        SELECT RAISE(ABORT, 'tag assignment failed');
+                    END
+                    """);
+        }
 
         org.junit.jupiter.api.Assertions.assertThrows(java.sql.SQLException.class,
                 () -> service.summarize(chat.id()));

@@ -32,8 +32,8 @@ class CliHistoryProvidersTest {
         Path newer = nested.resolve("rollout-new.jsonl");
         Files.writeString(older, "{}");
         Files.writeString(newer, "{}");
-        older.toFile().setLastModified(1_000_000_000_000L);
-        newer.toFile().setLastModified(2_000_000_000_000L);
+        assertTrue(older.toFile().setLastModified(1_000_000_000_000L));
+        assertTrue(newer.toFile().setLastModified(2_000_000_000_000L));
         Files.writeString(dir.resolve("notes.txt"), "ignore me"); // non-jsonl ignored
 
         assertEquals(newer, LocalCliSessions.newestSessionFile(dir).orElseThrow());

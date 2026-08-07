@@ -245,35 +245,35 @@ class ChatGptArchiveImportServiceTest {
 
     private static String conversation(String id, String title, String text) {
         return """
-                {
-                  "conversation_id":"%s",
-                  "title":"%s",
-                  "create_time":1000.0,
-                  "update_time":1001.0,
-                  "current_node":"m1",
-                  "mapping":{
-                    "root":{"id":"root","parent":null,"message":null},
-                    "m1":{"id":"m1","parent":"root","message":%s}
-                  }
-                }
+                {%n\
+                  "conversation_id":"%s",%n\
+                  "title":"%s",%n\
+                  "create_time":1000.0,%n\
+                  "update_time":1001.0,%n\
+                  "current_node":"m1",%n\
+                  "mapping":{%n\
+                    "root":{"id":"root","parent":null,"message":null},%n\
+                    "m1":{"id":"m1","parent":"root","message":%s}%n\
+                  }%n\
+                }%n\
                 """.formatted(id, title, message("m1", "user", text, 1000.0));
     }
 
     private static String branchingConversation() {
         return """
-                {
-                  "conversation_id":"branch",
-                  "title":"Branch",
-                  "create_time":1000.0,
-                  "update_time":1003.0,
-                  "current_node":"active",
-                  "mapping":{
-                    "root":{"id":"root","parent":null,"message":null},
-                    "q":{"id":"q","parent":"root","message":%s},
-                    "active":{"id":"active","parent":"q","message":%s},
-                    "alternate":{"id":"alternate","parent":"q","message":%s}
-                  }
-                }
+                {%n\
+                  "conversation_id":"branch",%n\
+                  "title":"Branch",%n\
+                  "create_time":1000.0,%n\
+                  "update_time":1003.0,%n\
+                  "current_node":"active",%n\
+                  "mapping":{%n\
+                    "root":{"id":"root","parent":null,"message":null},%n\
+                    "q":{"id":"q","parent":"root","message":%s},%n\
+                    "active":{"id":"active","parent":"q","message":%s},%n\
+                    "alternate":{"id":"alternate","parent":"q","message":%s}%n\
+                  }%n\
+                }%n\
                 """.formatted(
                 message("q", "user", "root", 1000.0),
                 message("active", "assistant", "active answer", 1001.0),
@@ -282,17 +282,17 @@ class ChatGptArchiveImportServiceTest {
 
     private static String noCurrentNodeConversation() {
         return """
-                {
-                  "conversation_id":"fallback",
-                  "title":"Fallback",
-                  "create_time":1000.0,
-                  "update_time":1003.0,
-                  "mapping":{
-                    "root":{"id":"root","parent":null,"message":null},
-                    "early":{"id":"early","parent":"root","message":%s},
-                    "later":{"id":"later","parent":"root","message":%s}
-                  }
-                }
+                {%n\
+                  "conversation_id":"fallback",%n\
+                  "title":"Fallback",%n\
+                  "create_time":1000.0,%n\
+                  "update_time":1003.0,%n\
+                  "mapping":{%n\
+                    "root":{"id":"root","parent":null,"message":null},%n\
+                    "early":{"id":"early","parent":"root","message":%s},%n\
+                    "later":{"id":"later","parent":"root","message":%s}%n\
+                  }%n\
+                }%n\
                 """.formatted(
                 message("early", "user", "early", 1000.0),
                 message("later", "user", "later", 1002.0));
@@ -300,33 +300,33 @@ class ChatGptArchiveImportServiceTest {
 
     private static String unsupportedConversation(String id) {
         return """
-                {
-                  "conversation_id":"%s",
-                  "title":"Unsupported",
-                  "create_time":1000.0,
-                  "update_time":1001.0,
-                  "current_node":"m1",
-                  "mapping":{
-                    "root":{"id":"root","parent":null,"message":null},
-                    "m1":{"id":"m1","parent":"root","message":{
-                      "id":"m1",
-                      "author":{"role":"user"},
-                      "create_time":1000.0,
-                      "content":{"content_type":"multimodal_text","parts":[{"asset_pointer":"file-1"}]}
-                    }}
-                  }
-                }
+                {%n\
+                  "conversation_id":"%s",%n\
+                  "title":"Unsupported",%n\
+                  "create_time":1000.0,%n\
+                  "update_time":1001.0,%n\
+                  "current_node":"m1",%n\
+                  "mapping":{%n\
+                    "root":{"id":"root","parent":null,"message":null},%n\
+                    "m1":{"id":"m1","parent":"root","message":{%n\
+                      "id":"m1",%n\
+                      "author":{"role":"user"},%n\
+                      "create_time":1000.0,%n\
+                      "content":{"content_type":"multimodal_text","parts":[{"asset_pointer":"file-1"}]}%n\
+                    }}%n\
+                  }%n\
+                }%n\
                 """.formatted(id);
     }
 
     private static String message(String id, String role, String text, double createTime) {
         return """
-                {
-                  "id":"%s",
-                  "author":{"role":"%s"},
-                  "create_time":%s,
-                  "content":{"content_type":"text","parts":["%s"]}
-                }
+                {%n\
+                  "id":"%s",%n\
+                  "author":{"role":"%s"},%n\
+                  "create_time":%s,%n\
+                  "content":{"content_type":"text","parts":["%s"]}%n\
+                }%n\
                 """.formatted(id, role, createTime, text);
     }
 }

@@ -115,6 +115,7 @@ public final class ClaudeCodeHistoryProvider implements ChatProvider {
     }
 
     private static String fileTitle(Path file) {
-        return file.getFileName().toString().replaceFirst("\\.jsonl$", "");
+        Path fn = file.getFileName();
+        return (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
     }
 }

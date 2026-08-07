@@ -71,7 +71,10 @@ public class ChromeCdpLauncher {
                     .build();
             HttpResponse<Void> response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             return response.statusCode() / 100 == 2;
-        } catch (Exception notReachable) {
+        } catch (IOException | InterruptedException | RuntimeException notReachable) {
+            if (notReachable instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             return false;
         }
     }

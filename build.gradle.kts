@@ -7,13 +7,19 @@ plugins {
     application
     eclipse
     id("org.openjfx.javafxplugin") version "0.1.0"
+    checkstyle
+    pmd
+    id("com.github.spotbugs") version "6.0.26"
+    jacoco
 }
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(25))
+        languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
+
+layout.buildDirectory.set(file(".gradle-build"))
 
 sourceSets {
     main {
@@ -48,7 +54,7 @@ dependencies {
 }
 
 javafx {
-    version = "25.0.1"
+    version = "21.0.6"
     modules = listOf("javafx.controls")
 }
 
@@ -155,3 +161,64 @@ tasks.named("eclipseJdt") {
         }
     }
 }
+
+// -----------------------------------------------------------------------------
+// Checkstyle
+// -----------------------------------------------------------------------------
+checkstyle {
+    toolVersion = "10.18.0"
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+    isIgnoreFailures = false
+    isShowViolations = true
+}
+
+// -----------------------------------------------------------------------------
+// PMD
+// -----------------------------------------------------------------------------
+pmd {
+    toolVersion = "7.4.0"
+    isConsoleOutput = true
+    isIgnoreFailures = false
+    ruleSets = emptyList()
+    ruleSetConfig = resources.text.fromFile(file("${rootDir}/config/pmd/pmd.xml"))
+}
+
+// -----------------------------------------------------------------------------
+// SpotBugs
+// -----------------------------------------------------------------------------
+spotbugs {
+    toolVersion = "4.8.6"
+    ignoreFailures.set(false)
+    excludeFilter.set(file("${rootDir}/config/spotbugs/exclude.xml"))
+}
+
+// -----------------------------------------------------------------------------
+// JaCoCo Code Coverage
+// -----------------------------------------------------------------------------
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.named<Test>("test") {
+    finalizedBy(tasks.named("jacocoTestReport"))
+}
+
+tasks.named<JacocoReport>("jacocoTestReport") {
+    dependsOn(tasks.named("test"))
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/html"))
+    }
+}
+
+// Unified check task lifecycle execution
+tasks.named("check") {
+    dependsOn(
+        tasks.named("checkstyleMain"),
+        tasks.named("pmdMain"),
+        tasks.named("spotbugsMain"),
+        tasks.named("jacocoTestReport")
+    )
+}
+

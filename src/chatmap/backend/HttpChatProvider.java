@@ -201,8 +201,10 @@ public final class HttpChatProvider implements ChatProvider {
                 lastFailure = notUpYet;
             }
             if (System.nanoTime() >= deadline) {
-                throw lastFailure != null ? lastFailure
-                        : new IOException(name + " did not come up within " + launchWait);
+                if (lastFailure == null) {
+                    throw new IOException(name + " did not come up within " + launchWait);
+                }
+                throw lastFailure;
             }
             Thread.sleep(sleepMillis);
             sleepMillis = Math.min(sleepMillis * 2, 2000); // gentle backoff, capped at 2s

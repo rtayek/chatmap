@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Exclude dependency injection and connection getter/setter representation exposure -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <!-- Exclude top-level main method catch Exception in CLI classes -->
+    <Match>
+        <Class name="~chatmap\.cli\..*"/>
+        <Bug pattern="REC_CATCH_EXCEPTION"/>
+    </Match>
+    <!-- Exclude redundant null check false positives from bytecode analysis -->
+    <Match>
+        <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
+    </Match>
+</FindBugsFilter>

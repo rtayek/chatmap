@@ -117,7 +117,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
                 }
                 turns.add(new ClaudeTurn(role, text.strip()));
             }
-        } catch (RuntimeException notJson) {
+        } catch (RuntimeException ignored) {
             // return whatever parsed so far (empty on malformed input)
         }
         return turns;

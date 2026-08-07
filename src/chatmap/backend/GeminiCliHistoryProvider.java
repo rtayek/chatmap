@@ -50,7 +50,8 @@ public final class GeminiCliHistoryProvider implements ChatProvider {
         if (turns.isEmpty()) {
             return Optional.empty();
         }
-        String title = file.getFileName().toString().replaceFirst("\\.jsonl$", "");
+        Path fn = file.getFileName();
+        String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
         String modifiedAt = LocalCliSessions.modifiedAt(file);
         return Optional.of(LocalCliSessions.toImportedChat(title, turns, modifiedAt,
                 chatmap.domain.Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
