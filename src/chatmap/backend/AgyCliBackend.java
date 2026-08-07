@@ -35,7 +35,7 @@ public final class AgyCliBackend implements CommandBackedAiBackend {
         List<String> command = commandFor(request);
         CommandResult result;
         try {
-            result = commandExecutor.run(new CommandRequest(command, "", timeout));
+            result = commandExecutor.run(new CommandRequest(command, request.effectivePrompt(), timeout));
         } catch (CommandExecutionException exception) {
             throw new AiBackendStartupException(
                     "Could not start Antigravity CLI: " + exception.getMessage(), BACKEND_ID, exception);
@@ -68,8 +68,8 @@ public final class AgyCliBackend implements CommandBackedAiBackend {
     public List<String> commandFor(AiRequest request) {
         Objects.requireNonNull(request, "request");
         if (request.sessionId().isPresent() && !request.sessionId().get().isBlank()) {
-            return List.of("agy", "--resume", request.sessionId().get(), "-p", request.effectivePrompt());
+            return List.of("agy", "--resume", request.sessionId().get(), "-p");
         }
-        return List.of("agy", "-p", request.effectivePrompt());
+        return List.of("agy", "-p");
     }
 }

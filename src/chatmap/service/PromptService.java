@@ -35,9 +35,15 @@ public final class PromptService {
     private final Map<String, String> backendLabels;
     private final ImportService importService;
     private final Clock clock;
+    private final Path transcriptDirectory;
 
     public PromptService(Map<String, AiBackend> backends, ImportService importService, Clock clock) {
         this(backends, backendIdsAsLabels(backends), importService, clock);
+    }
+
+    public PromptService(Map<String, AiBackend> backends, ImportService importService,
+            Clock clock, Path transcriptDirectory) {
+        this(backends, backendIdsAsLabels(backends), importService, clock, transcriptDirectory);
     }
 
     public PromptService(
@@ -46,6 +52,17 @@ public final class PromptService {
             ImportService importService,
             Clock clock
     ) {
+        this(backends, backendLabels, importService, clock,
+                ChatMapPaths.homeDirectory().resolve("transcripts"));
+    }
+
+    public PromptService(
+            Map<String, AiBackend> backends,
+            Map<String, String> backendLabels,
+            ImportService importService,
+            Clock clock,
+            Path transcriptDirectory
+    ) {
         this.backends = Map.copyOf(Objects.requireNonNull(backends, "backends"));
         this.backendLabels = Map.copyOf(Objects.requireNonNull(backendLabels, "backendLabels"));
         if (!this.backendLabels.keySet().containsAll(this.backends.keySet())) {
@@ -53,6 +70,8 @@ public final class PromptService {
         }
         this.importService = importService;
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.transcriptDirectory = Objects.requireNonNull(transcriptDirectory, "transcriptDirectory")
+                .toAbsolutePath().normalize();
     }
 
     public boolean hasBackend(String backendName) {
@@ -177,12 +196,11 @@ public final class PromptService {
         return Source.plainText;
     }
 
-    private static Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {
+    private Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {
         try {
-            Path dir = ChatMapPaths.homeDirectory().resolve("transcripts");
-            Files.createDirectories(dir);
+            Files.createDirectories(transcriptDirectory);
             String fn = "prompt-" + started.toEpochMilli() + ".md";
-            Path file = dir.resolve(fn);
+            Path file = transcriptDirectory.resolve(fn);
             String content = "# Prompt Execution Log\n\n- Backend: " + backendId
                     + "\n- Timestamp: " + started + "\n\n## USER:\n" + prompt
                     + "\n\n## ASSISTANT:\n" + responseText + "\n";

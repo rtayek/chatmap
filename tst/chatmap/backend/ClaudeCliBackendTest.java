@@ -25,13 +25,14 @@ final class ClaudeCliBackendTest {
     }
 
     @Test
-    void constructsClaudePrintCommandWithPromptAsOneArgument() {
+    void constructsClaudePrintCommandWithPromptOnStandardInput() {
         String prompt = "quotes \" semicolon ; dollars $HOME backticks `x` newline\nend";
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
         backend.ask(AiRequest.of(prompt));
 
-        assertEquals(List.of("claude", "-p", prompt), executor.request.command());
+        assertEquals(List.of("claude", "-p"), executor.request.command());
+        assertEquals(prompt, executor.request.standardInput());
     }
 
     @Test
@@ -40,7 +41,8 @@ final class ClaudeCliBackendTest {
 
         backend.ask(AiRequest.withSession("Continue work", "sess-123-abc"));
 
-        assertEquals(List.of("claude", "--resume", "sess-123-abc", "-p", "Continue work"), executor.request.command());
+        assertEquals(List.of("claude", "--resume", "sess-123-abc", "-p"), executor.request.command());
+        assertEquals("Continue work", executor.request.standardInput());
     }
 
     @Test
@@ -49,12 +51,11 @@ final class ClaudeCliBackendTest {
 
         backend.ask(AiRequest.withProfile("Help me understand fractions", PromptProfile.GUIDED_TEACHING));
 
-        String promptArgument = executor.request.command().get(2);
-        assertTrue(promptArgument.contains("[GUIDED_TEACHING mode]"));
-        assertTrue(promptArgument.contains("Help the learner understand"));
-        assertTrue(promptArgument.contains("Match any requested technical level"));
-        assertTrue(promptArgument.contains("Help me understand fractions"));
-        assertEquals(3, executor.request.command().size());
+        assertEquals(List.of("claude", "-p"), executor.request.command());
+        assertTrue(executor.request.standardInput().contains("[GUIDED_TEACHING mode]"));
+        assertTrue(executor.request.standardInput().contains("Help the learner understand"));
+        assertTrue(executor.request.standardInput().contains("Match any requested technical level"));
+        assertTrue(executor.request.standardInput().contains("Help me understand fractions"));
     }
 
     @Test

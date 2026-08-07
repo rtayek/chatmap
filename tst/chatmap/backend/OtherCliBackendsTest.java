@@ -20,7 +20,8 @@ final class OtherCliBackendsTest {
 
         assertEquals("Codex answer", response.text());
         assertEquals("Codex CLI", response.backendId().value());
-        assertEquals(List.of("codex", "-p", "Explain recursion"), executor.request.command());
+        assertEquals(List.of("codex", "-p"), executor.request.command());
+        assertEquals("Explain recursion", executor.request.standardInput());
     }
 
     @Test
@@ -30,7 +31,8 @@ final class OtherCliBackendsTest {
 
         backend.ask(AiRequest.withSession("Next step", "codex-sess-1"));
 
-        assertEquals(List.of("codex", "--resume", "codex-sess-1", "-p", "Next step"), executor.request.command());
+        assertEquals(List.of("codex", "--resume", "codex-sess-1", "-p"), executor.request.command());
+        assertEquals("Next step", executor.request.standardInput());
     }
 
     @Test
@@ -42,7 +44,8 @@ final class OtherCliBackendsTest {
 
         assertEquals("Agy answer", response.text());
         assertEquals("Antigravity CLI", response.backendId().value());
-        assertEquals(List.of("agy", "-p", "Hello Antigravity"), executor.request.command());
+        assertEquals(List.of("agy", "-p"), executor.request.command());
+        assertEquals("Hello Antigravity", executor.request.standardInput());
     }
 
     @Test
@@ -52,7 +55,8 @@ final class OtherCliBackendsTest {
 
         backend.ask(AiRequest.withSession("Resume task", "agy-sess-99"));
 
-        assertEquals(List.of("agy", "--resume", "agy-sess-99", "-p", "Resume task"), executor.request.command());
+        assertEquals(List.of("agy", "--resume", "agy-sess-99", "-p"), executor.request.command());
+        assertEquals("Resume task", executor.request.standardInput());
     }
 
     @Test
