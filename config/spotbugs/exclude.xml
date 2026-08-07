@@ -16,4 +16,26 @@
     <Match>
         <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
     </Match>
+    <!-- Validating in constructors (Objects.requireNonNull, argument checks) is the
+         codebase idiom. None of these classes declare a finalizer, so the theoretical
+         finalizer-attack this detector warns about does not apply. -->
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+    <!-- Path.getFileName() is @Nullable only for a root path; paths produced by
+         Files.walk/Files.list here always have a name, so these null-deref reports
+         are false positives from newer SpotBugs. -->
+    <Match>
+        <Or>
+            <Class name="chatmap.backend.LocalCliSessions"/>
+            <Class name="chatmap.cli.ChatConsolidatorCli"/>
+        </Or>
+        <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    </Match>
+    <!-- Absolute paths in tests are intentional: these tests verify OS-specific
+         (Windows/Git-Bash) absolute-path handling. -->
+    <Match>
+        <Class name="~chatmap\..*Test"/>
+        <Bug pattern="DMI_HARDCODED_ABSOLUTE_FILENAME"/>
+    </Match>
 </FindBugsFilter>

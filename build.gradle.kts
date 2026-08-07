@@ -9,13 +9,13 @@ plugins {
     id("org.openjfx.javafxplugin") version "0.1.0"
     checkstyle
     pmd
-    id("com.github.spotbugs") version "6.0.26"
+    id("com.github.spotbugs") version "6.5.10"
     jacoco
 }
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
 
@@ -54,7 +54,7 @@ dependencies {
 }
 
 javafx {
-    version = "21.0.6"
+    version = "25.0.1"
     modules = listOf("javafx.controls")
 }
 
@@ -176,7 +176,7 @@ checkstyle {
 // PMD
 // -----------------------------------------------------------------------------
 pmd {
-    toolVersion = "7.4.0"
+    toolVersion = "7.26.0"
     isConsoleOutput = true
     isIgnoreFailures = false
     ruleSets = emptyList()
@@ -187,7 +187,7 @@ pmd {
 // SpotBugs
 // -----------------------------------------------------------------------------
 spotbugs {
-    toolVersion = "4.8.6"
+    toolVersion = "4.10.3"
     ignoreFailures.set(false)
     excludeFilter.set(file("${rootDir}/config/spotbugs/exclude.xml"))
 }
@@ -196,7 +196,7 @@ spotbugs {
 // JaCoCo Code Coverage
 // -----------------------------------------------------------------------------
 jacoco {
-    toolVersion = "0.8.12"
+    toolVersion = "0.8.15"
 }
 
 tasks.named<Test>("test") {

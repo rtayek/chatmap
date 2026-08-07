@@ -24,6 +24,7 @@ import chatmap.backend.CommandRequest;
 import chatmap.backend.CommandResult;
 import chatmap.backend.CommandRunner;
 import chatmap.backend.PromptProfile;
+import chatmap.config.ChatMapPaths;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
@@ -156,8 +157,9 @@ public final class PromptService {
             Message assistantMsg = new Message(0L, 0L, "assistant", responseText, 1, now, null);
 
             importService.persist(new ImportedChat(chat, List.of(userMsg, assistantMsg)));
-        } catch (SQLException ignored) {
-            // Log or ignore db recording failure so prompt execution output is preserved
+        } catch (SQLException e) {
+            // Don't fail the prompt run over a recording failure, but don't hide it either.
+            System.err.println("[ChatMap] Failed to record prompt in database: " + e.getMessage());
         }
     }
 
@@ -177,7 +179,7 @@ public final class PromptService {
 
     private static Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {
         try {
-            Path dir = Path.of(System.getProperty("user.home"), ".myclaw", "transcripts");
+            Path dir = ChatMapPaths.homeDirectory().resolve("transcripts");
             Files.createDirectories(dir);
             String fn = "prompt-" + started.toEpochMilli() + ".md";
             Path file = dir.resolve(fn);
@@ -187,6 +189,7 @@ public final class PromptService {
             Files.writeString(file, content, StandardCharsets.UTF_8);
             return file;
         } catch (IOException e) {
+            System.err.println("[ChatMap] Failed to write prompt transcript: " + e.getMessage());
             return Path.of("transcript.md");
         }
     }
