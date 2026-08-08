@@ -8,7 +8,9 @@ import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -116,41 +118,46 @@ public final class Database {
     /** Executes schema.sql against an existing connection. Idempotent. */
     public static void applySchema(Connection conn) throws SQLException, IOException {
         String sql = readSchemaResource();
-        // Split on ';' at end of line. Trigger bodies contain ';' followed by
-        // more text on the same statement, but their inner statements also end
-        // at line ends -- so we split on "END;" boundaries carefully instead:
-        // simplest robust approach for this schema: split on ";\n" then stitch
-        // trigger bodies back together by tracking BEGIN...END.
-        StringBuilder current = new StringBuilder();
-        boolean inTrigger = false;
         try (Statement st = conn.createStatement()) {
-            for (String line : sql.split("\r?\n")) {
-                String trimmed = line.trim();
-                if (trimmed.isEmpty() || trimmed.startsWith("--")) {
-                    continue;
-                }
-                current.append(line).append('\n');
-                String upper = trimmed.toUpperCase();
-                if (upper.startsWith("CREATE TRIGGER")) {
-                    inTrigger = true;
-                }
-                boolean statementEnds;
-                if (inTrigger) {
-                    statementEnds = upper.equals("END;");
-                } else {
-                    statementEnds = trimmed.endsWith(";");
-                }
-                if (statementEnds) {
-                    st.execute(current.toString());
-                    current.setLength(0);
-                    inTrigger = false;
-                }
-            }
-            String leftover = current.toString().trim();
-            if (!leftover.isEmpty()) {
-                st.execute(leftover);
+            for (String statement : parseSchemaStatements(sql)) {
+                st.execute(statement);
             }
         }
+    }
+
+    /**
+     * Splits schema.sql into executable SQL statements, ignoring comments and
+     * keeping CREATE TRIGGER blocks intact.
+     */
+    static List<String> parseSchemaStatements(String sql) {
+        List<String> statements = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inTrigger = false;
+        for (String line : sql.split("\r?\n")) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("--")) {
+                continue;
+            }
+            current.append(line).append('\n');
+            String upper = trimmed.toUpperCase(java.util.Locale.ROOT);
+            if (upper.startsWith("CREATE TRIGGER")) {
+                inTrigger = true;
+            }
+            boolean statementEnds = inTrigger ? upper.endsWith("END;") : trimmed.endsWith(";");
+            if (statementEnds) {
+                String stmt = current.toString().trim();
+                if (!stmt.isEmpty()) {
+                    statements.add(stmt);
+                }
+                current.setLength(0);
+                inTrigger = false;
+            }
+        }
+        String leftover = current.toString().trim();
+        if (!leftover.isEmpty()) {
+            statements.add(leftover);
+        }
+        return statements;
     }
 
     /** Applies additive migrations that CREATE TABLE IF NOT EXISTS cannot perform on old databases. */
