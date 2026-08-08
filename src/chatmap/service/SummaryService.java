@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import chatmap.backend.ClaudeCliClient;
 import chatmap.backend.SummaryClient;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
@@ -43,11 +42,6 @@ public final class SummaryService {
     private final TagRepository tags;
     private final SummaryClient claude;
     private final TransactionRunner transactions;
-
-    public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
-            TagRepository tags, ClaudeCliClient claude) {
-        this(chats, messages, summaries, tags, claude, new TransactionRunner(chats.connection()));
-    }
 
     public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
             TagRepository tags, SummaryClient claude) {

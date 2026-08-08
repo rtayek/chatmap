@@ -38,22 +38,12 @@ public final class PromptService {
     private final Path transcriptDirectory;
 
     public PromptService(Map<String, AiBackend> backends, ImportService importService, Clock clock) {
-        this(backends, backendIdsAsLabels(backends), importService, clock);
+        this(backends, backendIdsAsLabels(backends), importService, clock, ChatMapPaths.transcriptsDirectory());
     }
 
     public PromptService(Map<String, AiBackend> backends, ImportService importService,
             Clock clock, Path transcriptDirectory) {
         this(backends, backendIdsAsLabels(backends), importService, clock, transcriptDirectory);
-    }
-
-    public PromptService(
-            Map<String, AiBackend> backends,
-            Map<String, String> backendLabels,
-            ImportService importService,
-            Clock clock
-    ) {
-        this(backends, backendLabels, importService, clock,
-                ChatMapPaths.transcriptsDirectory());
     }
 
     public PromptService(
