@@ -25,6 +25,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 
+import static chatmap.importer.ChatGptMapping.isoTimestamp;
+import static chatmap.importer.ChatGptMapping.mapRole;
+import static chatmap.importer.ChatGptMapping.object;
+import static chatmap.importer.ChatGptMapping.string;
+
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
@@ -228,10 +233,6 @@ public final class ChatGptArchiveImporter {
         return String.join("\n\n", parts);
     }
 
-    private static String mapRole(JsonObject message) {
-        return ChatGptMapping.mapRole(message);
-    }
-
     private static List<String> conversationEntries(ZipFile zip) {
         TreeSet<String> numbered = new TreeSet<>();
         boolean legacy = false;
@@ -276,18 +277,8 @@ public final class ChatGptArchiveImporter {
         return null;
     }
 
-    private static JsonObject object(JsonElement element) {
-        return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
-    }
-
     private static JsonArray array(JsonElement element) {
         return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
-    }
-
-    private static String string(JsonElement element) {
-        return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()
-                ? element.getAsString()
-                : null;
     }
 
     private static String discriminator(JsonObject object) {
@@ -336,10 +327,6 @@ public final class ChatGptArchiveImporter {
         if (text != null && !text.isBlank()) {
             parts.add(text.strip());
         }
-    }
-
-    private static String isoTimestamp(JsonElement value) {
-        return ChatGptMapping.isoTimestamp(value);
     }
 
     private static String concise(RuntimeException e) {
