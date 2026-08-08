@@ -34,6 +34,7 @@ final class ChatMapPathsTest {
                 current);
 
         assertEquals(explicit.toAbsolutePath().normalize(), parsed.paths().homeDirectory());
+        assertEquals(explicit.toAbsolutePath().normalize().resolve("transcripts"), parsed.paths().transcriptsDirectory());
         assertEquals(List.of("archive.zip"), parsed.remainingArgs());
     }
 

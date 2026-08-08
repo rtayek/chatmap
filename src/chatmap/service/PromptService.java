@@ -53,7 +53,7 @@ public final class PromptService {
             Clock clock
     ) {
         this(backends, backendLabels, importService, clock,
-                ChatMapPaths.homeDirectory().resolve("transcripts"));
+                ChatMapPaths.transcriptsDirectory());
     }
 
     public PromptService(

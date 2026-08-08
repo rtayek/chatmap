@@ -26,6 +26,10 @@ public final class ChatMapPaths {
         return parse(List.of()).paths().databasePath();
     }
 
+    public static Path transcriptsDirectory() {
+        return parse(List.of()).paths().transcriptsDirectory();
+    }
+
     public static ParsedArguments parse(String[] args) {
         return parse(Arrays.asList(args));
     }
@@ -104,6 +108,10 @@ public final class ChatMapPaths {
         public ResolvedPaths {
             homeDirectory = homeDirectory.toAbsolutePath().normalize();
             databasePath = databasePath.toAbsolutePath().normalize();
+        }
+
+        public Path transcriptsDirectory() {
+            return homeDirectory.resolve("transcripts");
         }
     }
 
