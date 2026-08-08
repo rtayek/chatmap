@@ -86,7 +86,7 @@ public final class ImportService {
             return persistWithExternalIdentity(incoming, imported.messages());
         }
 
-        if (isProviderSource(incoming.source())) {
+        if (incoming.source().isProvider()) {
             var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), transcriptHash);
             if (exactDuplicate.isPresent()) {
                 Chat existing = exactDuplicate.get();
@@ -126,10 +126,14 @@ public final class ImportService {
     }
 
     private void insertMessages(long chatId, List<Message> incomingMessages) throws SQLException {
-        for (Message message : incomingMessages) {
-            messages.insert(new Message(0, chatId, message.role(), message.text(),
-                    message.sequence(), message.timestamp(), message.rawJson()));
+        if (incomingMessages.isEmpty()) {
+            return;
         }
+        List<Message> prepared = incomingMessages.stream()
+                .map(message -> new Message(0, chatId, message.role(), message.text(),
+                        message.sequence(), message.timestamp(), message.rawJson()))
+                .toList();
+        messages.insertAll(prepared);
     }
 
     private static ImportedChat withSourceUri(ImportedChat imported, String sourceUri) {
@@ -148,13 +152,6 @@ public final class ImportService {
                 chat.createdAt(), chat.updatedAt(), chat.importedAt(), chat.archived(),
                 blankToNull(chat.externalConversationId()), blankToNull(chat.sourceUri()),
                 contentHash, sourceUpdatedAt, lastImportedAt);
-    }
-
-    private static boolean isProviderSource(chatmap.domain.Source source) {
-        return switch (source) {
-            case claudeWeb, chatGptWeb, geminiWeb, claudeCode, codexCli, geminiCli -> true;
-            default -> false;
-        };
     }
 
     private static String blankToNull(String value) {

@@ -124,6 +124,22 @@ class RepositoryTest {
     }
 
     @Test
+    void insertsBatchOfMessagesInSingleOperation() throws Exception {
+        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Batch", null, null, "2026-07-06T00:00:00Z", false));
+        List<Message> batch = List.of(
+                new Message(0, chat.id(), "user", "Batch item 1", 0, null, null),
+                new Message(0, chat.id(), "assistant", "Batch item 2", 1, null, null)
+        );
+
+        messages.insertAll(batch);
+
+        List<Message> stored = messages.findByChat(chat.id());
+        assertEquals(2, stored.size());
+        assertEquals("Batch item 1", stored.get(0).text());
+        assertEquals("Batch item 2", stored.get(1).text());
+    }
+
+    @Test
     void assignsFindsRemovesAndCascadesTags() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Tagged",
                 null, null, "2026-07-06T00:00:00Z", false));

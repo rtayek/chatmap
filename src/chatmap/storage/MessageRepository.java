@@ -49,6 +49,27 @@ public final class MessageRepository {
         }
     }
 
+    /** Inserts a list of messages in a single JDBC batch operation. */
+    public void insertAll(List<Message> messageList) throws SQLException {
+        if (messageList.isEmpty()) {
+            return;
+        }
+        String sql = "INSERT INTO messages (chatId, role, text, sequence, timestamp, rawJson) "
+                + "VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Message m : messageList) {
+                ps.setLong(1, m.chatId());
+                ps.setString(2, m.role());
+                ps.setString(3, m.text());
+                ps.setInt(4, m.sequence());
+                ps.setString(5, m.timestamp());
+                ps.setString(6, m.rawJson());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+    }
+
     public void updateText(long id, String newText) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("UPDATE messages SET text = ? WHERE id = ?")) {
             ps.setString(1, newText);

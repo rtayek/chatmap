@@ -12,25 +12,31 @@ package chatmap.domain;
  * without losing access to the user's chats.
  */
 public enum Source {
-    plainText("plainText"),
-    markdown("markdown"),
-    chatgptJson("chatgptJson"),
-    claudeWeb("claudeWeb"),
-    chatGptWeb("chatGptWeb"),
-    geminiWeb("geminiWeb"),
-    claudeCode("claudeCode"),
-    codexCli("codexCli"),
-    geminiCli("geminiCli"),
-    unknown("unknown");
+    plainText("plainText", false),
+    markdown("markdown", false),
+    chatgptJson("chatgptJson", false),
+    claudeWeb("claudeWeb", true),
+    chatGptWeb("chatGptWeb", true),
+    geminiWeb("geminiWeb", true),
+    claudeCode("claudeCode", true),
+    codexCli("codexCli", true),
+    geminiCli("geminiCli", true),
+    unknown("unknown", false);
 
     private final String dbValue;
+    private final boolean isProvider;
 
-    Source(String dbValue) {
+    Source(String dbValue, boolean isProvider) {
         this.dbValue = dbValue;
+        this.isProvider = isProvider;
     }
 
     public String dbValue() {
         return dbValue;
+    }
+
+    public boolean isProvider() {
+        return isProvider;
     }
 
     public static Source fromDbValue(String dbValue) {
