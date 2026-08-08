@@ -1,8 +1,5 @@
 package chatmap.cli;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.sql.Connection;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
@@ -11,13 +8,8 @@ import chatmap.backend.AiBackend;
 import chatmap.backend.DefaultAiBackends;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
-import chatmap.service.ImportService;
 import chatmap.service.PromptResult;
 import chatmap.service.PromptService;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
 
 /** Executable CLI entry point for running prompts against AI backends and recording chats in SQLite. */
 public final class RunPromptCli {
@@ -57,16 +49,13 @@ public final class RunPromptCli {
             prompt = String.join(" ", remaining.subList(1, remaining.size()));
         }
 
-        ResolvedPaths paths = parsedArguments.paths();
-        Path dbPath = paths.databasePath();
-        Files.createDirectories(paths.homeDirectory());
-
-        try (Connection conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize()) {
-            ChatRepository chats = new ChatRepository(conn);
-            MessageRepository messages = new MessageRepository(conn);
-            ImportService importService = new ImportService(chats, messages);
-
-            PromptService promptService = new PromptService(backends, null, importService, clock, paths.transcriptsDirectory());
+        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
+            PromptService promptService = new PromptService(
+                    backends,
+                    null,
+                    context.importService(),
+                    clock,
+                    context.paths().transcriptsDirectory());
 
             if (!promptService.hasBackend(backendId)) {
                 throw new IllegalArgumentException("Unknown backend '" + backendId + "'. Available backends: "

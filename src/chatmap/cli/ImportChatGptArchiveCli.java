@@ -1,18 +1,10 @@
 package chatmap.cli;
 
 import java.nio.file.Path;
-import java.nio.file.Files;
-import java.sql.Connection;
 
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
-import chatmap.service.ChatGptArchiveImportService;
 import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
-import chatmap.service.ImportService;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
 
 /** Imports a ChatGPT export ZIP into the same database used by the JavaFX app. */
 public final class ImportChatGptArchiveCli {
@@ -33,24 +25,10 @@ public final class ImportChatGptArchiveCli {
             return;
         }
         Path archive = Path.of(parsedArguments.remainingArgs().getFirst());
-        ResolvedPaths paths = parsedArguments.paths();
-        Path dbPath = paths.databasePath();
-        System.out.println(ChatMapPaths.diagnostics(paths));
+        System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));
 
-        try {
-            Files.createDirectories(paths.homeDirectory());
-        } catch (Exception e) {
-            System.err.println("Could not create ChatMap data directory: " + e.getMessage());
-            System.exit(1);
-            return;
-        }
-
-        try (Connection conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize()) {
-            ChatRepository chats = new ChatRepository(conn);
-            ImportService importService = new ImportService(chats, new MessageRepository(conn));
-            ChatGptArchiveImportService archiveImportService =
-                    new ChatGptArchiveImportService(importService);
-            BulkImportResult result = archiveImportService.importArchive(archive);
+        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
+            BulkImportResult result = context.archiveImportService().importArchive(archive);
             System.out.println(result.summary());
             System.out.println("conversation entries: " + result.conversationEntries().size());
             System.out.println("unsupported content parts: " + result.unsupportedContentParts());

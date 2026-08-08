@@ -1,26 +1,9 @@
 package chatmap.cli;
 
-import java.nio.file.Path;
-import java.nio.file.Files;
-import java.sql.Connection;
-import java.time.Duration;
-import java.util.List;
-
-import chatmap.backend.ChatProvider;
-import chatmap.backend.ClaudeCliBackend;
-import chatmap.backend.DefaultChatProviders;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.ChatSummary;
-import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.SummaryRepository;
-import chatmap.storage.TagRepository;
-import chatmap.service.SummaryService;
 
 /**
  * Command-line entry point for the one deliberate extra step: summarize and
@@ -64,30 +47,12 @@ public final class SummarizeChatCli {
             }
         }
 
-        ResolvedPaths paths = parsedArguments.paths();
-        Path dbPath = paths.databasePath();
-        System.out.println(ChatMapPaths.diagnostics(paths));
+        System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));
 
-        try {
-            Files.createDirectories(paths.homeDirectory());
-        } catch (Exception e) {
-            System.err.println("Could not create ChatMap data directory: " + e.getMessage());
-            System.exit(1);
-            return;
-        }
-
-        try (Connection conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize()) {
-            ChatRepository chats = new ChatRepository(conn);
-            MessageRepository messages = new MessageRepository(conn);
-            ImportService importService = new ImportService(chats, messages);
-
-            List<ChatProvider> providers = DefaultChatProviders.ordered();
-            LiveChatFetchService fetchService =
-                    new LiveChatFetchService(providers, importService, chats);
-
+        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
             LiveChatFetchService.Resolution resolution;
             try {
-                resolution = fetchService.resolve(requestedChatId);
+                resolution = context.liveChatFetchService().resolve(requestedChatId);
             } catch (LiveChatFetchService.NoChatAvailableException e) {
                 System.err.println(e.getMessage());
                 System.exit(1);
@@ -98,15 +63,8 @@ public final class SummarizeChatCli {
                 System.out.println("No chatId given; defaulting to " + resolution.how() + ".");
             }
 
-            SummaryService summaryService = new SummaryService(
-                    chats,
-                    messages,
-                    new SummaryRepository(conn),
-                    new TagRepository(conn),
-                    new ClaudeCliBackend(Duration.ofMinutes(3)));
-
             System.out.println("Summarizing chat " + chatId + " ...");
-            ChatSummary summary = summaryService.summarize(chatId);
+            ChatSummary summary = context.summaryService().summarize(chatId);
 
             System.out.println();
             System.out.println("Summary:");

@@ -20,13 +20,11 @@ import chatmap.storage.Database;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
-import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
@@ -38,7 +36,6 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -83,15 +80,18 @@ public final class ChatMapApp extends Application {
 
         fontSizeState = new FontSizeState();
         status = new Label("Ready");
-        chatList = createChatListView();
-        detail = createDetailTextArea();
+        chatList = ChatMapViewBuilder.createChatListView(
+                (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
+        detail = ChatMapViewBuilder.createDetailTextArea();
 
         ToolBar toolbar = createToolbar();
         HBox searchBar = createSearchBar();
         HBox projectBar = createProjectBar();
         HBox tagBar = createTagBar();
 
-        root = assembleRootPane(toolbar, searchBar, projectBar, tagBar);
+        SplitPane content = new SplitPane(chatList, detail);
+        content.setDividerPositions(0.32);
+        root = ChatMapViewBuilder.assembleRootPane(toolbar, searchBar, projectBar, tagBar, content, status);
 
         refreshOrganizationChoices();
         runInBackground("Loading chats...", null, () -> controller.loadAllChats());
@@ -105,28 +105,7 @@ public final class ChatMapApp extends Application {
 
 
 
-    private ListView<SearchResult> createChatListView() {
-        ListView<SearchResult> list = new ListView<>();
-        list.setMinWidth(180);
-        list.setCellFactory(chatListView -> new ListCell<>() {
-            @Override
-            protected void updateItem(SearchResult result, boolean empty) {
-                super.updateItem(result, empty);
-                setText(empty || result == null ? null : ChatMapViewBuilder.formatResultRow(result));
-            }
-        });
-        list.getSelectionModel().selectedItemProperty().addListener(
-                (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
-        return list;
-    }
 
-    private TextArea createDetailTextArea() {
-        TextArea textArea = new TextArea();
-        textArea.setEditable(false);
-        textArea.setWrapText(true);
-        textArea.setMinWidth(300);
-        return textArea;
-    }
 
     private ToolBar createToolbar() {
         exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
@@ -196,20 +175,7 @@ public final class ChatMapApp extends Application {
                 button("Clear Filters", this::clearSearchAndFilters));
     }
 
-    private BorderPane assembleRootPane(ToolBar toolbar, HBox searchBar, HBox projectBar, HBox tagBar) {
-        BorderPane pane = new BorderPane();
-        pane.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));
-        SplitPane content = new SplitPane(chatList, detail);
-        content.setDividerPositions(0.32);
-        pane.setCenter(content);
-        pane.setBottom(new VBox(status));
-        BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
-        BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));
-        BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));
-        BorderPane.setMargin(content, new Insets(8));
-        BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
-        return pane;
-    }
+
 
     @Override
     public void stop() throws Exception {
@@ -478,13 +444,17 @@ public final class ChatMapApp extends Application {
             detail.clear();
             return;
         }
-        controller.selectChat(selectedResult.chatId());
         showChatDetails(selectedResult.chatId());
     }
 
     private void showChatDetails(long chatId) {
         backgroundExecutor.submit(() -> {
             try {
+                // Record the selection and load details on the executor, never on the FX
+                // thread: the controller lock can be held for minutes by a summarize
+                // (claude CLI) or live fetch, so touching it on the FX thread would
+                // freeze the UI. Here it just queues behind that work instead.
+                controller.selectChat(chatId);
                 ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
                 ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
                 Platform.runLater(() -> {

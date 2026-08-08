@@ -26,7 +26,6 @@ import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
-import chatmap.storage.TagRepository;
 
 /**
  * Command-line tool for scanning workspace projects, importing all chat logs and transcripts,
@@ -52,14 +51,14 @@ public final class ChatConsolidatorCli {
 
         try (Connection conn = Database.connectInMemory()) {
             Database.initialize(conn);
+            CliBootstrap.CliContext context = CliBootstrap.createContext(conn, null);
 
-            ChatRepository chats = new ChatRepository(conn);
-            MessageRepository messages = new MessageRepository(conn);
-            ProjectRepository projects = new ProjectRepository(conn);
-            TagRepository tags = new TagRepository(conn);
+            ChatRepository chats = context.chats();
+            MessageRepository messages = context.messages();
+            ProjectRepository projects = context.projects();
 
-            ImportService importService = new ImportService(chats, messages);
-            ExportService exportService = new ExportService(chats, messages, projects, tags);
+            ImportService importService = context.importService();
+            ExportService exportService = context.exportService();
 
             Map<String, List<Path>> projectFiles = scanWorkspace(rootPath);
 
