@@ -1,6 +1,5 @@
 package chatmap.ui;
 
-import java.nio.file.Path;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.time.Duration;
@@ -94,16 +93,41 @@ public final class ChatMapApp extends Application {
         }
         ResolvedPaths paths = parsedArguments.paths();
         System.out.println(ChatMapPaths.diagnostics(paths));
-        Path dbPath = paths.databasePath();
         Files.createDirectories(paths.homeDirectory());
-        conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize();
+
+        conn = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
         backgroundExecutor = new SerializedTaskExecutor("chatmap-background");
-        ChatRepository chats = new ChatRepository(conn);
-        MessageRepository messages = new MessageRepository(conn);
-        ProjectRepository projects = new ProjectRepository(conn);
-        TagRepository tags = new TagRepository(conn);
-        SummaryRepository summaries = new SummaryRepository(conn);
-        SearchRepository search = new SearchRepository(conn);
+        controller = createController(conn);
+
+        fontSizeState = new FontSizeState();
+        status = new Label("Ready");
+        chatList = createChatListView();
+        detail = createDetailTextArea();
+
+        ToolBar toolbar = createToolbar();
+        HBox searchBar = createSearchBar();
+        HBox projectBar = createProjectBar();
+        HBox tagBar = createTagBar();
+
+        root = assembleRootPane(toolbar, searchBar, projectBar, tagBar);
+
+        refreshOrganizationChoices();
+        runInBackground("Loading chats...", null, () -> controller.loadAllChats());
+        stage.setTitle("ChatMap");
+        applyFontSize(fontSizeState.current());
+        Scene scene = new Scene(root, 900, 600);
+        registerFontShortcuts(scene);
+        stage.setScene(scene);
+        stage.show();
+    }
+
+    private ChatMapController createController(Connection connection) {
+        ChatRepository chats = new ChatRepository(connection);
+        MessageRepository messages = new MessageRepository(connection);
+        ProjectRepository projects = new ProjectRepository(connection);
+        TagRepository tags = new TagRepository(connection);
+        SummaryRepository summaries = new SummaryRepository(connection);
+        SearchRepository search = new SearchRepository(connection);
 
         ImportService importService = new ImportService(chats, messages);
         ChatGptArchiveImportService archiveImportService =
@@ -114,7 +138,7 @@ public final class ChatMapApp extends Application {
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(providers, importService, chats);
 
-        controller = new ChatMapController(
+        return new ChatMapController(
                 importService,
                 new ExportService(chats, messages, projects, tags),
                 new SearchService(search),
@@ -123,22 +147,38 @@ public final class ChatMapApp extends Application {
                 summaryService,
                 liveChatFetchService,
                 archiveImportService);
+    }
 
-        chatList = new ListView<>();
-        chatList.setCellFactory(chatListView -> new ListCell<>() {
+    private ListView<SearchResult> createChatListView() {
+        ListView<SearchResult> list = new ListView<>();
+        list.setMinWidth(180);
+        list.setCellFactory(chatListView -> new ListCell<>() {
             @Override
             protected void updateItem(SearchResult result, boolean empty) {
                 super.updateItem(result, empty);
                 setText(empty || result == null ? null : formatResultRow(result));
             }
         });
-        chatList.getSelectionModel().selectedItemProperty().addListener(
+        list.getSelectionModel().selectedItemProperty().addListener(
                 (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
+        return list;
+    }
 
-        detail = new TextArea();
-        detail.setEditable(false);
-        detail.setWrapText(true);
-        fontSizeState = new FontSizeState();
+    private TextArea createDetailTextArea() {
+        TextArea textArea = new TextArea();
+        textArea.setEditable(false);
+        textArea.setWrapText(true);
+        textArea.setMinWidth(300);
+        return textArea;
+    }
+
+    private ToolBar createToolbar() {
+        exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
+        exportChatButton.setDisable(true);
+        getLatestChatButton = button("Import available chat", this::getLatestChat);
+        summarizeButton = button("Summarize & tag", this::summarizeSelectedChat);
+        summarizeButton.setDisable(true);
+
         fontSizeChoice = new ComboBox<>(FXCollections.observableArrayList(FontSizeState.SIZES));
         fontSizeChoice.setValue(fontSizeState.current());
         fontSizeChoice.setOnAction(actionEvent -> {
@@ -147,20 +187,8 @@ public final class ChatMapApp extends Application {
                 applyFontSize(fontSizeState.set(selectedSize));
             }
         });
-        searchField = new TextField();
-        searchField.setPromptText("Search message text");
-        searchField.setOnAction(actionEvent -> {
-            actionEvent.consume();
-            runWithFeedback(this::searchChats);
-        });
-        status = new Label("Ready");
-        exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
-        exportChatButton.setDisable(true);
-        getLatestChatButton = button("Import available chat", this::getLatestChat);
-        summarizeButton = button("Summarize & tag", this::summarizeSelectedChat);
-        summarizeButton.setDisable(true);
 
-        ToolBar toolbar = new ToolBar(
+        return new ToolBar(
                 button("Import Text", () -> importFile("Import text", "*.txt")),
                 button("Import Markdown", () -> importFile("Import Markdown", "*.md", "*.markdown")),
                 button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
@@ -170,24 +198,39 @@ public final class ChatMapApp extends Application {
                 summarizeButton,
                 new Label("Font"),
                 fontSizeChoice);
-        HBox searchBar = new HBox(8,
+    }
+
+    private HBox createSearchBar() {
+        searchField = new TextField();
+        searchField.setPromptText("Search message text");
+        searchField.setOnAction(actionEvent -> {
+            actionEvent.consume();
+            runWithFeedback(this::searchChats);
+        });
+        return new HBox(8,
                 searchField,
                 button("Search", this::searchChats),
                 button("Clear", this::clearSearchAndFilters));
+    }
+
+    private HBox createProjectBar() {
         projectChoice = new ComboBox<>();
         projectChoice.setPromptText("Project");
         projectChoice.setConverter(namedProjectConverter());
-        HBox projectBar = new HBox(8,
+        return new HBox(8,
                 new Label("Project"),
                 projectChoice,
                 button("New", this::createProject),
                 button("Assign", this::assignProject),
                 button("Clear Project", this::clearProject),
                 button("Filter", this::filterByProject));
+    }
+
+    private HBox createTagBar() {
         tagChoice = new ComboBox<>();
         tagChoice.setPromptText("Tag");
         tagChoice.setConverter(namedTagConverter());
-        HBox tagBar = new HBox(8,
+        return new HBox(8,
                 new Label("Tag"),
                 tagChoice,
                 button("New", this::createTag),
@@ -195,29 +238,21 @@ public final class ChatMapApp extends Application {
                 button("Remove", this::removeTag),
                 button("Filter", this::filterByTag),
                 button("Clear Filters", this::clearSearchAndFilters));
+    }
 
-        root = new BorderPane();
-        root.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));
-        chatList.setMinWidth(180);
-        detail.setMinWidth(300);
+    private BorderPane assembleRootPane(ToolBar toolbar, HBox searchBar, HBox projectBar, HBox tagBar) {
+        BorderPane pane = new BorderPane();
+        pane.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));
         SplitPane content = new SplitPane(chatList, detail);
         content.setDividerPositions(0.32);
-        root.setCenter(content);
-        root.setBottom(new VBox(status));
+        pane.setCenter(content);
+        pane.setBottom(new VBox(status));
         BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
         BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));
         BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));
         BorderPane.setMargin(content, new Insets(8));
         BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
-
-        refreshOrganizationChoices();
-        runInBackground("Loading chats...", null, () -> controller.loadAllChats());
-        stage.setTitle("ChatMap");
-        applyFontSize(fontSizeState.current());
-        Scene scene = new Scene(root, 900, 600);
-        registerFontShortcuts(scene);
-        stage.setScene(scene);
-        stage.show();
+        return pane;
     }
 
     @Override
