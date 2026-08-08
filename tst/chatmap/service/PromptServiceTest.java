@@ -65,6 +65,39 @@ final class PromptServiceTest {
         assertEquals("Fake Label", backends.get(0).label());
     }
 
+    @Test
+    void submitPersistsPromptAndResponseToDatabase() throws Exception {
+        try (java.sql.Connection conn = new chatmap.storage.Database("jdbc:sqlite::memory:").openAndInitialize()) {
+            chatmap.storage.ChatRepository chats = new chatmap.storage.ChatRepository(conn);
+            chatmap.storage.MessageRepository messages = new chatmap.storage.MessageRepository(conn);
+            ImportService importService = new ImportService(chats, messages);
+
+            CapturingBackend backend = new CapturingBackend(
+                    new CommandBackedRun(
+                            new AiResponse("Claude answer", new BackendId("Claude CLI"), Duration.ofMillis(10)),
+                            new CommandResult(0, "Claude answer", "", Duration.ofMillis(10), false),
+                            List.of("claude", "-p", "Test prompt")
+                    )
+            );
+            Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
+            PromptService service = new PromptService(Map.of("claude", backend), importService, clock, tempDir);
+
+            service.submit("claude", "Test prompt");
+
+            List<chatmap.domain.Chat> storedChats = chats.findAll();
+            assertEquals(1, storedChats.size());
+            assertEquals("Test prompt", storedChats.get(0).title());
+            assertEquals(chatmap.domain.Source.claudeCode, storedChats.get(0).source());
+
+            List<chatmap.domain.Message> storedMessages = messages.findByChat(storedChats.get(0).id());
+            assertEquals(2, storedMessages.size());
+            assertEquals("user", storedMessages.get(0).role());
+            assertEquals("Test prompt", storedMessages.get(0).text());
+            assertEquals("assistant", storedMessages.get(1).role());
+            assertEquals("Claude answer", storedMessages.get(1).text());
+        }
+    }
+
     private static final class CapturingBackend implements CommandBackedAiBackend {
         private final CommandBackedRun run;
         AiRequest request;

@@ -9,6 +9,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -17,6 +18,7 @@ import java.util.Set;
  * Responsibilities:
  * - open a connection to a given JDBC URL (file-backed or in-memory)
  * - enable foreign key enforcement on every connection (SQLite default is OFF)
+ * - configure a bounded wait for transient SQLite locks
  * - execute schema.sql from the classpath (idempotent: all CREATE ... IF NOT EXISTS)
  *
  * Tests use "jdbc:sqlite::memory:" for a fresh throwaway database.
@@ -29,14 +31,21 @@ import java.util.Set;
 public final class Database {
 
     private static final String schemaResource = "/chatmap/storage/schema.sql";
+    private static final int busyTimeoutMilliseconds = 5000;
 
     private final String jdbcUrl;
+    private final ConnectionOpener connectionOpener;
 
     public Database(String jdbcUrl) {
-        this.jdbcUrl = jdbcUrl;
+        this(jdbcUrl, DriverManager::getConnection);
     }
 
-    /** Opens an in-memory SQLite connection with foreign keys enabled. Caller closes it. */
+    Database(String jdbcUrl, ConnectionOpener connectionOpener) {
+        this.jdbcUrl = Objects.requireNonNull(jdbcUrl, "jdbcUrl");
+        this.connectionOpener = Objects.requireNonNull(connectionOpener, "connectionOpener");
+    }
+
+    /** Opens a configured in-memory SQLite connection. Caller closes it. */
     public static Connection connectInMemory() throws SQLException {
         return new Database("jdbc:sqlite::memory:").open();
     }
@@ -47,13 +56,16 @@ public final class Database {
         applyMigrations(conn);
     }
 
-    /** Opens a connection with foreign keys enabled. Caller closes it. */
+    /** Opens and configures a connection. The caller owns and closes a successful result. */
     public Connection open() throws SQLException {
-        Connection conn = DriverManager.getConnection(jdbcUrl);
-        try (Statement st = conn.createStatement()) {
-            st.execute("PRAGMA foreign_keys = ON");
+        Connection conn = connectionOpener.open(jdbcUrl);
+        try {
+            configureConnection(conn);
+            return conn;
+        } catch (SQLException | RuntimeException | Error failure) {
+            closeAfterFailure(conn, failure);
+            throw failure;
         }
-        return conn;
     }
 
     /** Opens a connection and applies the schema to it. Caller closes it. */
@@ -62,15 +74,26 @@ public final class Database {
         try {
             applySchema(conn);
             applyMigrations(conn);
-        } catch (SQLException | IOException e) {
-            try {
-                conn.close();
-            } catch (SQLException ignored) {
-                // preserve the original failure
-            }
-            throw e;
+        } catch (SQLException | IOException | RuntimeException | Error failure) {
+            closeAfterFailure(conn, failure);
+            throw failure;
         }
         return conn;
+    }
+
+    private static void configureConnection(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement()) {
+            st.execute("PRAGMA foreign_keys = ON");
+            st.execute("PRAGMA busy_timeout = " + busyTimeoutMilliseconds);
+        }
+    }
+
+    private static void closeAfterFailure(Connection conn, Throwable failure) {
+        try {
+            conn.close();
+        } catch (SQLException closeFailure) {
+            failure.addSuppressed(closeFailure);
+        }
     }
 
     /** Executes schema.sql against an existing connection. Idempotent. */
@@ -156,5 +179,10 @@ public final class Database {
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }
+    }
+
+    @FunctionalInterface
+    interface ConnectionOpener {
+        Connection open(String jdbcUrl) throws SQLException;
     }
 }
