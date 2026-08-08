@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import chatmap.backend.SummaryClient;
+import chatmap.backend.AiBackend;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -28,7 +28,7 @@ import chatmap.storage.TransactionRunner;
  * edits chats or messages. Calling it twice on the same chat produces two
  * summary rows, both kept (see SummaryRepository.findAllForChat).
  *
- * For now this always summarizes with the configured Claude CLI client,
+ * For now this always summarizes with the configured Claude CLI backend,
  * regardless of the chat's original provider. Using another backend or a
  * review workflow is deliberately not built yet.
  */
@@ -40,16 +40,16 @@ public final class SummaryService {
     private final MessageRepository messages;
     private final SummaryRepository summaries;
     private final TagRepository tags;
-    private final SummaryClient claude;
+    private final AiBackend backend;
     private final TransactionRunner transactions;
 
     public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
-            TagRepository tags, SummaryClient claude) {
-        this(chats, messages, summaries, tags, claude, new TransactionRunner(chats.connection()));
+            TagRepository tags, AiBackend backend) {
+        this(chats, messages, summaries, tags, backend, new TransactionRunner(chats.connection()));
     }
 
     public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
-            TagRepository tags, SummaryClient claude, TransactionRunner transactions) {
+            TagRepository tags, AiBackend backend, TransactionRunner transactions) {
         if (chats.connection() != messages.connection()
                 || chats.connection() != summaries.connection()
                 || chats.connection() != tags.connection()) {
@@ -59,7 +59,7 @@ public final class SummaryService {
         this.messages = messages;
         this.summaries = summaries;
         this.tags = tags;
-        this.claude = claude;
+        this.backend = backend;
         this.transactions = transactions;
     }
 
@@ -75,7 +75,7 @@ public final class SummaryService {
         List<Message> chatMessages = messages.findByChat(chatId);
 
         String prompt = buildPrompt(chat, chatMessages);
-        String response = claude.ask(prompt);
+        String response = backend.ask(prompt);
 
         Parsed parsed = parse(response);
         String contentHash = chat.contentHash() == null

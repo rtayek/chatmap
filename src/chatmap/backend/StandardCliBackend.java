@@ -10,7 +10,7 @@ import chatmap.domain.Source;
 /**
  * Common base class for CLI-backed AI execution models (e.g. claude, codex, agy).
  */
-public class StandardCliBackend implements CommandBackedAiBackend, SummaryClient {
+public class StandardCliBackend implements CommandBackedAiBackend {
 
     static final BackendId CLAUDE_BACKEND_ID = new BackendId("Claude CLI");
     static final BackendId CODEX_BACKEND_ID = new BackendId("Codex CLI");

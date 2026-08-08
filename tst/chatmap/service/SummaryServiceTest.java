@@ -4,12 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import chatmap.backend.AiResponse;
+import chatmap.backend.BackendId;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
@@ -105,7 +108,7 @@ class SummaryServiceTest {
     void successfulSummaryInsideOuterTransactionCanBeRolledBackByCaller() throws Exception {
         Chat chat = insertChatWithMessage();
         SummaryService service = new SummaryService(chats, messages, summaries, tags,
-                prompt -> "SUMMARY: Stored summary.\nTAGS: storage");
+                request -> new AiResponse("SUMMARY: Stored summary.\nTAGS: storage", new BackendId("fake"), Duration.ZERO));
 
         conn.setAutoCommit(false);
         try {
@@ -126,7 +129,7 @@ class SummaryServiceTest {
     void failedSummaryTagAssignmentRollsBackSummaryAndTags() throws Exception {
         Chat chat = insertChatWithMessage();
         SummaryService service = new SummaryService(chats, messages, summaries, tags,
-                prompt -> "SUMMARY: Stored summary.\nTAGS: failtag");
+                request -> new AiResponse("SUMMARY: Stored summary.\nTAGS: failtag", new BackendId("fake"), Duration.ZERO));
         try (var stmt = conn.createStatement()) {
             stmt.execute("""
                     CREATE TRIGGER fail_chat_tag BEFORE INSERT ON chatTags
