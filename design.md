@@ -17,13 +17,13 @@ Import → Normalize → Store → Search → Organize → Export
 The MVP supports:
 
 * importing plain text, Markdown, and ChatGPT JSON files
+* reading live web chats from Claude, ChatGPT, and Gemini via CDP / Playwright browser automation
 * storing chats in SQLite
 * searching message text with SQLite FTS5
 * organizing chats with projects and tags
 * exporting chats and handoffs as Markdown
 
-Optional provider readers and Claude summary/tag generation exist, but the MVP
-does not require AI, Python, cloud sync, browser automation, or a visual canvas.
+Live web provider readers (over CDP / Playwright) and Claude summary/tag generation are supported capabilities. The core application does not require cloud sync or a visual canvas.
 
 ## Architecture
 
@@ -290,10 +290,9 @@ Results are returned in deterministic chat import order. Duplicate message match
 7. JavaFX list/detail, import, search, and export workflow
 ```
 
-## Optional Capabilities (beyond MVP)
+## Supported Live Provider & Automation Capabilities
 
-These exist in the codebase but are not required for MVP behavior, and the
-deterministic import → export path never depends on them:
+These provider integrations and browser automation tools are supported in the codebase:
 
 * live web readers for Claude, ChatGPT, and Gemini (`Source` values
   `claudeWeb`, `chatGptWeb`, `geminiWeb`)
