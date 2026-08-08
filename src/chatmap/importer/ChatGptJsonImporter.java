@@ -15,12 +15,54 @@ import chatmap.domain.Source;
 /** Minimal ChatGPT export importer for conversations.json style data. */
 public final class ChatGptJsonImporter {
 
+    /**
+     * Imports a single conversation. A bare conversation object yields that one;
+     * a top-level array yields its first element. Kept for callers that expect
+     * exactly one chat; use {@link #importAll} to import every conversation in an
+     * array export.
+     */
     public ImportedChat importJson(String json, String importedAt) {
+        List<ImportedChat> all = importAll(json, importedAt);
+        if (all.isEmpty()) {
+            throw new IllegalArgumentException("expected ChatGPT conversation object or array");
+        }
+        return all.get(0);
+    }
+
+    /**
+     * Imports every conversation in the JSON: a bare object yields one chat, a
+     * top-level array (a full {@code conversations.json} export) yields one chat
+     * per element, so nothing is silently dropped.
+     */
+    public List<ImportedChat> importAll(String json, String importedAt) {
         Objects.requireNonNull(json, "json");
         Objects.requireNonNull(importedAt, "importedAt");
 
         JsonValue root = new JsonParser(json).parse();
-        JsonObject conversation = firstConversation(root);
+        List<ImportedChat> imported = new ArrayList<>();
+        for (JsonObject conversation : conversationObjects(root)) {
+            imported.add(buildConversation(conversation, importedAt));
+        }
+        return imported;
+    }
+
+    private static List<JsonObject> conversationObjects(JsonValue root) {
+        if (root instanceof JsonObject object) {
+            return List.of(object);
+        }
+        if (root instanceof JsonArray array) {
+            List<JsonObject> objects = new ArrayList<>();
+            for (JsonValue value : array.values) {
+                if (value instanceof JsonObject object) {
+                    objects.add(object);
+                }
+            }
+            return objects;
+        }
+        throw new IllegalArgumentException("expected ChatGPT conversation object or array");
+    }
+
+    private static ImportedChat buildConversation(JsonObject conversation, String importedAt) {
         String title = stringValue(conversation.get("title"), "ChatGPT Import");
         String createdAt = isoTimestamp(conversation.get("create_time"));
         String updatedAt = isoTimestamp(conversation.get("update_time"));
@@ -39,16 +81,6 @@ public final class ChatGptJsonImporter {
         }
 
         return new ImportedChat(chat, messages);
-    }
-
-    private static JsonObject firstConversation(JsonValue root) {
-        if (root instanceof JsonObject object) {
-            return object;
-        }
-        if (root instanceof JsonArray array && !array.values.isEmpty() && array.values.get(0) instanceof JsonObject object) {
-            return object;
-        }
-        throw new IllegalArgumentException("expected ChatGPT conversation object or array");
     }
 
     private static List<MessageDraft> messageDrafts(JsonObject conversation) {

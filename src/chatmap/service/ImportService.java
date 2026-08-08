@@ -51,12 +51,27 @@ public final class ImportService {
     public Chat importFile(Path file) throws IOException, SQLException {
         String text = Files.readString(file, StandardCharsets.UTF_8);
         String importedAt = Instant.now().toString();
-        ImportedChat imported = switch (extension(file)) {
-            case "md", "markdown" -> new MarkdownImporter().importMarkdown(text, fileName(file), importedAt);
-            case "json" -> new ChatGptJsonImporter().importJson(text, importedAt);
-            default -> new PlainTextImporter().importText(fileName(file), text, importedAt);
+        String baseUri = file.toAbsolutePath().normalize().toUri().toString();
+        List<ImportedChat> imported = switch (extension(file)) {
+            case "md", "markdown" -> List.of(new MarkdownImporter().importMarkdown(text, fileName(file), importedAt));
+            // A ChatGPT conversations.json is an array of every chat; import them all
+            // rather than silently keeping only the first.
+            case "json" -> new ChatGptJsonImporter().importAll(text, importedAt);
+            default -> List.of(new PlainTextImporter().importText(fileName(file), text, importedAt));
         };
-        return persist(withSourceUri(imported, file.toAbsolutePath().normalize().toUri().toString())).chat();
+        if (imported.isEmpty()) {
+            throw new IOException("No importable conversation found in " + fileName(file));
+        }
+
+        Chat firstStored = null;
+        for (int index = 0; index < imported.size(); index++) {
+            String sourceUri = imported.size() == 1 ? baseUri : baseUri + "#conversation=" + (index + 1);
+            Chat stored = persist(withSourceUri(imported.get(index), sourceUri)).chat();
+            if (firstStored == null) {
+                firstStored = stored;
+            }
+        }
+        return firstStored;
     }
 
     public PersistResult persist(ImportedChat imported) throws SQLException {

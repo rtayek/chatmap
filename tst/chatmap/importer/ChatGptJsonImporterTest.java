@@ -45,6 +45,29 @@ class ChatGptJsonImporterTest {
     }
 
     @Test
+    void importAllReadsEveryConversationInAnArrayExport() {
+        String arrayExport = """
+                [
+                  {"title":"First","mapping":{"a":{"message":
+                    {"author":{"role":"user"},"content":{"parts":["one"]}}}}},
+                  {"title":"Second","mapping":{"b":{"message":
+                    {"author":{"role":"user"},"content":{"parts":["two"]}}}}}
+                ]
+                """;
+
+        List<ImportedChat> all = new ChatGptJsonImporter().importAll(arrayExport, importedAt);
+
+        assertEquals(List.of("First", "Second"),
+                all.stream().map(imported -> imported.chat().title()).toList());
+        assertEquals("one", all.get(0).messages().get(0).text());
+        assertEquals("two", all.get(1).messages().get(0).text());
+
+        // importJson stays single-conversation: it returns the first element.
+        ImportedChat first = new ChatGptJsonImporter().importJson(arrayExport, importedAt);
+        assertEquals("First", first.chat().title());
+    }
+
+    @Test
     void flattensMessagePartsAndPreservesRawJson() {
         ImportedChat imported = new ChatGptJsonImporter().importJson(ChatGptJsonFixture.json, importedAt);
 
