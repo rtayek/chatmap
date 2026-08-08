@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
@@ -28,19 +29,15 @@ public final class ExportService {
     private final ProjectRepository projects;
     private final TagRepository tags;
 
-    public ExportService(ChatRepository chats, MessageRepository messages) {
-        this(chats, messages, null, null);
-    }
-
     public ExportService(
             ChatRepository chats,
             MessageRepository messages,
             ProjectRepository projects,
             TagRepository tags) {
-        this.chats = chats;
-        this.messages = messages;
-        this.projects = projects;
-        this.tags = tags;
+        this.chats = Objects.requireNonNull(chats, "chats");
+        this.messages = Objects.requireNonNull(messages, "messages");
+        this.projects = Objects.requireNonNull(projects, "projects");
+        this.tags = Objects.requireNonNull(tags, "tags");
     }
 
     public Optional<ChatExportModel> loadChat(long chatId) throws SQLException {
@@ -69,10 +66,6 @@ public final class ExportService {
     }
 
     public Optional<ProjectHandoffModel> loadProjectHandoff(long projectId, String exportedAt) throws SQLException {
-        if (projects == null || tags == null) {
-            throw new IllegalStateException("project and tag repositories are required for project handoff export");
-        }
-
         Optional<Project> project = projects.findById(projectId);
         if (project.isEmpty()) {
             return Optional.empty();

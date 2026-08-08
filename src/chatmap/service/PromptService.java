@@ -147,7 +147,7 @@ public final class PromptService {
 
             Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
             if (importService != null) {
-                recordInDatabase(backendId, prompt, responseText, started);
+                recordInDatabase(backend, backendId, prompt, responseText, started);
             }
 
             return new PromptResult(backendId, responseText, transcriptPath);
@@ -156,10 +156,10 @@ public final class PromptService {
         }
     }
 
-    private void recordInDatabase(String backendId, String prompt, String responseText, Instant started) {
+    private void recordInDatabase(AiBackend backend, String backendId, String prompt, String responseText, Instant started) {
         try {
             String now = started.toString();
-            Source source = parseSource(backendId);
+            Source source = backend != null ? backend.source() : Source.plainText;
             String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
             Chat chat = new Chat(0L, null, source, title, now, now, now, false);
             Message userMsg = new Message(0L, 0L, "user", prompt, 0, now, null);
@@ -170,20 +170,6 @@ public final class PromptService {
             // Don't fail the prompt run over a recording failure, but don't hide it either.
             System.err.println("[ChatMap] Failed to record prompt in database: " + e.getMessage());
         }
-    }
-
-    private static Source parseSource(String backendId) {
-        String lower = backendId.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains("claude")) {
-            return Source.claudeCode;
-        }
-        if (lower.contains("codex")) {
-            return Source.codexCli;
-        }
-        if (lower.contains("gemini")) {
-            return Source.geminiCli;
-        }
-        return Source.plainText;
     }
 
     private Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {

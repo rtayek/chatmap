@@ -5,6 +5,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
+import chatmap.domain.Source;
+
 /**
  * Common base class for CLI-backed AI execution models (e.g. claude, codex, agy).
  */
@@ -18,12 +20,23 @@ public class StandardCliBackend implements CommandBackedAiBackend, SummaryClient
     private final String binaryName;
     private final CommandExecutor commandExecutor;
     private final Duration timeout;
+    private final Source source;
 
     public StandardCliBackend(BackendId backendId, String binaryName, CommandExecutor commandExecutor, Duration timeout) {
+        this(backendId, binaryName, commandExecutor, timeout, defaultSourceForBinary(binaryName));
+    }
+
+    public StandardCliBackend(
+            BackendId backendId,
+            String binaryName,
+            CommandExecutor commandExecutor,
+            Duration timeout,
+            Source source) {
         this.backendId = Objects.requireNonNull(backendId, "backendId");
         this.binaryName = Objects.requireNonNull(binaryName, "binaryName");
         this.commandExecutor = Objects.requireNonNull(commandExecutor, "commandExecutor");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
+        this.source = Objects.requireNonNull(source, "source");
     }
 
     public BackendId backendId() {
@@ -35,8 +48,27 @@ public class StandardCliBackend implements CommandBackedAiBackend, SummaryClient
     }
 
     @Override
+    public Source source() {
+        return source;
+    }
+
+    @Override
     public AiResponse ask(AiRequest request) {
         return askWithResult(request).response();
+    }
+
+    private static Source defaultSourceForBinary(String binaryName) {
+        String lower = binaryName.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("claude")) {
+            return Source.claudeCode;
+        }
+        if (lower.contains("codex")) {
+            return Source.codexCli;
+        }
+        if (lower.contains("gemini")) {
+            return Source.geminiCli;
+        }
+        return Source.plainText;
     }
 
     @Override

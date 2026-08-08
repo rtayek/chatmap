@@ -16,6 +16,8 @@ import chatmap.domain.Chat;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
+import chatmap.storage.ProjectRepository;
+import chatmap.storage.TagRepository;
 
 class SampleRoundTripTest {
 
@@ -31,7 +33,7 @@ class SampleRoundTripTest {
         chats = new ChatRepository(conn);
         messages = new MessageRepository(conn);
         importService = new ImportService(chats, messages);
-        exportService = new ExportService(chats, messages);
+        exportService = new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn));
     }
 
     @AfterEach

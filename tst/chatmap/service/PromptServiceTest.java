@@ -18,6 +18,7 @@ import chatmap.backend.BackendId;
 import chatmap.backend.CommandBackedAiBackend;
 import chatmap.backend.CommandBackedRun;
 import chatmap.backend.CommandResult;
+import chatmap.domain.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -100,10 +101,21 @@ final class PromptServiceTest {
 
     private static final class CapturingBackend implements CommandBackedAiBackend {
         private final CommandBackedRun run;
+        private final Source source;
         AiRequest request;
 
         CapturingBackend(CommandBackedRun run) {
+            this(run, Source.claudeCode);
+        }
+
+        CapturingBackend(CommandBackedRun run, Source source) {
             this.run = run;
+            this.source = source;
+        }
+
+        @Override
+        public Source source() {
+            return source;
         }
 
         @Override

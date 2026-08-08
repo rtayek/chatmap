@@ -52,17 +52,19 @@ class ChatMapControllerTest {
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         chats = new ChatRepository(conn);
         messages = new MessageRepository(conn);
-        projectService = new ProjectService(new ProjectRepository(conn), chats);
-        tagService = new TagService(new TagRepository(conn), chats);
+        ProjectRepository projects = new ProjectRepository(conn);
+        TagRepository tags = new TagRepository(conn);
+        projectService = new ProjectService(projects, chats);
+        tagService = new TagService(tags, chats);
         ImportService importService = new ImportService(chats, messages);
         SummaryService summaryService = new SummaryService(chats, messages,
-                new SummaryRepository(conn), new TagRepository(conn),
+                new SummaryRepository(conn), tags,
                 new ClaudeCliBackend(java.time.Duration.ofMinutes(3)));
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(java.util.List.of(), importService, chats);
         controller = new ChatMapController(
                 importService,
-                new ExportService(chats, messages),
+                new ExportService(chats, messages, projects, tags),
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,

@@ -19,6 +19,8 @@ import chatmap.service.ExportService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
+import chatmap.storage.ProjectRepository;
+import chatmap.storage.TagRepository;
 
 class MarkdownExporterTest {
 
@@ -52,7 +54,9 @@ class MarkdownExporterTest {
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);
-        ExportService exportService = new ExportService(chats, messages);
+        ProjectRepository projects = new ProjectRepository(conn);
+        TagRepository tags = new TagRepository(conn);
+        ExportService exportService = new ExportService(chats, messages, projects, tags);
 
         Chat storedChat = chats.insert(new Chat(0, null, Source.plainText, "Stored Chat",
                 null, null, "2026-07-06T00:00:00Z", false));
@@ -73,7 +77,9 @@ class MarkdownExporterTest {
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         ChatRepository chats = new ChatRepository(conn);
         MessageRepository messages = new MessageRepository(conn);
-        ExportService exportService = new ExportService(chats, messages);
+        ProjectRepository projects = new ProjectRepository(conn);
+        TagRepository tags = new TagRepository(conn);
+        ExportService exportService = new ExportService(chats, messages, projects, tags);
 
         Chat storedChat = chats.insert(new Chat(0, null, Source.markdown, "UI Export Chat",
                 null, null, "2026-07-06T00:00:00Z", false));
