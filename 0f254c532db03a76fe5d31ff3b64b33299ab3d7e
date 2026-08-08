@@ -1,0 +1,14 @@
+Unified the two ChatGPT importers on Gson (fixes the "two JSON parsers" duplication).
+
+- Deleted the ~180-line hand-rolled JsonParser + JsonValue model from
+  ChatGptJsonImporter (423 -> 176 lines); it now parses with Gson.
+- Extracted ChatGptMapping (shared, Gson-based): active-branch traversal
+  (current_node -> parent chain), role normalization, epoch->ISO timestamps.
+  Both importers delegate to it; ChatGptArchiveImporter lost its private copies
+  but kept fallbackLeaf, external identity, and unsupported-content counting.
+- Behavior preserved (220 tests): active branch when current_node present,
+  flat-by-timestamp fallback for tree-less JSON, array -> all conversations.
+- One deliberate change: rawJson on loose-.json imports is now Gson-canonical
+  (compact) instead of a source substring; two test assertions updated.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
