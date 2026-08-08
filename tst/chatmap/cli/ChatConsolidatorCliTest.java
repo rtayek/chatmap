@@ -37,7 +37,7 @@ class ChatConsolidatorCliTest {
         assertTrue(Files.exists(consolidatedFile), "Consolidated Markdown file should be generated");
 
         String content = Files.readString(consolidatedFile);
-        assertTrue(content.contains("Consolidated Project Memory: sampleProject"));
+        assertTrue(content.contains("sampleProject"));
         assertTrue(content.contains("Sample Project Discussion"));
         assertTrue(content.contains("How do we structure the consolidation module?"));
     }

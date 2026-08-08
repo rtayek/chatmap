@@ -8,7 +8,6 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,12 +18,10 @@ import java.util.stream.Stream;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Project;
-import chatmap.exporter.MarkdownExporter;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
 
 /**
@@ -54,7 +51,6 @@ public final class ChatConsolidatorCli {
             CliBootstrap.CliContext context = CliBootstrap.createContext(conn, null);
 
             ChatRepository chats = context.chats();
-            MessageRepository messages = context.messages();
             ProjectRepository projects = context.projects();
 
             ImportService importService = context.importService();
@@ -89,8 +85,9 @@ public final class ChatConsolidatorCli {
                     }
                 }
 
-                // Generate consolidated output
-                String consolidatedMd = generateConsolidatedProjectMarkdown(project, chats, messages, exportService, timestamp);
+                // Generate consolidated output via ExportService / HandoffExporter
+                String consolidatedMd = exportService.exportProjectHandoff(project.id(), timestamp)
+                        .orElseThrow(() -> new IllegalStateException("Failed to export handoff for project " + projectName));
                 Path outFile = outputPath.resolve(projectName + "_CONSOLIDATED.md");
                 Files.writeString(outFile, consolidatedMd);
 
@@ -216,46 +213,5 @@ public final class ChatConsolidatorCli {
         }
 
         return false;
-    }
-
-    private static String generateConsolidatedProjectMarkdown(
-            Project project,
-            ChatRepository chats,
-            MessageRepository messages,
-            ExportService exportService,
-            String timestamp) throws SQLException {
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("# Consolidated Project Memory: ").append(project.name()).append("\n\n");
-        sb.append("Exported: ").append(timestamp).append("\n");
-        sb.append("Description: ").append(project.description()).append("\n\n");
-
-        List<Chat> projectChats = chats.findByProject(project.id());
-        sb.append("## Index of Consolidated Chats (Total: ").append(projectChats.size()).append(")\n\n");
-        sb.append("| # | Title | Source | Imported At |\n");
-        sb.append("|---|-------|--------|-------------|\n");
-
-        for (int i = 0; i < projectChats.size(); i++) {
-            Chat c = projectChats.get(i);
-            sb.append(String.format("| %d | %s | %s | %s |%n", (i + 1), c.title(), c.source().dbValue(), c.importedAt()));
-        }
-
-        sb.append("\n---\n\n");
-        sb.append("## Detailed Transcripts\n\n");
-
-        MarkdownExporter mdExporter = new MarkdownExporter();
-        for (int i = 0; i < projectChats.size(); i++) {
-            Chat c = projectChats.get(i);
-            sb.append("### Session ").append(i + 1).append(": ").append(c.title()).append("\n\n");
-
-            var exportModel = exportService.loadChat(c.id());
-            if (exportModel.isPresent()) {
-                String chatMd = mdExporter.exportChat(exportModel.get());
-                sb.append(chatMd).append("\n\n");
-            }
-            sb.append("---\n\n");
-        }
-
-        return sb.toString();
     }
 }
