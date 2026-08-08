@@ -161,27 +161,37 @@ public final class SearchRepository {
         return results;
     }
 
+    private static final int BATCH_SIZE = 500;
+
     private Map<Long, List<Tag>> findTagsByChatIds(List<Long> chatIds) throws SQLException {
         if (chatIds.isEmpty()) {
             return Map.of();
         }
-        String placeholders = String.join(",", java.util.Collections.nCopies(chatIds.size(), "?"));
+
+        Map<Long, List<Tag>> tagsByChat = new LinkedHashMap<>();
+        for (int i = 0; i < chatIds.size(); i += BATCH_SIZE) {
+            List<Long> batch = chatIds.subList(i, Math.min(chatIds.size(), i + BATCH_SIZE));
+            fetchTagsBatch(batch, tagsByChat);
+        }
+        return tagsByChat;
+    }
+
+    private void fetchTagsBatch(List<Long> batch, Map<Long, List<Tag>> tagsByChat) throws SQLException {
+        String placeholders = String.join(",", java.util.Collections.nCopies(batch.size(), "?"));
         String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
                 + "JOIN chatTags ct ON ct.tagId = t.id "
                 + "WHERE ct.chatId IN (" + placeholders + ") "
                 + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            for (int i = 0; i < chatIds.size(); i++) {
-                ps.setLong(i + 1, chatIds.get(i));
+            for (int i = 0; i < batch.size(); i++) {
+                ps.setLong(i + 1, batch.get(i));
             }
             try (ResultSet rs = ps.executeQuery()) {
-                Map<Long, List<Tag>> tagsByChat = new LinkedHashMap<>();
                 while (rs.next()) {
                     long chatId = rs.getLong("chatId");
                     tagsByChat.computeIfAbsent(chatId, ignored -> new ArrayList<>())
                             .add(new Tag(rs.getLong("id"), rs.getString("name")));
                 }
-                return tagsByChat;
             }
         }
     }

@@ -221,6 +221,19 @@ class SearchRepositoryTest {
         assertTrue(results.getFirst().snippet().contains("[needle] [needle] [needle]"));
     }
 
+    @Test
+    void handlesLargeBatchOfChatIdsWithoutParameterOverflow() throws Exception {
+        Tag tag = tags.insert(new Tag(0, "LargeBatch"));
+        for (int i = 0; i < 1050; i++) {
+            Chat chat = insertChat("Chat " + i, null, false, "2026-07-06T00:00:00Z");
+            messages.insert(new Message(0, chat.id(), "user", "overflow needle " + i, 0, null, null));
+            tags.assignToChat(chat.id(), tag.id());
+        }
+
+        List<SearchResult> results = search.searchResultsByMessageText("needle");
+        assertEquals(1050, results.size());
+    }
+
     private Chat insertChat(String title, Long projectId, boolean archived, String importedAt) throws Exception {
         return chats.insert(new Chat(0, projectId, Source.plainText, title, null, null, importedAt, archived));
     }
