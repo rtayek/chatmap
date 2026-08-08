@@ -69,7 +69,11 @@ public final class ChatGptJsonImporter {
         String title = stringValue(conversation.get("title"), "ChatGPT Import");
         String createdAt = isoTimestamp(conversation.get("create_time"));
         String updatedAt = isoTimestamp(conversation.get("update_time"));
-        Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt, importedAt, false);
+        String externalConversationId = firstNonBlank(
+                stringValue(conversation.get("conversation_id"), null),
+                stringValue(conversation.get("id"), null));
+        Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt,
+                importedAt, false, externalConversationId, null, null, updatedAt, importedAt);
 
         List<MessageDraft> drafts = orderedDrafts(conversation);
         List<Message> messages = new ArrayList<>();
@@ -211,6 +215,13 @@ public final class ChatGptJsonImporter {
 
     private static String stringValue(JsonValue value, String fallback) {
         return value instanceof JsonString string ? string.value : fallback;
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return second == null || second.isBlank() ? null : second;
     }
 
     private record MessageDraft(String role, String text, String timestamp, String rawJson, int position) {

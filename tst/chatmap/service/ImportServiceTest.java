@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,6 +82,31 @@ class ImportServiceTest {
         assertEquals("Markdown Title", chat.title());
         assertEquals(Source.markdown, chat.source());
         assertEquals(List.of(chat), chats.findAll());
+    }
+
+    @Test
+    void repeatedChatGptArrayImportUsesConversationIdentity() throws Exception {
+        Path file = tempDir.resolve("conversations.json");
+        Files.writeString(file, """
+                [
+                  {"conversation_id":"first-id","title":"First","current_node":"a",
+                   "mapping":{"a":{"parent":null,"message":
+                     {"author":{"role":"user"},"content":{"parts":["one"]}}}}},
+                  {"id":"second-id","title":"Second","current_node":"b",
+                   "mapping":{"b":{"parent":null,"message":
+                     {"author":{"role":"user"},"content":{"parts":["two"]}}}}}
+                ]
+                """);
+
+        Chat firstImport = importService.importFile(file);
+        Chat repeatedImport = importService.importFile(file);
+
+        assertEquals(firstImport.id(), repeatedImport.id());
+        assertEquals(2, chats.findAll().size());
+        Set<String> externalIds = chats.findAll().stream()
+                .map(Chat::externalConversationId)
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("first-id", "second-id"), externalIds);
     }
 
     @Test

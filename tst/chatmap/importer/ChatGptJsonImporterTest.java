@@ -50,6 +50,8 @@ class ChatGptJsonImporterTest {
         // at the second, so the first (assistantV1) is an edited-away branch.
         String branched = """
                 {
+                  "conversation_id": "conversation-123",
+                  "id": "fallback-id",
                   "title": "Branched",
                   "current_node": "assistantV2",
                   "mapping": {
@@ -69,6 +71,7 @@ class ChatGptJsonImporterTest {
 
         ImportedChat imported = new ChatGptJsonImporter().importJson(branched, importedAt);
 
+        assertEquals("conversation-123", imported.chat().externalConversationId());
         assertEquals(List.of("question", "NEW answer"),
                 imported.messages().stream().map(Message::text).toList());
     }
@@ -77,9 +80,9 @@ class ChatGptJsonImporterTest {
     void importAllReadsEveryConversationInAnArrayExport() {
         String arrayExport = """
                 [
-                  {"title":"First","mapping":{"a":{"message":
+                  {"conversation_id":"first-id","title":"First","mapping":{"a":{"message":
                     {"author":{"role":"user"},"content":{"parts":["one"]}}}}},
-                  {"title":"Second","mapping":{"b":{"message":
+                  {"id":"second-id","title":"Second","mapping":{"b":{"message":
                     {"author":{"role":"user"},"content":{"parts":["two"]}}}}}
                 ]
                 """;
@@ -88,6 +91,8 @@ class ChatGptJsonImporterTest {
 
         assertEquals(List.of("First", "Second"),
                 all.stream().map(imported -> imported.chat().title()).toList());
+        assertEquals(List.of("first-id", "second-id"),
+                all.stream().map(imported -> imported.chat().externalConversationId()).toList());
         assertEquals("one", all.get(0).messages().get(0).text());
         assertEquals("two", all.get(1).messages().get(0).text());
 
