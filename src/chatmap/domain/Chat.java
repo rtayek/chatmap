@@ -16,16 +16,46 @@ public record Chat(
         String updatedAt,
         String importedAt,
         boolean archived,
-        String externalConversationId,
-        String sourceUri,
-        String contentHash,
-        String sourceUpdatedAt,
-        String lastImportedAt) {
+        ImportMetadata importMetadata) {
 
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
-                null, null, null, updatedAt, importedAt);
+                ImportMetadata.none(updatedAt, importedAt));
+    }
+
+    public Chat(long id, Long projectId, Source source, String title, String createdAt,
+            String updatedAt, String importedAt, boolean archived,
+            String externalConversationId, String sourceUri, String contentHash,
+            String sourceUpdatedAt, String lastImportedAt) {
+        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
+                new ImportMetadata(externalConversationId, sourceUri, contentHash,
+                        sourceUpdatedAt, lastImportedAt));
+    }
+
+    public String externalConversationId() {
+        return importMetadata.externalConversationId();
+    }
+
+    public String sourceUri() {
+        return importMetadata.sourceUri();
+    }
+
+    /** Compatibility accessor for the transcript hash stored in chats.contentHash. */
+    public String contentHash() {
+        return importMetadata.transcriptHash();
+    }
+
+    public String transcriptHash() {
+        return importMetadata.transcriptHash();
+    }
+
+    public String sourceUpdatedAt() {
+        return importMetadata.sourceUpdatedAt();
+    }
+
+    public String lastImportedAt() {
+        return importMetadata.lastImportedAt();
     }
 
     /**
@@ -39,8 +69,8 @@ public record Chat(
 
     /** Copy builder for {@link Chat}. Start from {@link Chat#toBuilder()}. */
     public static final class Builder {
-        private final long id;
-        private final Source source;
+        private long id;
+        private Source source;
         private Long projectId;
         private String title;
         private String createdAt;
@@ -49,7 +79,7 @@ public record Chat(
         private boolean archived;
         private String externalConversationId;
         private String sourceUri;
-        private String contentHash;
+        private String transcriptHash;
         private String sourceUpdatedAt;
         private String lastImportedAt;
 
@@ -62,11 +92,21 @@ public record Chat(
             this.updatedAt = chat.updatedAt;
             this.importedAt = chat.importedAt;
             this.archived = chat.archived;
-            this.externalConversationId = chat.externalConversationId;
-            this.sourceUri = chat.sourceUri;
-            this.contentHash = chat.contentHash;
-            this.sourceUpdatedAt = chat.sourceUpdatedAt;
-            this.lastImportedAt = chat.lastImportedAt;
+            this.externalConversationId = chat.importMetadata.externalConversationId();
+            this.sourceUri = chat.importMetadata.sourceUri();
+            this.transcriptHash = chat.importMetadata.transcriptHash();
+            this.sourceUpdatedAt = chat.importMetadata.sourceUpdatedAt();
+            this.lastImportedAt = chat.importMetadata.lastImportedAt();
+        }
+
+        public Builder id(long id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder source(Source source) {
+            this.source = source;
+            return this;
         }
 
         public Builder projectId(Long projectId) {
@@ -95,7 +135,12 @@ public record Chat(
         }
 
         public Builder contentHash(String contentHash) {
-            this.contentHash = contentHash;
+            this.transcriptHash = contentHash;
+            return this;
+        }
+
+        public Builder transcriptHash(String transcriptHash) {
+            this.transcriptHash = transcriptHash;
             return this;
         }
 
@@ -111,8 +156,8 @@ public record Chat(
 
         public Chat build() {
             return new Chat(id, projectId, source, title, createdAt, updatedAt, importedAt,
-                    archived, externalConversationId, sourceUri, contentHash, sourceUpdatedAt,
-                    lastImportedAt);
+                    archived, new ImportMetadata(externalConversationId, sourceUri,
+                            transcriptHash, sourceUpdatedAt, lastImportedAt));
         }
     }
 }

@@ -12,7 +12,6 @@ import java.util.Map;
 import chatmap.domain.Chat;
 import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
-import chatmap.domain.Source;
 import chatmap.domain.Tag;
 
 /** FTS-backed search queries over stored chats and messages. */
@@ -41,9 +40,8 @@ public final class SearchRepository {
     public List<SearchResult> listResults(SearchOptions options) throws SQLException {
         SearchOptions filters = options == null ? SearchOptions.none() : options;
         StringBuilder sql = new StringBuilder(
-                "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, c.importedAt, "
-                + "c.archived, c.externalConversationId, c.sourceUri, c.contentHash, c.sourceUpdatedAt, "
-                + "c.lastImportedAt, p.name AS projectName "
+                ChatRowMapper.SELECT_C_COLUMNS
+                + ", p.name AS projectName "
                 + "FROM chats c "
                 + "LEFT JOIN projects p ON p.id = c.projectId ");
         if (filters.tagId() != null) {
@@ -58,7 +56,7 @@ public final class SearchRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 List<ResultRow> rows = new ArrayList<>();
                 while (rs.next()) {
-                    Chat chat = readChat(rs);
+                    Chat chat = ChatRowMapper.read(rs);
                     rows.add(new ResultRow(chat, rs.getString("projectName"), null));
                 }
                 return withTags(rows);
@@ -75,9 +73,8 @@ public final class SearchRepository {
             return List.of();
         }
         SearchOptions filters = options == null ? SearchOptions.none() : options;
-        StringBuilder sql = new StringBuilder("SELECT c.id, c.projectId, c.source, c.title, c.createdAt, "
-                + "c.updatedAt, c.importedAt, c.archived, c.externalConversationId, c.sourceUri, "
-                + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt, p.name AS projectName, "
+        StringBuilder sql = new StringBuilder(ChatRowMapper.SELECT_C_COLUMNS
+                + ", p.name AS projectName, "
                 + "snippet(messageFts, 0, '[', ']', '...', 12) AS snippet, "
                 + "bm25(messageFts) AS relevance "
                 + "FROM messageFts "
@@ -97,7 +94,7 @@ public final class SearchRepository {
             try (ResultSet rs = ps.executeQuery()) {
                 Map<Long, ResultRow> rows = new LinkedHashMap<>();
                 while (rs.next()) {
-                    Chat chat = readChat(rs);
+                    Chat chat = ChatRowMapper.read(rs);
                     rows.putIfAbsent(chat.id(), new ResultRow(
                             chat,
                             rs.getString("projectName"),
@@ -163,25 +160,6 @@ public final class SearchRepository {
     }
 
     private record ResultRow(Chat chat, String projectName, String snippet) {
-    }
-
-    private static Chat readChat(ResultSet rs) throws SQLException {
-        long projectId = rs.getLong("projectId");
-        Long boxedProjectId = rs.wasNull() ? null : projectId;
-        return new Chat(
-                rs.getLong("id"),
-                boxedProjectId,
-                Source.fromDbValue(rs.getString("source")),
-                rs.getString("title"),
-                rs.getString("createdAt"),
-                rs.getString("updatedAt"),
-                rs.getString("importedAt"),
-                rs.getInt("archived") != 0,
-                rs.getString("externalConversationId"),
-                rs.getString("sourceUri"),
-                rs.getString("contentHash"),
-                rs.getString("sourceUpdatedAt"),
-                rs.getString("lastImportedAt"));
     }
 
     private static void appendFilterConditions(StringBuilder sql, SearchOptions filters) {

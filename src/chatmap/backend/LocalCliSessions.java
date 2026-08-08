@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
@@ -62,7 +63,7 @@ final class LocalCliSessions {
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt,
             Source source, String externalConversationId, String sourceUri) {
         Chat chat = new Chat(0, null, source, title, null, null, importedAt, false,
-                externalConversationId, sourceUri, null, importedAt, importedAt);
+                new ImportMetadata(externalConversationId, sourceUri, null, importedAt, importedAt));
         List<Message> messages = new ArrayList<>();
         int sequence = 0;
         for (ClaudeTurn turn : turns) {

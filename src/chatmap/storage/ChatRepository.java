@@ -50,16 +50,13 @@ public final class ChatRepository {
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 keys.next();
                 long id = keys.getLong(1);
-                return new Chat(id, chat.projectId(), chat.source(), chat.title(),
-                        chat.createdAt(), chat.updatedAt(), chat.importedAt(), chat.archived(),
-                        chat.externalConversationId(), chat.sourceUri(), chat.contentHash(),
-                        chat.sourceUpdatedAt(), chat.lastImportedAt());
+                return chat.toBuilder().id(id).build();
             }
         }
     }
 
     public Optional<Chat> findById(long id) throws SQLException {
-        String sql = selectColumns()
+        String sql = ChatRowMapper.selectColumns()
                 + "FROM chats WHERE id = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
@@ -67,13 +64,13 @@ public final class ChatRepository {
                 if (!rs.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(read(rs));
+                return Optional.of(ChatRowMapper.read(rs));
             }
         }
     }
 
     public List<Chat> findAll() throws SQLException {
-        String sql = selectColumns()
+        String sql = ChatRowMapper.selectColumns()
                 + "FROM chats ORDER BY importedAt, id";
         try (PreparedStatement ps = conn.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
@@ -82,14 +79,14 @@ public final class ChatRepository {
     }
 
     public Optional<Chat> findMostRecent() throws SQLException {
-        String sql = selectColumns()
+        String sql = ChatRowMapper.selectColumns()
                 + "FROM chats ORDER BY importedAt DESC, id DESC LIMIT 1";
         try (PreparedStatement ps = conn.prepareStatement(sql);
                 ResultSet rs = ps.executeQuery()) {
             if (!rs.next()) {
                 return Optional.empty();
             }
-            return Optional.of(read(rs));
+            return Optional.of(ChatRowMapper.read(rs));
         }
     }
 
@@ -118,7 +115,7 @@ public final class ChatRepository {
     }
 
     public List<Chat> findByProject(long projectId) throws SQLException {
-        String sql = selectColumns()
+        String sql = ChatRowMapper.selectColumns()
                 + "FROM chats WHERE projectId = ? ORDER BY importedAt, id";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, projectId);
@@ -129,9 +126,7 @@ public final class ChatRepository {
     }
 
     public List<Chat> findByTag(long tagId) throws SQLException {
-        String sql = "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, c.importedAt, "
-                + "c.archived, c.externalConversationId, c.sourceUri, c.contentHash, c.sourceUpdatedAt, "
-                + "c.lastImportedAt "
+        String sql = ChatRowMapper.SELECT_C_COLUMNS
                 + "FROM chats c "
                 + "JOIN chatTags ct ON ct.chatId = c.id "
                 + "WHERE ct.tagId = ? "
@@ -157,7 +152,7 @@ public final class ChatRepository {
         if (externalConversationId == null || externalConversationId.isBlank()) {
             return Optional.empty();
         }
-        String sql = selectColumns() + "FROM chats WHERE source = ? AND externalConversationId = ?";
+        String sql = ChatRowMapper.selectColumns() + "FROM chats WHERE source = ? AND externalConversationId = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, source.dbValue());
             ps.setString(2, externalConversationId);
@@ -165,7 +160,7 @@ public final class ChatRepository {
                 if (!rs.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(read(rs));
+                return Optional.of(ChatRowMapper.read(rs));
             }
         }
     }
@@ -175,7 +170,7 @@ public final class ChatRepository {
         if (contentHash == null || contentHash.isBlank()) {
             return Optional.empty();
         }
-        String sql = selectColumns()
+        String sql = ChatRowMapper.selectColumns()
                 + "FROM chats WHERE source = ? AND externalConversationId IS NULL AND contentHash = ? "
                 + "ORDER BY importedAt, id LIMIT 1";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -185,7 +180,7 @@ public final class ChatRepository {
                 if (!rs.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(read(rs));
+                return Optional.of(ChatRowMapper.read(rs));
             }
         }
     }
@@ -229,36 +224,12 @@ public final class ChatRepository {
         return findById(id).orElseThrow();
     }
 
-    private static Chat read(ResultSet rs) throws SQLException {
-        long projectId = rs.getLong("projectId");
-        Long boxedProjectId = rs.wasNull() ? null : projectId;
-        return new Chat(
-                rs.getLong("id"),
-                boxedProjectId,
-                Source.fromDbValue(rs.getString("source")),
-                rs.getString("title"),
-                rs.getString("createdAt"),
-                rs.getString("updatedAt"),
-                rs.getString("importedAt"),
-                rs.getInt("archived") != 0,
-                rs.getString("externalConversationId"),
-                rs.getString("sourceUri"),
-                rs.getString("contentHash"),
-                rs.getString("sourceUpdatedAt"),
-                rs.getString("lastImportedAt"));
-    }
-
     private static List<Chat> readAll(ResultSet rs) throws SQLException {
         List<Chat> chats = new ArrayList<>();
         while (rs.next()) {
-            chats.add(read(rs));
+            chats.add(ChatRowMapper.read(rs));
         }
         return chats;
-    }
-
-    private static String selectColumns() {
-        return "SELECT id, projectId, source, title, createdAt, updatedAt, importedAt, archived, "
-                + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt ";
     }
 
     private static void setNullableLong(PreparedStatement ps, int parameter, Long value)

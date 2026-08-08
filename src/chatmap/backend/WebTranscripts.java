@@ -6,6 +6,7 @@ import java.util.List;
 import com.microsoft.playwright.Locator;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
@@ -85,7 +86,7 @@ final class WebTranscripts {
             String fallbackTitle, Source source, String externalConversationId, String sourceUri) {
         String chatTitle = (title == null || title.isBlank()) ? fallbackTitle : title.strip();
         Chat chat = new Chat(0, null, source, chatTitle, null, null, importedAt, false,
-                externalConversationId, sourceUri, null, null, importedAt);
+                new ImportMetadata(externalConversationId, sourceUri, null, null, importedAt));
         List<Message> messages = new ArrayList<>();
         int sequence = 0;
         for (ClaudeTurn turn : turns) {

@@ -31,6 +31,7 @@ import static chatmap.importer.ChatGptMapping.object;
 import static chatmap.importer.ChatGptMapping.string;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 
@@ -137,7 +138,7 @@ public final class ChatGptArchiveImporter {
                     isoTimestamp(message.get("create_time")), null));
         }
         Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt,
-                importedAt, false, externalId, sourceUri, null, updatedAt, importedAt);
+                importedAt, false, new ImportMetadata(externalId, sourceUri, null, updatedAt, importedAt));
         return new ImportedConversation(entryName, externalId, new ImportedChat(chat, messages));
     }
 
@@ -145,7 +146,7 @@ public final class ChatGptArchiveImporter {
             String importedAt) {
         String id = idOrReason.startsWith("missing ") ? entryName + "#" + index : idOrReason;
         Chat chat = new Chat(0, null, Source.chatgptJson, "Skipped ChatGPT conversation",
-                null, null, importedAt, false, id, null, null, null, importedAt);
+                null, null, importedAt, false, new ImportMetadata(id, null, null, null, importedAt));
         return new ImportedConversation(entryName, id, new ImportedChat(chat, List.of()));
     }
 
