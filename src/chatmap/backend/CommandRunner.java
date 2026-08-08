@@ -29,31 +29,30 @@ public final class CommandRunner implements CommandExecutor {
             throw new CommandExecutionException("Could not start command " + request.command().getFirst(), exception);
         }
 
-        ExecutorService streamReaders = Executors.newFixedThreadPool(2);
-        Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream()));
-        Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream()));
+        try (ExecutorService streamReaders = Executors.newVirtualThreadPerTaskExecutor()) {
+            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream()));
+            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream()));
 
-        boolean timedOut = false;
-        int exitCode = -1;
-        try {
-            writeStandardInput(process, request.standardInput());
-            if (process.waitFor(request.timeout().toMillis(), TimeUnit.MILLISECONDS)) {
-                exitCode = process.exitValue();
-            } else {
-                timedOut = true;
+            boolean timedOut = false;
+            int exitCode = -1;
+            try {
+                writeStandardInput(process, request.standardInput());
+                if (process.waitFor(request.timeout().toMillis(), TimeUnit.MILLISECONDS)) {
+                    exitCode = process.exitValue();
+                } else {
+                    timedOut = true;
+                    terminate(process);
+                }
+
+                Duration duration = Duration.ofNanos(System.nanoTime() - started);
+                return new CommandResult(exitCode, stdout.get(), stderr.get(), duration, timedOut);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
                 terminate(process);
+                throw new CommandExecutionException("Interrupted while running command " + request.command().getFirst(), exception);
+            } catch (ExecutionException exception) {
+                throw new CommandExecutionException("Could not read process output for command " + request.command().getFirst(), exception);
             }
-
-            Duration duration = Duration.ofNanos(System.nanoTime() - started);
-            return new CommandResult(exitCode, stdout.get(), stderr.get(), duration, timedOut);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            terminate(process);
-            throw new CommandExecutionException("Interrupted while running command " + request.command().getFirst(), exception);
-        } catch (ExecutionException exception) {
-            throw new CommandExecutionException("Could not read process output for command " + request.command().getFirst(), exception);
-        } finally {
-            streamReaders.shutdownNow();
         }
     }
 
