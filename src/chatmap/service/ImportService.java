@@ -137,21 +137,20 @@ public final class ImportService {
     }
 
     private static ImportedChat withSourceUri(ImportedChat imported, String sourceUri) {
-        Chat chat = imported.chat();
-        Chat withUri = new Chat(chat.id(), chat.projectId(), chat.source(), chat.title(),
-                chat.createdAt(), chat.updatedAt(), chat.importedAt(), chat.archived(),
-                chat.externalConversationId(), sourceUri, chat.contentHash(),
-                chat.sourceUpdatedAt(), chat.lastImportedAt());
+        Chat withUri = imported.chat().toBuilder().sourceUri(sourceUri).build();
         return new ImportedChat(withUri, imported.messages());
     }
 
     private static Chat withComputedImportMetadata(Chat chat, String contentHash) {
         String lastImportedAt = chat.lastImportedAt() == null ? chat.importedAt() : chat.lastImportedAt();
         String sourceUpdatedAt = chat.sourceUpdatedAt() == null ? chat.updatedAt() : chat.sourceUpdatedAt();
-        return new Chat(chat.id(), chat.projectId(), chat.source(), chat.title(),
-                chat.createdAt(), chat.updatedAt(), chat.importedAt(), chat.archived(),
-                blankToNull(chat.externalConversationId()), blankToNull(chat.sourceUri()),
-                contentHash, sourceUpdatedAt, lastImportedAt);
+        return chat.toBuilder()
+                .externalConversationId(blankToNull(chat.externalConversationId()))
+                .sourceUri(blankToNull(chat.sourceUri()))
+                .contentHash(contentHash)
+                .sourceUpdatedAt(sourceUpdatedAt)
+                .lastImportedAt(lastImportedAt)
+                .build();
     }
 
     private static String blankToNull(String value) {
