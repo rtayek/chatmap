@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +46,41 @@ class SerializedTaskExecutorTest {
 
             assertEquals(1, maxRunning.get());
         }
+    }
+
+    @Test
+    void shutdownAndAwaitReportsFalseWhileATaskIsStillRunning() throws Exception {
+        SerializedTaskExecutor executor = new SerializedTaskExecutor("test-shutdown");
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        executor.submit(() -> {
+            started.countDown();
+            // Ignore interruption to mimic a task that does not check the interrupt
+            // flag (e.g. a tight persist loop), so it is still running when shutdown
+            // is requested -- exactly the case where closing the DB connection would
+            // be a use-after-close.
+            boolean released = false;
+            while (!released) {
+                try {
+                    released = release.await(2, TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                    // keep running
+                }
+            }
+        });
+
+        assertTrue(started.await(1, TimeUnit.SECONDS));
+        assertFalse(executor.shutdownAndAwait(Duration.ofMillis(200)));
+
+        release.countDown();
+        assertTrue(executor.shutdownAndAwait(Duration.ofSeconds(2)));
+    }
+
+    @Test
+    void shutdownAndAwaitReportsTrueWhenIdle() throws Exception {
+        SerializedTaskExecutor executor = new SerializedTaskExecutor("test-idle");
+        assertTrue(executor.shutdownAndAwait(Duration.ofSeconds(1)));
     }
 
     private static void await(CountDownLatch latch) {

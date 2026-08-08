@@ -257,11 +257,20 @@ public final class ChatMapApp extends Application {
 
     @Override
     public void stop() throws Exception {
-        if (backgroundExecutor != null) {
-            backgroundExecutor.close();
-        }
+        // Close the connection only once the background worker has actually stopped
+        // using it. If a long task (e.g. a summarize CLI call or a large archive
+        // import) has not drained in time, closing the connection under it would fail
+        // mid-operation, so leave it for the JVM to release on exit -- WAL keeps the
+        // database consistent.
+        boolean workerStopped = backgroundExecutor == null
+                || backgroundExecutor.shutdownAndAwait(Duration.ofSeconds(5));
         if (conn != null) {
-            conn.close();
+            if (workerStopped) {
+                conn.close();
+            } else {
+                System.err.println("[ChatMap] Background work did not stop in time; "
+                        + "leaving the database connection for the JVM to release on exit.");
+            }
         }
     }
 
@@ -275,7 +284,7 @@ public final class ChatMapApp extends Application {
         return button;
     }
 
-    private void importFile(String title, String... patterns) throws Exception {
+    private void importFile(String title, String... patterns) {
         FileChooser chooser = new FileChooser();
         chooser.setTitle(title);
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(title, patterns));
@@ -283,10 +292,10 @@ public final class ChatMapApp extends Application {
         if (file == null) {
             return;
         }
-        applyListState(controller.importFile(file.toPath()));
+        runInBackground("Importing file...", null, () -> controller.importFile(file.toPath()));
     }
 
-    private void exportSelectedChat() throws Exception {
+    private void exportSelectedChat() {
         SearchResult selectedResult = chatList.getSelectionModel().getSelectedItem();
         Chat selected = selectedResult == null ? null : selectedResult.chat();
         if (selected == null) {
@@ -301,8 +310,15 @@ public final class ChatMapApp extends Application {
         if (file == null) {
             return;
         }
-        boolean exported = controller.exportChatMarkdown(selected.id(), file.toPath());
-        status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists.");
+        status.setText("Exporting chat...");
+        backgroundExecutor.submit(() -> {
+            try {
+                boolean exported = controller.exportChatMarkdown(selected.id(), file.toPath());
+                Platform.runLater(() -> status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists."));
+            } catch (Exception e) {
+                Platform.runLater(() -> reportError(e));
+            }
+        });
     }
 
     private void importChatGptArchive() {
