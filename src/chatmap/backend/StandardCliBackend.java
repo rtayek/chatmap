@@ -1,5 +1,6 @@
 package chatmap.backend;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -7,7 +8,7 @@ import java.util.Objects;
 /**
  * Common base class for CLI-backed AI execution models (e.g. claude, codex, agy).
  */
-public class StandardCliBackend implements CommandBackedAiBackend {
+public class StandardCliBackend implements CommandBackedAiBackend, SummaryClient {
 
     static final BackendId CLAUDE_BACKEND_ID = new BackendId("Claude CLI");
     static final BackendId CODEX_BACKEND_ID = new BackendId("Codex CLI");
@@ -36,6 +37,15 @@ public class StandardCliBackend implements CommandBackedAiBackend {
     @Override
     public AiResponse ask(AiRequest request) {
         return askWithResult(request).response();
+    }
+
+    @Override
+    public String ask(String prompt) throws IOException {
+        try {
+            return ask(AiRequest.of(prompt)).text().strip();
+        } catch (AiBackendException e) {
+            throw new IOException(e.getMessage(), e);
+        }
     }
 
     boolean supportsSystemPrompt() {

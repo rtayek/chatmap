@@ -24,6 +24,19 @@ class DatabaseConnectionTest {
     }
 
     @Test
+    void openConfiguresWalModeForFileBackedDatabase(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path dbFile = tempDir.resolve("test-wal.db");
+        Database db = new Database("jdbc:sqlite:" + dbFile);
+        try (Connection conn = db.open()) {
+            try (Statement st = conn.createStatement();
+                    ResultSet rs = st.executeQuery("PRAGMA journal_mode")) {
+                rs.next();
+                assertEquals("wal", rs.getString(1).toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+    }
+
+    @Test
     void openClosesConnectionWhenConfigurationFails() {
         AtomicBoolean closed = new AtomicBoolean();
         Connection connection = connectionThatFailsConfiguration(closed, false);

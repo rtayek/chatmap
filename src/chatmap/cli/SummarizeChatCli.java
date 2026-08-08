@@ -7,7 +7,7 @@ import java.time.Duration;
 import java.util.List;
 
 import chatmap.backend.ChatProvider;
-import chatmap.backend.ClaudeCliClient;
+import chatmap.backend.ClaudeCliBackend;
 import chatmap.backend.DefaultChatProviders;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
@@ -103,7 +103,7 @@ public final class SummarizeChatCli {
                     messages,
                     new SummaryRepository(conn),
                     new TagRepository(conn),
-                    new ClaudeCliClient(Duration.ofMinutes(3)));
+                    new ClaudeCliBackend(Duration.ofMinutes(3)));
 
             System.out.println("Summarizing chat " + chatId + " ...");
             ChatSummary summary = summaryService.summarize(chatId);

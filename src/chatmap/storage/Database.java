@@ -81,10 +81,13 @@ public final class Database {
         return conn;
     }
 
-    private static void configureConnection(Connection conn) throws SQLException {
+    private void configureConnection(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
             st.execute("PRAGMA foreign_keys = ON");
             st.execute("PRAGMA busy_timeout = " + busyTimeoutMilliseconds);
+            if (!jdbcUrl.contains(":memory:")) {
+                st.execute("PRAGMA journal_mode = WAL");
+            }
         }
     }
 

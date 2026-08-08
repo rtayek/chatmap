@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 import chatmap.backend.ChatProvider;
-import chatmap.backend.ClaudeCliClient;
+import chatmap.backend.ClaudeCliBackend;
 import chatmap.backend.DefaultChatProviders;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
@@ -109,7 +109,7 @@ public final class ChatMapApp extends Application {
         ChatGptArchiveImportService archiveImportService =
                 new ChatGptArchiveImportService(importService);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
-                new ClaudeCliClient(Duration.ofMinutes(3)));
+                new ClaudeCliBackend(Duration.ofMinutes(3)));
         List<ChatProvider> providers = DefaultChatProviders.ordered();
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(providers, importService, chats);
@@ -211,9 +211,7 @@ public final class ChatMapApp extends Application {
         BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
 
         refreshOrganizationChoices();
-        ChatListState.Snapshot initialChats = controller.loadAllChats();
-        applyListState(initialChats);
-        System.out.println(initialChats.statusText());
+        runInBackground("Loading chats...", null, () -> controller.loadAllChats());
         stage.setTitle("ChatMap");
         applyFontSize(fontSizeState.current());
         Scene scene = new Scene(root, 900, 600);
@@ -326,103 +324,129 @@ public final class ChatMapApp extends Application {
         });
     }
 
-    private void searchChats() throws Exception {
+    private void searchChats() {
         String query = searchField.getText();
-        applyListState(controller.searchChats(query));
+        runInBackground("Searching...", null, () -> controller.searchChats(query));
         searchField.requestFocus();
         searchField.selectAll();
     }
 
-    private void clearSearchAndFilters() throws Exception {
+    private void clearSearchAndFilters() {
         searchField.clear();
         projectChoice.getSelectionModel().clearSelection();
         tagChoice.getSelectionModel().clearSelection();
-        applyListState(controller.clearFilters());
+        runInBackground("Loading...", null, () -> controller.clearFilters());
         searchField.requestFocus();
     }
 
-    private void createProject() throws Exception {
+    private void createProject() {
         Optional<String> name = requestName("New project", "Project name");
         if (name.isEmpty()) {
             return;
         }
-        Project created = controller.createProject(name.get());
-        refreshOrganizationChoices();
-        projectChoice.getSelectionModel().select(created);
-        status.setText("Created project " + created.name());
+        backgroundExecutor.submit(() -> {
+            try {
+                Project created = controller.createProject(name.get());
+                Platform.runLater(() -> {
+                    refreshOrganizationChoices();
+                    projectChoice.getSelectionModel().select(created);
+                    status.setText("Created project " + created.name());
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> reportError(e));
+            }
+        });
     }
 
-    private void assignProject() throws Exception {
+    private void assignProject() {
         Long chatId = selectedChatId();
         Project project = projectChoice.getValue();
         if (chatId == null || project == null) {
             status.setText("Select a chat and project.");
             return;
         }
-        applyListState(controller.assignProject(chatId, project.id()));
+        runInBackground("Assigning project...", null, () -> controller.assignProject(chatId, project.id()));
     }
 
-    private void clearProject() throws Exception {
+    private void clearProject() {
         Long chatId = selectedChatId();
         if (chatId == null) {
             status.setText("Select a chat.");
             return;
         }
-        applyListState(controller.clearProject(chatId));
+        runInBackground("Clearing project...", null, () -> controller.clearProject(chatId));
     }
 
-    private void filterByProject() throws Exception {
+    private void filterByProject() {
         Project project = projectChoice.getValue();
         if (project == null) {
             status.setText("Select a project.");
             return;
         }
-        applyListState(controller.filterByProject(project.id()));
+        runInBackground("Filtering...", null, () -> controller.filterByProject(project.id()));
     }
 
-    private void createTag() throws Exception {
+    private void createTag() {
         Optional<String> name = requestName("New tag", "Tag name");
         if (name.isEmpty()) {
             return;
         }
-        Tag created = controller.createTag(name.get());
-        refreshOrganizationChoices();
-        tagChoice.getSelectionModel().select(created);
-        status.setText("Created tag " + created.name());
+        backgroundExecutor.submit(() -> {
+            try {
+                Tag created = controller.createTag(name.get());
+                Platform.runLater(() -> {
+                    refreshOrganizationChoices();
+                    tagChoice.getSelectionModel().select(created);
+                    status.setText("Created tag " + created.name());
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> reportError(e));
+            }
+        });
     }
 
-    private void addTag() throws Exception {
+    private void addTag() {
         Long chatId = selectedChatId();
         Tag tag = tagChoice.getValue();
         if (chatId == null || tag == null) {
             status.setText("Select a chat and tag.");
             return;
         }
-        applyListState(controller.addTag(chatId, tag.id()));
+        runInBackground("Adding tag...", null, () -> controller.addTag(chatId, tag.id()));
     }
 
-    private void removeTag() throws Exception {
+    private void removeTag() {
         Long chatId = selectedChatId();
         Tag tag = tagChoice.getValue();
         if (chatId == null || tag == null) {
             status.setText("Select a chat and tag.");
             return;
         }
-        applyListState(controller.removeTag(chatId, tag.id()));
+        runInBackground("Removing tag...", null, () -> controller.removeTag(chatId, tag.id()));
     }
 
-    private void filterByTag() throws Exception {
+    private void filterByTag() {
         Tag tag = tagChoice.getValue();
         if (tag == null) {
             status.setText("Select a tag.");
             return;
         }
-        applyListState(controller.filterByTag(tag.id()));
+        runInBackground("Filtering...", null, () -> controller.filterByTag(tag.id()));
     }
 
-    private void refreshOrganizationChoices() throws Exception {
-        projectChoice.setItems(FXCollections.observableArrayList(controller.listProjects()));
-        tagChoice.setItems(FXCollections.observableArrayList(controller.listTags()));
+    private void refreshOrganizationChoices() {
+        backgroundExecutor.submit(() -> {
+            try {
+                List<Project> projects = controller.listProjects();
+                List<Tag> tags = controller.listTags();
+                Platform.runLater(() -> {
+                    projectChoice.setItems(FXCollections.observableArrayList(projects));
+                    tagChoice.setItems(FXCollections.observableArrayList(tags));
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> reportError(e));
+            }
+        });
     }
 
     private Long selectedChatId() {
@@ -452,27 +476,33 @@ public final class ChatMapApp extends Application {
     }
 
     private void showChatDetails(long chatId) {
-        runWithFeedback(() -> {
-            ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
-            if (model == null) {
-                detail.clear();
-                status.setText("Selected chat no longer exists.");
-                return;
+        backgroundExecutor.submit(() -> {
+            try {
+                ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
+                ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
+                Platform.runLater(() -> {
+                    if (model == null) {
+                        detail.clear();
+                        status.setText("Selected chat no longer exists.");
+                        return;
+                    }
+                    StringBuilder out = new StringBuilder();
+                    out.append(model.chat().title()).append("\n");
+                    out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
+                    out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
+                    if (summary != null) {
+                        out.append("AI Summary (").append(summary.generatedBy()).append("): ")
+                                .append(summary.summary()).append("\n\n");
+                    }
+                    for (Message message : model.messages()) {
+                        out.append("[").append(message.role()).append("]\n");
+                        out.append(message.text()).append("\n\n");
+                    }
+                    detail.setText(out.toString());
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> reportError(e));
             }
-            StringBuilder out = new StringBuilder();
-            out.append(model.chat().title()).append("\n");
-            out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
-            out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
-            ChatSummary summary = controller.latestSummary(chatId).orElse(null);
-            if (summary != null) {
-                out.append("AI Summary (").append(summary.generatedBy()).append("): ")
-                        .append(summary.summary()).append("\n\n");
-            }
-            for (Message message : model.messages()) {
-                out.append("[").append(message.role()).append("]\n");
-                out.append(message.text()).append("\n\n");
-            }
-            detail.setText(out.toString());
         });
     }
 

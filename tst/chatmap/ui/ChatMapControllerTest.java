@@ -18,7 +18,7 @@ import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
-import chatmap.backend.ClaudeCliClient;
+import chatmap.backend.ClaudeCliBackend;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
@@ -57,7 +57,7 @@ class ChatMapControllerTest {
         ImportService importService = new ImportService(chats, messages);
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), new TagRepository(conn),
-                new ClaudeCliClient(java.time.Duration.ofMinutes(3)));
+                new ClaudeCliBackend(java.time.Duration.ofMinutes(3)));
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(java.util.List.of(), importService, chats);
         controller = new ChatMapController(
