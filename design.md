@@ -43,10 +43,11 @@ Java desktop app
 ├── importer
 │   ├── PlainTextImporter
 │   ├── MarkdownImporter
-│   └── ChatGptJsonImporter
+│   ├── ChatGptJsonImporter
+│   └── ChatGptArchiveImporter
 │
 ├── backend
-│   └── optional web, CLI-history, and Claude-summary adapters
+│   └── optional web, CLI-history, prompt-execution, and Claude-summary adapters
 │
 ├── exporter
 │   ├── MarkdownExporter
@@ -55,6 +56,12 @@ Java desktop app
 ├── storage
 │   ├── repositories
 │   └── SQLite schema
+│
+├── cli
+│   └── consolidate, summarize, and archive-import entry points
+│
+├── config
+│   └── ChatMapPaths (home, database, and transcript directory resolution)
 ```
 
 ## Design Rules
@@ -68,11 +75,12 @@ Java desktop app
 
 ## Technology Choices
 
-* Language: Java
-* UI: JavaFX
-* Storage: SQLite
+* Language & Runtime: Java 25 (Gradle Kotlin DSL toolchain)
+* UI: JavaFX 25.0.1
+* Storage: SQLite 3.53+
 * Search: SQLite FTS5
-* Tests: JUnit with temporary SQLite databases
+* Browser Automation / CDP: Playwright / Chrome DevTools Protocol
+* Quality Assurance: JUnit 5, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
 
 ## Naming Rules
 
@@ -82,7 +90,7 @@ Use standard Java type naming and lower camel case everywhere else.
 Java classes, records, interfaces:
 UpperCamelCase
 
-Java methods, fields, parameters, locals, constants:
+Java methods, fields, parameters, locals, constants, and enums:
 lowerCamelCase
 
 Database tables and columns:
@@ -112,6 +120,7 @@ chatId
 createdAt
 updatedAt
 importedAt
+enum Foo {bar,baz}
 ```
 
 No underscores or spaces in Java identifiers or database identifiers.
@@ -141,6 +150,11 @@ Chat
 - updatedAt
 - importedAt
 - archived
+- externalConversationId
+- sourceUri
+- contentHash
+- sourceUpdatedAt
+- lastImportedAt
 ```
 
 A chat belongs to zero or one project in the MVP.
@@ -170,12 +184,30 @@ Tag
 - name
 ```
 
-### ChatTag
+### chatTags
+
+The chat-to-tag association. This is a join table only; there is no `ChatTag`
+domain type.
 
 ```text
-ChatTag
+chatTags
 - chatId
 - tagId
+```
+
+### ChatSummary
+
+An optional, AI-generated summary for a chat. Additive only: never edits the
+chat or its messages.
+
+```text
+ChatSummary
+- id
+- chatId
+- summary
+- generatedBy
+- generatedAt
+- contentHash
 ```
 
 ## Storage
@@ -191,9 +223,12 @@ messages
 messageFts
 tags
 chatTags
+chatSummaries
 ```
 
 `messages` stores durable message rows.
+
+`chatSummaries` stores optional AI-generated summaries; empty when AI is unused.
 
 `messageFts` is an external-content FTS5 table synchronized by triggers in `schema.sql`.
 
@@ -209,6 +244,7 @@ Current import behavior:
 Plain text → one Chat → one Message
 Markdown   → one Chat → one Message
 ChatGPT JSON → flattened Messages with rawJson preserved
+ChatGPT archive (ZIP) → many Chats from an exported conversations file
 ```
 
 Importers do not persist data directly. Services pass imported data to repositories.
@@ -253,12 +289,22 @@ Results are returned in deterministic chat import order. Duplicate message match
 7. JavaFX list/detail, import, search, and export workflow
 ```
 
+## Optional Capabilities (beyond MVP)
+
+These exist in the codebase but are not required for MVP behavior, and the
+deterministic import → export path never depends on them:
+
+* live web readers for Claude, ChatGPT, and Gemini (`Source` values
+  `claudeWeb`, `chatGptWeb`, `geminiWeb`)
+* browser automation for those readers (Playwright and Chrome DevTools Protocol)
+* CLI-history readers (Claude Code, Codex, Gemini)
+* prompt execution against local CLIs, with automatic chat recording
+* Claude-generated chat summaries (`chatSummaries`)
+
 ## Non-Goals for MVP
 
-Not required for the deterministic MVP:
+Not built, and out of scope for the deterministic MVP:
 
-* live ChatGPT, Claude, or Gemini sync
-* browser automation
 * cloud accounts
 * multi-user collaboration
 * payments
