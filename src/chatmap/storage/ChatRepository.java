@@ -81,6 +81,18 @@ public final class ChatRepository {
         }
     }
 
+    public Optional<Chat> findMostRecent() throws SQLException {
+        String sql = selectColumns()
+                + "FROM chats ORDER BY importedAt DESC, id DESC LIMIT 1";
+        try (PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) {
+                return Optional.empty();
+            }
+            return Optional.of(read(rs));
+        }
+    }
+
     /** Deletes the chat; messages cascade via FK, and the FTS index follows via triggers. */
     public void delete(long id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("DELETE FROM chats WHERE id = ?")) {

@@ -87,6 +87,19 @@ class RepositoryTest {
     }
 
     @Test
+    void findsMostRecentChatByImportedAtAndId() throws Exception {
+        assertTrue(chats.findMostRecent().isEmpty());
+
+        chats.insert(new Chat(0, null, Source.plainText, "First",
+                null, null, "2026-07-06T00:00:00Z", false));
+        Chat second = chats.insert(new Chat(0, null, Source.plainText, "Second",
+                null, null, "2026-07-06T01:00:00Z", false));
+
+        assertEquals(second.id(), chats.findMostRecent().orElseThrow().id());
+        assertEquals("Second", chats.findMostRecent().orElseThrow().title());
+    }
+
+    @Test
     void createsUpdatesDeletesAndSearchesMessages() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Searchable",
                 null, null, "2026-07-06T00:00:00Z", false));

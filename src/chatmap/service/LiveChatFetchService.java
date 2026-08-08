@@ -79,14 +79,9 @@ public final class LiveChatFetchService {
 
     /**
      * The local fallback: the most recently imported chat.
-     * {@link ChatRepository#findAll()} is ordered by importedAt then id, so the
-     * last element is the most recent. Empty when there are no chats.
+     * Delegates to {@link ChatRepository#findMostRecent()} for an O(1) query.
      */
     public Optional<Chat> mostRecentChat() throws SQLException {
-        List<Chat> all = chats.findAll();
-        if (all.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(all.get(all.size() - 1));
+        return chats.findMostRecent();
     }
 }
