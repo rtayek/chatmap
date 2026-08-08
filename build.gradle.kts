@@ -101,6 +101,18 @@ tasks.register<JavaExec>("importChatGptArchive") {
     }
 }
 
+tasks.register<JavaExec>("runPrompt") {
+    group = "application"
+    description = "Submits a prompt to an AI backend and stores the result. Usage: -Pargs='<backendId> <prompt>'"
+    mainClass.set("chatmap.cli.RunPromptCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString().split(" "))
+    }
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
