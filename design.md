@@ -71,7 +71,8 @@ Java desktop app
 * Importers do not write to storage.
 * Repositories do not know source file formats.
 * Exporters do not query the database directly.
-* AI is optional and not required for MVP behavior.
+* Repositories do not manage connection lifecycle; multi-repository transactions use `TransactionRunner`.
+* AI is optional and not required for core MVP behavior.
 
 ## Technology Choices
 
@@ -282,7 +283,7 @@ Results are returned in deterministic chat import order. Duplicate message match
 ```text
 1. Domain model and SQLite storage
 2. FTS5 message search with synchronization triggers
-3. Plain text, Markdown, and ChatGPT JSON import
+3. Plain text, Markdown, ChatGPT JSON, and ChatGPT archive (ZIP) import
 4. Project and tag organization
 5. Single-chat Markdown export
 6. Deterministic project handoff export
