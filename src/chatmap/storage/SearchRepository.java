@@ -50,28 +50,11 @@ public final class SearchRepository {
             sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
         }
         sql.append("WHERE 1 = 1 ");
-        if (filters.projectId() != null) {
-            sql.append("AND c.projectId = ? ");
-        }
-        if (filters.tagId() != null) {
-            sql.append("AND ct.tagId = ? ");
-        }
-        if (filters.archived() != null) {
-            sql.append("AND c.archived = ? ");
-        }
+        appendFilterConditions(sql, filters);
         sql.append("ORDER BY c.importedAt, c.id");
 
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            int parameter = 1;
-            if (filters.projectId() != null) {
-                ps.setLong(parameter++, filters.projectId());
-            }
-            if (filters.tagId() != null) {
-                ps.setLong(parameter++, filters.tagId());
-            }
-            if (filters.archived() != null) {
-                ps.setInt(parameter, filters.archived() ? 1 : 0);
-            }
+            bindFilterParameters(ps, 1, filters);
             try (ResultSet rs = ps.executeQuery()) {
                 List<ResultRow> rows = new ArrayList<>();
                 while (rs.next()) {
@@ -105,29 +88,12 @@ public final class SearchRepository {
             sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
         }
         sql.append("WHERE messageFts MATCH ? ");
-        if (filters.projectId() != null) {
-            sql.append("AND c.projectId = ? ");
-        }
-        if (filters.tagId() != null) {
-            sql.append("AND ct.tagId = ? ");
-        }
-        if (filters.archived() != null) {
-            sql.append("AND c.archived = ? ");
-        }
+        appendFilterConditions(sql, filters);
         sql.append("ORDER BY relevance, c.importedAt, c.id, m.sequence, m.id");
 
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            int parameter = 1;
-            ps.setString(parameter++, ftsQuery);
-            if (filters.projectId() != null) {
-                ps.setLong(parameter++, filters.projectId());
-            }
-            if (filters.tagId() != null) {
-                ps.setLong(parameter++, filters.tagId());
-            }
-            if (filters.archived() != null) {
-                ps.setInt(parameter++, filters.archived() ? 1 : 0);
-            }
+            ps.setString(1, ftsQuery);
+            bindFilterParameters(ps, 2, filters);
             try (ResultSet rs = ps.executeQuery()) {
                 Map<Long, ResultRow> rows = new LinkedHashMap<>();
                 while (rs.next()) {
@@ -216,5 +182,32 @@ public final class SearchRepository {
                 rs.getString("contentHash"),
                 rs.getString("sourceUpdatedAt"),
                 rs.getString("lastImportedAt"));
+    }
+
+    private static void appendFilterConditions(StringBuilder sql, SearchOptions filters) {
+        if (filters.projectId() != null) {
+            sql.append("AND c.projectId = ? ");
+        }
+        if (filters.tagId() != null) {
+            sql.append("AND ct.tagId = ? ");
+        }
+        if (filters.archived() != null) {
+            sql.append("AND c.archived = ? ");
+        }
+    }
+
+    private static int bindFilterParameters(PreparedStatement ps, int startParameterIndex, SearchOptions filters)
+            throws SQLException {
+        int parameter = startParameterIndex;
+        if (filters.projectId() != null) {
+            ps.setLong(parameter++, filters.projectId());
+        }
+        if (filters.tagId() != null) {
+            ps.setLong(parameter++, filters.tagId());
+        }
+        if (filters.archived() != null) {
+            ps.setInt(parameter++, filters.archived() ? 1 : 0);
+        }
+        return parameter;
     }
 }
