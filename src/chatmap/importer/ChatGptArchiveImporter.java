@@ -5,7 +5,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -147,19 +146,7 @@ public final class ChatGptArchiveImporter {
 
     private static List<JsonObject> activePath(JsonObject mapping, String currentNode) {
         String start = currentNode != null && mapping.has(currentNode) ? currentNode : fallbackLeaf(mapping);
-        List<JsonObject> reversed = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
-        String nodeId = start;
-        while (nodeId != null && seen.add(nodeId)) {
-            JsonObject node = object(mapping.get(nodeId));
-            if (node == null) {
-                break;
-            }
-            reversed.add(node);
-            nodeId = string(node.get("parent"));
-        }
-        java.util.Collections.reverse(reversed);
-        return reversed;
+        return ChatGptMapping.activePath(mapping, start);
     }
 
     private static String fallbackLeaf(JsonObject mapping) {
@@ -242,12 +229,7 @@ public final class ChatGptArchiveImporter {
     }
 
     private static String mapRole(JsonObject message) {
-        JsonObject author = object(message.get("author"));
-        String role = author == null ? null : string(author.get("role"));
-        if ("user".equals(role) || "assistant".equals(role) || "system".equals(role)) {
-            return role;
-        }
-        return "unknown";
+        return ChatGptMapping.mapRole(message);
     }
 
     private static List<String> conversationEntries(ZipFile zip) {
@@ -357,13 +339,7 @@ public final class ChatGptArchiveImporter {
     }
 
     private static String isoTimestamp(JsonElement value) {
-        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) {
-            return null;
-        }
-        double secondsValue = value.getAsDouble();
-        long seconds = (long) secondsValue;
-        long nanos = Math.round((secondsValue - seconds) * 1_000_000_000L);
-        return Instant.ofEpochSecond(seconds, nanos).toString();
+        return ChatGptMapping.isoTimestamp(value);
     }
 
     private static String concise(RuntimeException e) {

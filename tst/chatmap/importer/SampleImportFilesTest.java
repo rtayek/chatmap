@@ -54,7 +54,7 @@ class SampleImportFilesTest {
         assertEquals("user", imported.messages().get(1).role());
         assertEquals("assistant", imported.messages().get(2).role());
         assertTrue(imported.messages().get(1).text().contains("ChatMap"));
-        assertTrue(imported.messages().get(1).rawJson().contains("\"id\": \"userMessage\""));
+        assertTrue(imported.messages().get(1).rawJson().contains("\"id\":\"userMessage\""));
     }
 
     private static Path sample(String fileName) {

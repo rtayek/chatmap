@@ -102,8 +102,9 @@ class ChatGptJsonImporterTest {
 
         Message user = imported.messages().get(1);
         assertEquals("Please explain SQLite FTS5.\n\nKeep it practical.", user.text());
-        assertTrue(user.rawJson().contains("\"id\": \"userMessage\""));
-        assertTrue(user.rawJson().contains("\"parts\": [\"Please explain SQLite FTS5.\", \"Keep it practical.\"]"));
+        // rawJson is now the Gson-canonical (compact) serialization of the message node.
+        assertTrue(user.rawJson().contains("\"id\":\"userMessage\""));
+        assertTrue(user.rawJson().contains("\"parts\":[\"Please explain SQLite FTS5.\",\"Keep it practical.\"]"));
     }
 
     @Test
