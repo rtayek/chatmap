@@ -66,7 +66,7 @@ public final class RunPromptCli {
             MessageRepository messages = new MessageRepository(conn);
             ImportService importService = new ImportService(chats, messages);
 
-            PromptService promptService = new PromptService(backends, importService, clock, paths.transcriptsDirectory());
+            PromptService promptService = new PromptService(backends, null, importService, clock, paths.transcriptsDirectory());
 
             if (!promptService.hasBackend(backendId)) {
                 throw new IllegalArgumentException("Unknown backend '" + backendId + "'. Available backends: "

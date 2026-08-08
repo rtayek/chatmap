@@ -38,7 +38,7 @@ final class PromptServiceTest {
                 )
         );
         Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
-        PromptService service = new PromptService(Map.of("fake", backend), null, clock, tempDir);
+        PromptService service = new PromptService(Map.of("fake", backend), null, null, clock, tempDir);
 
         PromptResult result = service.submit("fake", "Say exactly: OK");
 
@@ -81,7 +81,7 @@ final class PromptServiceTest {
                     )
             );
             Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
-            PromptService service = new PromptService(Map.of("claude", backend), importService, clock, tempDir);
+            PromptService service = new PromptService(Map.of("claude", backend), null, importService, clock, tempDir);
 
             service.submit("claude", "Test prompt");
 

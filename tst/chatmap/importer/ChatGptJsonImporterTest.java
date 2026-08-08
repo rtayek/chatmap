@@ -45,6 +45,35 @@ class ChatGptJsonImporterTest {
     }
 
     @Test
+    void followsActiveBranchAndSkipsEditedAwayReplies() {
+        // A regenerated reply: user1 has two assistant children; current_node points
+        // at the second, so the first (assistantV1) is an edited-away branch.
+        String branched = """
+                {
+                  "title": "Branched",
+                  "current_node": "assistantV2",
+                  "mapping": {
+                    "root": {"parent": null},
+                    "user1": {"parent": "root", "message":
+                      {"author": {"role": "user"}, "create_time": 1,
+                       "content": {"parts": ["question"]}}},
+                    "assistantV1": {"parent": "user1", "message":
+                      {"author": {"role": "assistant"}, "create_time": 2,
+                       "content": {"parts": ["OLD answer"]}}},
+                    "assistantV2": {"parent": "user1", "message":
+                      {"author": {"role": "assistant"}, "create_time": 3,
+                       "content": {"parts": ["NEW answer"]}}}
+                  }
+                }
+                """;
+
+        ImportedChat imported = new ChatGptJsonImporter().importJson(branched, importedAt);
+
+        assertEquals(List.of("question", "NEW answer"),
+                imported.messages().stream().map(Message::text).toList());
+    }
+
+    @Test
     void importAllReadsEveryConversationInAnArrayExport() {
         String arrayExport = """
                 [

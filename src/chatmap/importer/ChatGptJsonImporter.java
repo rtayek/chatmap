@@ -2,11 +2,14 @@ package chatmap.importer;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -68,12 +71,7 @@ public final class ChatGptJsonImporter {
         String updatedAt = isoTimestamp(conversation.get("update_time"));
         Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt, importedAt, false);
 
-        List<MessageDraft> drafts = messageDrafts(conversation);
-        drafts.sort(Comparator
-                .comparing((MessageDraft draft) -> draft.timestamp == null)
-                .thenComparing(draft -> draft.timestamp == null ? "" : draft.timestamp)
-                .thenComparingInt(draft -> draft.position));
-
+        List<MessageDraft> drafts = orderedDrafts(conversation);
         List<Message> messages = new ArrayList<>();
         for (int i = 0; i < drafts.size(); i++) {
             MessageDraft draft = drafts.get(i);
@@ -83,37 +81,86 @@ public final class ChatGptJsonImporter {
         return new ImportedChat(chat, messages);
     }
 
-    private static List<MessageDraft> messageDrafts(JsonObject conversation) {
+    /**
+     * The conversation's messages in reading order. When the export names a
+     * {@code current_node}, only its active branch is imported (root to that
+     * node), so edited-away/regenerated replies are excluded, matching the ZIP
+     * archive importer. Otherwise (hand-crafted JSON with no tree) every node is
+     * kept, ordered by timestamp.
+     */
+    private static List<MessageDraft> orderedDrafts(JsonObject conversation) {
         JsonObject mapping = objectValue(conversation.get("mapping"));
         if (mapping == null) {
             return List.of();
         }
+        String currentNode = stringValue(conversation.get("current_node"), null);
+        if (currentNode != null && mapping.values.containsKey(currentNode)) {
+            return activePathDrafts(mapping, currentNode);
+        }
+        return flatDraftsByTime(mapping);
+    }
 
+    /** Drafts along the active branch: current_node walked up its parent chain, root first. */
+    private static List<MessageDraft> activePathDrafts(JsonObject mapping, String currentNode) {
+        List<JsonObject> reversed = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        String nodeId = currentNode;
+        while (nodeId != null && seen.add(nodeId)) {
+            JsonObject node = objectValue(mapping.get(nodeId));
+            if (node == null) {
+                break;
+            }
+            reversed.add(node);
+            nodeId = stringValue(node.get("parent"), null);
+        }
+        Collections.reverse(reversed);
+
+        List<MessageDraft> drafts = new ArrayList<>();
+        int position = 0;
+        for (JsonObject node : reversed) {
+            MessageDraft draft = draftOf(objectValue(node.get("message")), position);
+            if (draft != null) {
+                drafts.add(draft);
+            }
+            position++;
+        }
+        return drafts;
+    }
+
+    /** Every node with a message, ordered by timestamp (nulls last) then discovery order. */
+    private static List<MessageDraft> flatDraftsByTime(JsonObject mapping) {
         List<MessageDraft> drafts = new ArrayList<>();
         int position = 0;
         for (JsonValue nodeValue : mapping.values.values()) {
             JsonObject node = objectValue(nodeValue);
-            JsonObject message = node == null ? null : objectValue(node.get("message"));
-            if (message == null) {
-                position++;
-                continue;
+            MessageDraft draft = node == null ? null : draftOf(objectValue(node.get("message")), position);
+            if (draft != null) {
+                drafts.add(draft);
             }
-
-            String text = flattenText(message);
-            if (text.isBlank()) {
-                position++;
-                continue;
-            }
-
-            drafts.add(new MessageDraft(
-                    mapRole(message),
-                    text,
-                    isoTimestamp(message.get("create_time")),
-                    message.raw,
-                    position));
             position++;
         }
+        drafts.sort(Comparator
+                .comparing((MessageDraft draft) -> draft.timestamp == null)
+                .thenComparing(draft -> draft.timestamp == null ? "" : draft.timestamp)
+                .thenComparingInt(draft -> draft.position));
         return drafts;
+    }
+
+    /** A draft for a message node, or null when the node has no message or no text. */
+    private static MessageDraft draftOf(JsonObject message, int position) {
+        if (message == null) {
+            return null;
+        }
+        String text = flattenText(message);
+        if (text.isBlank()) {
+            return null;
+        }
+        return new MessageDraft(
+                mapRole(message),
+                text,
+                isoTimestamp(message.get("create_time")),
+                message.raw,
+                position);
     }
 
     private static String mapRole(JsonObject message) {

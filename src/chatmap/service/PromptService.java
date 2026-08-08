@@ -41,11 +41,6 @@ public final class PromptService {
         this(backends, backendIdsAsLabels(backends), importService, clock, ChatMapPaths.transcriptsDirectory());
     }
 
-    public PromptService(Map<String, AiBackend> backends, ImportService importService,
-            Clock clock, Path transcriptDirectory) {
-        this(backends, backendIdsAsLabels(backends), importService, clock, transcriptDirectory);
-    }
-
     public PromptService(
             Map<String, AiBackend> backends,
             Map<String, String> backendLabels,
@@ -54,14 +49,15 @@ public final class PromptService {
             Path transcriptDirectory
     ) {
         this.backends = Map.copyOf(Objects.requireNonNull(backends, "backends"));
-        this.backendLabels = Map.copyOf(Objects.requireNonNull(backendLabels, "backendLabels"));
-        if (!this.backendLabels.keySet().containsAll(this.backends.keySet())) {
+        Map<String, String> labels = backendLabels != null ? backendLabels : backendIdsAsLabels(this.backends);
+        if (!labels.keySet().containsAll(this.backends.keySet())) {
             throw new IllegalArgumentException("backendLabels must include every backend id");
         }
+        this.backendLabels = Map.copyOf(labels);
         this.importService = importService;
         this.clock = Objects.requireNonNull(clock, "clock");
-        this.transcriptDirectory = Objects.requireNonNull(transcriptDirectory, "transcriptDirectory")
-                .toAbsolutePath().normalize();
+        Path dir = transcriptDirectory != null ? transcriptDirectory : ChatMapPaths.transcriptsDirectory();
+        this.transcriptDirectory = dir.toAbsolutePath().normalize();
     }
 
     public boolean hasBackend(String backendName) {

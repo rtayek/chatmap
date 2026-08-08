@@ -6,9 +6,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
-import chatmap.backend.ChatProvider;
-import chatmap.backend.ClaudeCliBackend;
-import chatmap.backend.DefaultChatProviders;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
@@ -19,21 +16,7 @@ import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
-import chatmap.service.ExportService;
-import chatmap.service.ChatGptArchiveImportService;
-import chatmap.service.ImportService;
-import chatmap.service.LiveChatFetchService;
-import chatmap.service.ProjectService;
-import chatmap.service.SearchService;
-import chatmap.service.SummaryService;
-import chatmap.service.TagService;
-import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.ProjectRepository;
-import chatmap.storage.SearchRepository;
-import chatmap.storage.SummaryRepository;
-import chatmap.storage.TagRepository;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -58,7 +41,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.StringConverter;
 
 /** Minimal JavaFX list/detail UI for file import and selected-chat Markdown export. */
 public final class ChatMapApp extends Application {
@@ -97,7 +79,7 @@ public final class ChatMapApp extends Application {
 
         conn = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
         backgroundExecutor = new SerializedTaskExecutor("chatmap-background");
-        controller = createController(conn);
+        controller = ChatMapControllerFactory.create(conn);
 
         fontSizeState = new FontSizeState();
         status = new Label("Ready");
@@ -121,33 +103,7 @@ public final class ChatMapApp extends Application {
         stage.show();
     }
 
-    private ChatMapController createController(Connection connection) {
-        ChatRepository chats = new ChatRepository(connection);
-        MessageRepository messages = new MessageRepository(connection);
-        ProjectRepository projects = new ProjectRepository(connection);
-        TagRepository tags = new TagRepository(connection);
-        SummaryRepository summaries = new SummaryRepository(connection);
-        SearchRepository search = new SearchRepository(connection);
 
-        ImportService importService = new ImportService(chats, messages);
-        ChatGptArchiveImportService archiveImportService =
-                new ChatGptArchiveImportService(importService);
-        SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
-                new ClaudeCliBackend(Duration.ofMinutes(3)));
-        List<ChatProvider> providers = DefaultChatProviders.ordered();
-        LiveChatFetchService liveChatFetchService =
-                new LiveChatFetchService(providers, importService, chats);
-
-        return new ChatMapController(
-                importService,
-                new ExportService(chats, messages, projects, tags),
-                new SearchService(search),
-                new ProjectService(projects, chats),
-                new TagService(tags, chats),
-                summaryService,
-                liveChatFetchService,
-                archiveImportService);
-    }
 
     private ListView<SearchResult> createChatListView() {
         ListView<SearchResult> list = new ListView<>();
@@ -156,7 +112,7 @@ public final class ChatMapApp extends Application {
             @Override
             protected void updateItem(SearchResult result, boolean empty) {
                 super.updateItem(result, empty);
-                setText(empty || result == null ? null : formatResultRow(result));
+                setText(empty || result == null ? null : ChatMapViewBuilder.formatResultRow(result));
             }
         });
         list.getSelectionModel().selectedItemProperty().addListener(
@@ -216,7 +172,7 @@ public final class ChatMapApp extends Application {
     private HBox createProjectBar() {
         projectChoice = new ComboBox<>();
         projectChoice.setPromptText("Project");
-        projectChoice.setConverter(namedProjectConverter());
+        projectChoice.setConverter(ChatMapViewBuilder.namedProjectConverter());
         return new HBox(8,
                 new Label("Project"),
                 projectChoice,
@@ -229,7 +185,7 @@ public final class ChatMapApp extends Application {
     private HBox createTagBar() {
         tagChoice = new ComboBox<>();
         tagChoice.setPromptText("Tag");
-        tagChoice.setConverter(namedTagConverter());
+        tagChoice.setConverter(ChatMapViewBuilder.namedTagConverter());
         return new HBox(8,
                 new Label("Tag"),
                 tagChoice,
@@ -304,7 +260,7 @@ public final class ChatMapApp extends Application {
         }
         FileChooser chooser = new FileChooser();
         chooser.setTitle("Export selected chat");
-        chooser.setInitialFileName(safeFileName(selected.title()) + ".md");
+        chooser.setInitialFileName(ChatMapViewBuilder.safeFileName(selected.title()) + ".md");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Markdown", "*.md"));
         java.io.File file = chooser.showSaveDialog(chatList.getScene().getWindow());
         if (file == null) {
@@ -638,61 +594,7 @@ public final class ChatMapApp extends Application {
                 () -> applyFontSize(fontSizeState.reset()));
     }
 
-    private static String safeFileName(String title) {
-        String cleaned = title.replaceAll("[^A-Za-z0-9.-]+", "-").replaceAll("^-|-$", "");
-        return cleaned.isBlank() ? "chat" : cleaned;
-    }
 
-    private static String formatResultRow(SearchResult result) {
-        StringBuilder row = new StringBuilder();
-        row.append(result.chat().title()).append("\n");
-        row.append("Source: ").append(result.chat().source().dbValue());
-        if (result.projectName() != null && !result.projectName().isBlank()) {
-            row.append(" | Project: ").append(result.projectName());
-        }
-        if (!result.tags().isEmpty()) {
-            row.append(" | Tags: ").append(formatTags(result.tags()));
-        }
-        if (result.snippet() != null && !result.snippet().isBlank()) {
-            row.append("\n").append(result.snippet());
-        }
-        return row.toString();
-    }
-
-    private static String formatTags(List<Tag> tags) {
-        return tags.stream()
-                .map(Tag::name)
-                .reduce((left, right) -> left + ", " + right)
-                .orElse("");
-    }
-
-    private static StringConverter<Project> namedProjectConverter() {
-        return new StringConverter<>() {
-            @Override
-            public String toString(Project project) {
-                return project == null ? "" : project.name();
-            }
-
-            @Override
-            public Project fromString(String text) {
-                return null;
-            }
-        };
-    }
-
-    private static StringConverter<Tag> namedTagConverter() {
-        return new StringConverter<>() {
-            @Override
-            public String toString(Tag tag) {
-                return tag == null ? "" : tag.name();
-            }
-
-            @Override
-            public Tag fromString(String text) {
-                return null;
-            }
-        };
-    }
 
     @FunctionalInterface
     private interface ThrowingRunnable {
