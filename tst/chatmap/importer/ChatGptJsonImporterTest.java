@@ -48,9 +48,9 @@ class ChatGptJsonImporterTest {
     void importAllReadsEveryConversationInAnArrayExport() {
         String arrayExport = """
                 [
-                  {"title":"First","mapping":{"a":{"message":
+                  {"conversation_id":"first-id","title":"First","mapping":{"a":{"message":
                     {"author":{"role":"user"},"content":{"parts":["one"]}}}}},
-                  {"title":"Second","mapping":{"b":{"message":
+                  {"id":"second-id","title":"Second","mapping":{"b":{"message":
                     {"author":{"role":"user"},"content":{"parts":["two"]}}}}}
                 ]
                 """;
@@ -59,12 +59,46 @@ class ChatGptJsonImporterTest {
 
         assertEquals(List.of("First", "Second"),
                 all.stream().map(imported -> imported.chat().title()).toList());
+        assertEquals(List.of("first-id", "second-id"),
+                all.stream().map(imported -> imported.chat().externalConversationId()).toList());
         assertEquals("one", all.get(0).messages().get(0).text());
         assertEquals("two", all.get(1).messages().get(0).text());
 
         // importJson stays single-conversation: it returns the first element.
         ImportedChat first = new ChatGptJsonImporter().importJson(arrayExport, importedAt);
         assertEquals("First", first.chat().title());
+    }
+
+    @Test
+    void followsCurrentNodeParentChainAndExcludesAlternateBranch() {
+        String branchedExport = """
+                {
+                  "conversation_id":"conversation-123",
+                  "id":"fallback-id",
+                  "title":"Branched conversation",
+                  "current_node":"chosen",
+                  "mapping":{
+                    "root":{"parent":null,"message":null},
+                    "user":{"parent":"root","message":{
+                      "id":"user-message","author":{"role":"user"},"create_time":2,
+                      "content":{"parts":["Which answer?"]}}},
+                    "rejected":{"parent":"user","message":{
+                      "id":"rejected-message","author":{"role":"assistant"},"create_time":3,
+                      "content":{"parts":["Rejected answer"]}}},
+                    "chosen":{"parent":"user","message":{
+                      "id":"chosen-message","author":{"role":"assistant"},"create_time":4,
+                      "content":{"parts":["Chosen answer"]}}}
+                  }
+                }
+                """;
+
+        ImportedChat imported = new ChatGptJsonImporter().importJson(branchedExport, importedAt);
+
+        assertEquals("conversation-123", imported.chat().externalConversationId());
+        assertEquals(List.of("Which answer?", "Chosen answer"),
+                imported.messages().stream().map(Message::text).toList());
+        assertEquals(List.of(0, 1),
+                imported.messages().stream().map(Message::sequence).toList());
     }
 
     @Test

@@ -2,11 +2,14 @@ package chatmap.importer;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -66,13 +69,13 @@ public final class ChatGptJsonImporter {
         String title = stringValue(conversation.get("title"), "ChatGPT Import");
         String createdAt = isoTimestamp(conversation.get("create_time"));
         String updatedAt = isoTimestamp(conversation.get("update_time"));
-        Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt, importedAt, false);
+        String externalConversationId = firstNonBlank(
+                stringValue(conversation.get("conversation_id"), null),
+                stringValue(conversation.get("id"), null));
+        Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt,
+                importedAt, false, externalConversationId, null, null, updatedAt, importedAt);
 
         List<MessageDraft> drafts = messageDrafts(conversation);
-        drafts.sort(Comparator
-                .comparing((MessageDraft draft) -> draft.timestamp == null)
-                .thenComparing(draft -> draft.timestamp == null ? "" : draft.timestamp)
-                .thenComparingInt(draft -> draft.position));
 
         List<Message> messages = new ArrayList<>();
         for (int i = 0; i < drafts.size(); i++) {
@@ -89,31 +92,106 @@ public final class ChatGptJsonImporter {
             return List.of();
         }
 
+        String currentNode = stringValue(conversation.get("current_node"), null);
+        if (currentNode != null || hasParentMetadata(mapping)) {
+            List<JsonObject> path = activePath(mapping, currentNode);
+            if (!path.isEmpty()) {
+                return messageDrafts(path);
+            }
+        }
+
         List<MessageDraft> drafts = new ArrayList<>();
         int position = 0;
         for (JsonValue nodeValue : mapping.values.values()) {
             JsonObject node = objectValue(nodeValue);
-            JsonObject message = node == null ? null : objectValue(node.get("message"));
-            if (message == null) {
-                position++;
-                continue;
-            }
-
-            String text = flattenText(message);
-            if (text.isBlank()) {
-                position++;
-                continue;
-            }
-
-            drafts.add(new MessageDraft(
-                    mapRole(message),
-                    text,
-                    isoTimestamp(message.get("create_time")),
-                    message.raw,
-                    position));
+            addMessageDraft(drafts, node, position);
             position++;
         }
+        drafts.sort(Comparator
+                .comparing((MessageDraft draft) -> draft.timestamp == null)
+                .thenComparing(draft -> draft.timestamp == null ? "" : draft.timestamp)
+                .thenComparingInt(draft -> draft.position));
         return drafts;
+    }
+
+    private static boolean hasParentMetadata(JsonObject mapping) {
+        for (JsonValue value : mapping.values.values()) {
+            JsonObject node = objectValue(value);
+            if (node != null && node.values.containsKey("parent")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<JsonObject> activePath(JsonObject mapping, String currentNode) {
+        String nodeId = currentNode != null && mapping.values.containsKey(currentNode)
+                ? currentNode
+                : fallbackLeaf(mapping);
+        List<JsonObject> reversed = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        while (nodeId != null && seen.add(nodeId)) {
+            JsonObject node = objectValue(mapping.get(nodeId));
+            if (node == null) {
+                break;
+            }
+            reversed.add(node);
+            nodeId = stringValue(node.get("parent"), null);
+        }
+        Collections.reverse(reversed);
+        return reversed;
+    }
+
+    private static String fallbackLeaf(JsonObject mapping) {
+        Set<String> parents = new HashSet<>();
+        for (JsonValue value : mapping.values.values()) {
+            JsonObject node = objectValue(value);
+            String parent = node == null ? null : stringValue(node.get("parent"), null);
+            if (parent != null) {
+                parents.add(parent);
+            }
+        }
+        return mapping.values.entrySet().stream()
+                .filter(entry -> !parents.contains(entry.getKey()))
+                .max(Comparator
+                        .comparingDouble((Map.Entry<String, JsonValue> entry) -> messageTime(entry.getValue()))
+                        .thenComparing(Map.Entry::getKey))
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    private static double messageTime(JsonValue value) {
+        JsonObject node = objectValue(value);
+        JsonObject message = node == null ? null : objectValue(node.get("message"));
+        JsonValue timestamp = message == null ? null : message.get("create_time");
+        return timestamp instanceof JsonNumber number
+                ? number.value
+                : Double.NEGATIVE_INFINITY;
+    }
+
+    private static List<MessageDraft> messageDrafts(List<JsonObject> nodes) {
+        List<MessageDraft> drafts = new ArrayList<>();
+        for (int position = 0; position < nodes.size(); position++) {
+            addMessageDraft(drafts, nodes.get(position), position);
+        }
+        return drafts;
+    }
+
+    private static void addMessageDraft(List<MessageDraft> drafts, JsonObject node, int position) {
+        JsonObject message = node == null ? null : objectValue(node.get("message"));
+        if (message == null) {
+            return;
+        }
+        String text = flattenText(message);
+        if (text.isBlank()) {
+            return;
+        }
+        drafts.add(new MessageDraft(
+                mapRole(message),
+                text,
+                isoTimestamp(message.get("create_time")),
+                message.raw,
+                position));
     }
 
     private static String mapRole(JsonObject message) {
@@ -164,6 +242,13 @@ public final class ChatGptJsonImporter {
 
     private static String stringValue(JsonValue value, String fallback) {
         return value instanceof JsonString string ? string.value : fallback;
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        if (first != null && !first.isBlank()) {
+            return first;
+        }
+        return second == null || second.isBlank() ? null : second;
     }
 
     private record MessageDraft(String role, String text, String timestamp, String rawJson, int position) {
