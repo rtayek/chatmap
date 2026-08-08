@@ -68,10 +68,11 @@ public final class Database {
         }
     }
 
-    /** Opens a connection and applies the schema to it. Caller closes it. */
+    /** Opens a connection, checks database integrity, and applies the schema to it. Caller closes it. */
     public Connection openAndInitialize() throws SQLException, IOException {
         Connection conn = open();
         try {
+            quickCheck(conn);
             applySchema(conn);
             applyMigrations(conn);
         } catch (SQLException | IOException | RuntimeException | Error failure) {
@@ -79,6 +80,19 @@ public final class Database {
             throw failure;
         }
         return conn;
+    }
+
+    /** Runs PRAGMA quick_check to verify SQLite B-tree integrity. */
+    public static void quickCheck(Connection conn) throws SQLException {
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("PRAGMA quick_check")) {
+            if (rs.next()) {
+                String result = rs.getString(1);
+                if (!"ok".equalsIgnoreCase(result)) {
+                    throw new SQLException("SQLite database integrity check failed: " + result);
+                }
+            }
+        }
     }
 
     private void configureConnection(Connection conn) throws SQLException {

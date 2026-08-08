@@ -37,6 +37,13 @@ class DatabaseConnectionTest {
     }
 
     @Test
+    void quickCheckSucceedsForValidDatabase() throws Exception {
+        try (Connection conn = Database.connectInMemory()) {
+            Database.quickCheck(conn);
+        }
+    }
+
+    @Test
     void openClosesConnectionWhenConfigurationFails() {
         AtomicBoolean closed = new AtomicBoolean();
         Connection connection = connectionThatFailsConfiguration(closed, false);
