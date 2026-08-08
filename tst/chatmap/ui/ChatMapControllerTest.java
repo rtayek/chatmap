@@ -205,6 +205,63 @@ class ChatMapControllerTest {
         assertEquals(List.of(included.id()), chatIds(searched));
     }
 
+    @Test
+    void readOperationsDoNotBlockDuringLongTasks() throws Exception {
+        Chat chat = insertChat("Concurrency Test", "Read message");
+        java.util.concurrent.CountDownLatch slowProviderStarted = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch slowProviderCanFinish = new java.util.concurrent.CountDownLatch(1);
+
+        chatmap.backend.ChatProvider slowProvider = new chatmap.backend.ChatProvider() {
+            @Override
+            public String name() {
+                return "Slow Test Provider";
+            }
+
+            @Override
+            public java.util.Optional<chatmap.importer.ImportedChat> latestChat() throws Exception {
+                slowProviderStarted.countDown();
+                boolean completed = slowProviderCanFinish.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                if (!completed) {
+                    throw new java.util.concurrent.TimeoutException("Slow provider await timed out");
+                }
+                return java.util.Optional.empty();
+            }
+        };
+
+        LiveChatFetchService slowFetchService = new LiveChatFetchService(List.of(slowProvider), new ImportService(chats, messages), chats);
+        ChatMapController asyncController = new ChatMapController(
+                new ImportService(chats, messages),
+                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn)),
+                new SearchService(new SearchRepository(conn)),
+                projectService,
+                tagService,
+                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn), new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
+                slowFetchService);
+
+        java.util.concurrent.CompletableFuture<ChatListState.Snapshot> fetchTask =
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return asyncController.fetchLatestChat();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertTrue(slowProviderStarted.await(2, java.util.concurrent.TimeUnit.SECONDS), "Slow provider should start running");
+
+        // UI thread read query must execute immediately without blocking on the slow provider
+        long startTime = System.currentTimeMillis();
+        ChatExportModel details = asyncController.loadChatDetails(chat.id()).orElseThrow();
+        long duration = System.currentTimeMillis() - startTime;
+
+        assertEquals(chat, details.chat());
+        assertTrue(duration < 1000, "Read operation loadChatDetails took " + duration + " ms, expected under 1000 ms");
+
+        // Release the slow provider and await completion
+        slowProviderCanFinish.countDown();
+        fetchTask.get(5, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     private static List<Long> chatIds(ChatListState.Snapshot snapshot) {
         return snapshot.currentItems().stream()
                 .map(result -> result.chatId())

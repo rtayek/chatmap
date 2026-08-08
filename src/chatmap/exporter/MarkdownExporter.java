@@ -13,11 +13,11 @@ public final class MarkdownExporter {
 
         Chat chat = model.chat();
         StringBuilder out = new StringBuilder();
-        out.append("# ").append(chat.title()).append("\n\n");
-        out.append("Source: ").append(chat.source().dbValue()).append("\n");
-        appendMetadata(out, "Created", chat.createdAt());
-        appendMetadata(out, "Updated", chat.updatedAt());
-        appendMetadata(out, "Imported", chat.importedAt());
+        Markdown.heading(out, 1, chat.title());
+        Markdown.sourceLine(out, chat);
+        Markdown.metadata(out, "Created", chat.createdAt());
+        Markdown.metadata(out, "Updated", chat.updatedAt());
+        Markdown.metadata(out, "Imported", chat.importedAt());
         out.append("\n");
 
         for (int i = 0; i < model.messages().size(); i++) {
@@ -33,11 +33,5 @@ public final class MarkdownExporter {
         }
 
         return out.toString();
-    }
-
-    private static void appendMetadata(StringBuilder out, String label, String value) {
-        if (value != null && !value.isBlank()) {
-            out.append(label).append(": ").append(value).append("\n");
-        }
     }
 }
