@@ -8,13 +8,11 @@ import java.util.function.Consumer;
 import chatmap.app.ChatMapRuntime;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
-import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
 import javafx.application.Application;
-import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
@@ -54,6 +52,7 @@ public final class ChatMapApp extends Application {
     private BorderPane root;
     private Label status;
     private boolean applyingListState;
+    private BackgroundActionRunner backgroundActions;
 
     public static void main(String[] args) {
         launch(args);
@@ -66,6 +65,7 @@ public final class ChatMapApp extends Application {
 
         fontSizeState = new FontSizeState();
         status = new Label("Ready");
+        backgroundActions = new BackgroundActionRunner(runtime, status, this::reportError);
         chatList = ChatMapViewBuilder.createChatListView(
                 (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
         detail = ChatMapViewBuilder.createDetailTextArea();
@@ -246,23 +246,12 @@ public final class ChatMapApp extends Application {
      * applies the resulting snapshot (or reports the error) back on the FX thread.
      */
     private void runInBackground(String pendingStatus, Button triggerButton, BackgroundCall call) {
-        status.setText(pendingStatus);
-        if (triggerButton != null) {
-            triggerButton.setDisable(true);
-        }
-        runtime.submit(() -> {
-            try {
-                ChatListState.Snapshot snapshot = call.run();
-                Platform.runLater(() -> {
-                    applyListState(snapshot);
-                    updateSelectionActionStates();
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    updateSelectionActionStates();
-                    reportError(e);
-                });
-            }
+        backgroundActions.runSnapshot(pendingStatus, triggerButton, call::run, snapshot -> {
+            applyListState(snapshot);
+            updateSelectionActionStates();
+        }, exception -> {
+            updateSelectionActionStates();
+            reportError(exception);
         });
     }
 
@@ -275,20 +264,7 @@ public final class ChatMapApp extends Application {
      */
     private <T> void runInBackground(String pendingStatus, Button triggerButton,
             Callable<T> call, Consumer<T> onSuccess) {
-        if (pendingStatus != null) {
-            status.setText(pendingStatus);
-        }
-        if (triggerButton != null) {
-            triggerButton.setDisable(true);
-        }
-        runtime.submit(() -> {
-            try {
-                T result = call.call();
-                Platform.runLater(() -> onSuccess.accept(result));
-            } catch (Exception e) {
-                Platform.runLater(() -> reportError(e));
-            }
-        });
+        backgroundActions.runValue(pendingStatus, triggerButton, call, onSuccess);
     }
 
     private void searchChats() {
@@ -446,19 +422,7 @@ public final class ChatMapApp extends Application {
             status.setText("Selected chat no longer exists.");
             return;
         }
-        StringBuilder out = new StringBuilder();
-        out.append(model.chat().title()).append("\n");
-        out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
-        out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
-        if (summary != null) {
-            out.append("AI Summary (").append(summary.generatedBy()).append("): ")
-                    .append(summary.summary()).append("\n\n");
-        }
-        for (Message message : model.messages()) {
-            out.append("[").append(message.role()).append("]\n");
-            out.append(message.text()).append("\n\n");
-        }
-        detail.setText(out.toString());
+        detail.setText(ChatDetailRenderer.render(model, summary));
     }
 
 
