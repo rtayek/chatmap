@@ -6,10 +6,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
 
 /**
@@ -163,6 +167,42 @@ public final class ChatRepository {
                 return Optional.of(ChatRowMapper.read(rs));
             }
         }
+    }
+
+    public Map<String, Long> findImportedIdsByExternalIdentity(
+            Collection<ConversationCandidate> candidates) throws SQLException {
+        Map<String, Long> importedIds = new HashMap<>();
+        if (candidates.isEmpty()) {
+            return importedIds;
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT source, externalConversationId, id FROM chats "
+                        + "WHERE externalConversationId IS NOT NULL");
+                ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                importedIds.put(identityKey(
+                        Source.fromDbValue(rs.getString("source")),
+                        rs.getString("externalConversationId")),
+                        rs.getLong("id"));
+            }
+        }
+        Map<String, Long> matches = new HashMap<>();
+        for (ConversationCandidate candidate : candidates) {
+            if (candidate.externalConversationId() == null
+                    || candidate.externalConversationId().isBlank()) {
+                continue;
+            }
+            String key = identityKey(candidate.source(), candidate.externalConversationId());
+            Long id = importedIds.get(key);
+            if (id != null) {
+                matches.put(key, id);
+            }
+        }
+        return matches;
+    }
+
+    public static String identityKey(Source source, String externalConversationId) {
+        return source.dbValue() + "\u001f" + externalConversationId;
     }
 
     public Optional<Chat> findBySourceAndContentHash(Source source, String contentHash)

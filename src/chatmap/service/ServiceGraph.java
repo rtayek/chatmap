@@ -33,6 +33,7 @@ public record ServiceGraph(
         SearchRepository search,
         ImportService importService,
         ChatGptArchiveImportService archiveImportService,
+        ConversationInventoryService conversationInventoryService,
         SummaryService summaryService,
         LiveChatFetchService liveChatFetchService,
         ExportService exportService,
@@ -73,6 +74,8 @@ public record ServiceGraph(
         ImportService importService = new ImportService(chats, messages);
         ChatGptArchiveImportService archiveImportService =
                 new ChatGptArchiveImportService(importService);
+        ConversationInventoryService conversationInventoryService =
+                new ConversationInventoryService(integrations.chatProviders(), chats);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
                 integrations.summaryBackend());
         LiveChatFetchService liveChatFetchService =
@@ -83,7 +86,8 @@ public record ServiceGraph(
         TagService tagService = new TagService(tags, chats);
 
         return new ServiceGraph(connection, chats, messages, projects, tags, summaries, search,
-                importService, archiveImportService, summaryService, liveChatFetchService,
+                importService, archiveImportService, conversationInventoryService,
+                summaryService, liveChatFetchService,
                 exportService, searchService, projectService, tagService);
     }
 

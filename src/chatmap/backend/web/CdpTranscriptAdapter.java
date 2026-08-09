@@ -62,7 +62,26 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             return Optional.empty();
         }
         ChatWebSummary latest = chats.get(0);
-        return Optional.of(new OpenConversation(latest.title(), latest.url(), openPage(latest.url())));
+        return openConversation(latest);
+    }
+
+    Optional<OpenConversation> openConversation(ChatWebSummary summary) {
+        return Optional.of(new OpenConversation(summary.title(), summary.url(), openPage(summary.url())));
+    }
+
+    public final List<ChatWebSummary> discoverableChats() {
+        lastUnavailableReason = null;
+        try {
+            if (!connectViaCdpOnly()) {
+                return List.of();
+            }
+            return List.copyOf(listChats(openPage(siteBaseUrl())));
+        } catch (Exception unavailable) {
+            lastUnavailableReason = diagnostic(unavailable);
+            return List.of();
+        } finally {
+            close();
+        }
     }
 
     /**
@@ -92,6 +111,30 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             return Optional.empty();
         } finally {
             close(); // release the CDP connection (does not close the user's Chrome)
+        }
+    }
+
+    public final Optional<Transcript> transcript(ChatWebSummary summary) {
+        lastUnavailableReason = null;
+        try {
+            if (!connectViaCdpOnly()) {
+                return Optional.empty();
+            }
+            Optional<OpenConversation> conversation = openConversation(summary);
+            if (conversation.isEmpty()) {
+                return Optional.empty();
+            }
+            List<ClaudeTurn> turns =
+                    WebTranscripts.mergeConsecutiveSameRole(readTurns(conversation.get().page()));
+            if (turns.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));
+        } catch (Exception unavailable) {
+            lastUnavailableReason = diagnostic(unavailable);
+            return Optional.empty();
+        } finally {
+            close();
         }
     }
 

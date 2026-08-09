@@ -8,10 +8,13 @@ import chatmap.backend.providers.ClaudeTurn;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ConversationCandidate;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
@@ -70,6 +73,37 @@ public final class ClaudeWebChatProvider implements ChatProvider {
                 transcript.get().turns(), Instant.now().toString()));
     }
 
+    @Override
+    public List<ConversationCandidate> listChats() {
+        if (!launcher.ensureChromeRunning(cdpUrl, System.out)) {
+            return List.of();
+        }
+        return candidates(adapter.discoverableChats());
+    }
+
+    @Override
+    public ImportedChat fetch(ConversationCandidate candidate) {
+        CdpTranscriptAdapter.ChatWebSummary summary =
+                new CdpTranscriptAdapter.ChatWebSummary(candidate.title(), candidate.sourceUri());
+        Optional<CdpTranscriptAdapter.Transcript> transcript = adapter.transcript(summary);
+        if (transcript.isEmpty()) {
+            throw new IllegalArgumentException("No importable Claude web chat: " + candidate.sourceUri());
+        }
+        return toImportedChat(transcript.get().title(), transcript.get().url(),
+                transcript.get().turns(), Instant.now().toString());
+    }
+
+    @Override
+    public boolean inventoryComplete() {
+        return false;
+    }
+
+    @Override
+    public Optional<String> inventoryDiagnostic() {
+        return Optional.of("Claude web inventory is limited to all discoverable sidebar links; "
+                + "lazy-loaded or archived conversations may be absent.");
+    }
+
     public Optional<String> lastUnavailableReason() {
         return adapter.lastUnavailableReason();
     }
@@ -95,5 +129,21 @@ public final class ClaudeWebChatProvider implements ChatProvider {
             messages.add(new Message(0, 0, turn.role(), turn.text(), sequence++, null, null));
         }
         return new ImportedChat(chat, messages);
+    }
+
+    static List<ConversationCandidate> candidates(List<CdpTranscriptAdapter.ChatWebSummary> summaries) {
+        Map<String, ConversationCandidate> byIdentity = new LinkedHashMap<>();
+        for (CdpTranscriptAdapter.ChatWebSummary summary : summaries) {
+            String id = ProviderIdentity.claudeWebId(summary.url());
+            String key = id == null ? summary.url() : id;
+            byIdentity.putIfAbsent(key, new ConversationCandidate(
+                    Source.claudeWeb, id, cleanTitle(summary.title(), "Claude (web) live chat"),
+                    summary.url(), null));
+        }
+        return List.copyOf(byIdentity.values());
+    }
+
+    private static String cleanTitle(String title, String fallback) {
+        return title == null || title.isBlank() ? fallback : title.strip();
     }
 }

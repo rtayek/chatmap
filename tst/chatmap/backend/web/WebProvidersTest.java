@@ -82,6 +82,20 @@ class WebProvidersTest {
         assertEquals(1, m.get(1).sequence());
     }
 
+    @Test
+    void chatGptCandidateMappingDeduplicatesByExternalIdentity() {
+        List<CdpTranscriptAdapter.ChatWebSummary> summaries = List.of(
+                new CdpTranscriptAdapter.ChatWebSummary("First", "https://chatgpt.com/c/abc"),
+                new CdpTranscriptAdapter.ChatWebSummary("Duplicate", "https://chatgpt.com/c/abc?model=x"),
+                new CdpTranscriptAdapter.ChatWebSummary("Second", "https://chatgpt.com/c/def"));
+
+        var candidates = ChatGptWebChatProvider.candidates(summaries);
+
+        assertEquals(List.of("abc", "def"),
+                candidates.stream().map(chatmap.domain.ConversationCandidate::externalConversationId).toList());
+        assertEquals("First", candidates.getFirst().title());
+    }
+
     // --- Gemini turn JSON parsing ---
 
     @Test
@@ -108,6 +122,18 @@ class WebProvidersTest {
         assertEquals("Gemini (web) live chat", chat.chat().title());
         assertEquals(Source.geminiWeb, chat.chat().source());
         assertEquals(null, chat.chat().externalConversationId());
+    }
+
+    @Test
+    void geminiCandidateMappingAllowsMissingDurableIdentity() {
+        List<CdpTranscriptAdapter.ChatWebSummary> summaries = List.of(
+                new CdpTranscriptAdapter.ChatWebSummary("Temporary", "gemini-sidebar-index:0"),
+                new CdpTranscriptAdapter.ChatWebSummary("Durable", "https://gemini.google.com/app/abc"));
+
+        var candidates = GeminiWebChatProvider.candidates(summaries);
+
+        assertEquals(null, candidates.get(0).externalConversationId());
+        assertEquals("abc", candidates.get(1).externalConversationId());
     }
 
     // --- ordering: all six providers, web first ---

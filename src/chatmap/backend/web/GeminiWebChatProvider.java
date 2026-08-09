@@ -7,9 +7,13 @@ import chatmap.backend.providers.ChatProvider;
 import chatmap.backend.providers.ClaudeTurn;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 
 /**
@@ -58,6 +62,37 @@ public final class GeminiWebChatProvider implements ChatProvider {
                 transcript.get().turns(), Instant.now().toString()));
     }
 
+    @Override
+    public List<ConversationCandidate> listChats() {
+        if (!launcher.ensureChromeRunning(cdpUrl, System.out)) {
+            return List.of();
+        }
+        return candidates(adapter.discoverableChats());
+    }
+
+    @Override
+    public ImportedChat fetch(ConversationCandidate candidate) {
+        CdpTranscriptAdapter.ChatWebSummary summary =
+                new CdpTranscriptAdapter.ChatWebSummary(candidate.title(), candidate.sourceUri());
+        Optional<CdpTranscriptAdapter.Transcript> transcript = adapter.transcript(summary);
+        if (transcript.isEmpty()) {
+            throw new IllegalArgumentException("No importable Gemini web chat: " + candidate.sourceUri());
+        }
+        return toImportedChat(transcript.get().title(), transcript.get().url(),
+                transcript.get().turns(), Instant.now().toString());
+    }
+
+    @Override
+    public boolean inventoryComplete() {
+        return false;
+    }
+
+    @Override
+    public Optional<String> inventoryDiagnostic() {
+        return Optional.of("Gemini web inventory is limited to all discoverable sidebar entries. "
+                + "Entries without a durable /app/<id> URL use a session-local sidebar reference.");
+    }
+
     public Optional<String> lastUnavailableReason() {
         return adapter.lastUnavailableReason();
     }
@@ -69,5 +104,20 @@ public final class GeminiWebChatProvider implements ChatProvider {
     static ImportedChat toImportedChat(String title, String sourceUri, List<ClaudeTurn> turns, String importedAt) {
         return WebTranscripts.toImportedChat(title, turns, importedAt, FALLBACK_TITLE,
                 chatmap.domain.Source.geminiWeb, ProviderIdentity.geminiWebId(sourceUri), sourceUri);
+    }
+
+    static List<ConversationCandidate> candidates(List<CdpTranscriptAdapter.ChatWebSummary> summaries) {
+        Map<String, ConversationCandidate> byIdentity = new LinkedHashMap<>();
+        for (CdpTranscriptAdapter.ChatWebSummary summary : summaries) {
+            String id = ProviderIdentity.geminiWebId(summary.url());
+            String key = id == null ? summary.url() : id;
+            byIdentity.putIfAbsent(key, new ConversationCandidate(
+                    Source.geminiWeb, id, cleanTitle(summary.title()), summary.url(), null));
+        }
+        return List.copyOf(byIdentity.values());
+    }
+
+    private static String cleanTitle(String title) {
+        return title == null || title.isBlank() ? FALLBACK_TITLE : title.strip();
     }
 }

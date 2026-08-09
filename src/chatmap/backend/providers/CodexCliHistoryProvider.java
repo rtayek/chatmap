@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import com.google.gson.JsonObject;
 
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 
 /**
@@ -23,6 +25,16 @@ import chatmap.importer.ImportedChat;
  */
 public final class CodexCliHistoryProvider implements ChatProvider {
 
+    private final Path root;
+
+    public CodexCliHistoryProvider() {
+        this(Path.of(System.getProperty("user.home"), ".codex", "sessions"));
+    }
+
+    CodexCliHistoryProvider(Path root) {
+        this.root = root;
+    }
+
     @Override
     public String name() {
         return "Codex (CLI)";
@@ -30,8 +42,23 @@ public final class CodexCliHistoryProvider implements ChatProvider {
 
     @Override
     public Optional<ImportedChat> latestChat() {
-        Path root = Path.of(System.getProperty("user.home"), ".codex", "sessions");
         return LocalCliSessions.newestSessionFile(root).flatMap(file -> buildFrom(root, file));
+    }
+
+    @Override
+    public List<ConversationCandidate> listChats() throws Exception {
+        List<ConversationCandidate> candidates = new ArrayList<>();
+        for (Path file : LocalCliSessions.listSessionFiles(root)) {
+            candidates.add(candidate(file));
+        }
+        return candidates;
+    }
+
+    @Override
+    public ImportedChat fetch(ConversationCandidate candidate) {
+        return buildFrom(root, root.resolve(candidate.externalConversationId()).normalize())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No importable Codex CLI session: " + candidate.externalConversationId()));
     }
 
     static Optional<ImportedChat> buildFrom(Path file) {
@@ -47,8 +74,8 @@ public final class CodexCliHistoryProvider implements ChatProvider {
         String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
         String modifiedAt = LocalCliSessions.modifiedAt(file);
         return Optional.of(LocalCliSessions.toImportedChat(title, turns, modifiedAt,
-                chatmap.domain.Source.codexCli, ProviderIdentity.cliSessionId(root, file),
-                file.toAbsolutePath().normalize().toUri().toString()));
+                Source.codexCli, ProviderIdentity.cliSessionId(root, file),
+                LocalCliSessions.sourceUri(file)));
     }
 
     static List<ClaudeTurn> parse(Path file) {
@@ -74,5 +101,13 @@ public final class CodexCliHistoryProvider implements ChatProvider {
             }
         }
         return turns;
+    }
+
+    private ConversationCandidate candidate(Path file) {
+        Path fn = file.getFileName();
+        String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
+        String modifiedAt = LocalCliSessions.modifiedAt(file);
+        return new ConversationCandidate(Source.codexCli, ProviderIdentity.cliSessionId(root, file),
+                title, LocalCliSessions.sourceUri(file), modifiedAt);
     }
 }

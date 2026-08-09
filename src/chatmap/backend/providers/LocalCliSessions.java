@@ -33,8 +33,16 @@ final class LocalCliSessions {
      * directory does not exist or holds no session files.
      */
     static Optional<Path> newestSessionFile(Path root) {
-        if (root == null || !Files.isDirectory(root)) {
+        try {
+            return listSessionFiles(root).stream().findFirst();
+        } catch (IOException unreadable) {
             return Optional.empty();
+        }
+    }
+
+    static List<Path> listSessionFiles(Path root) throws IOException {
+        if (root == null || !Files.isDirectory(root)) {
+            return List.of();
         }
         try (Stream<Path> files = Files.walk(root)) {
             return files
@@ -43,10 +51,15 @@ final class LocalCliSessions {
                         Path fileName = p.getFileName();
                         return fileName != null && fileName.toString().endsWith(".jsonl");
                     })
-                    .max(Comparator.comparingLong(p -> p.toFile().lastModified()));
-        } catch (IOException unreadable) {
-            return Optional.empty();
+                    .sorted(Comparator
+                            .comparingLong((Path p) -> p.toFile().lastModified()).reversed()
+                            .thenComparing(p -> p.toAbsolutePath().normalize().toString()))
+                    .toList();
         }
+    }
+
+    static String sourceUri(Path file) {
+        return file.toAbsolutePath().normalize().toUri().toString();
     }
 
     /** File modification time as a UTC ISO-8601 string, for the imported timestamp. */

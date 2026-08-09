@@ -3,6 +3,7 @@ package chatmap.backend.web;
 import chatmap.backend.providers.SessionLines;
 
 import chatmap.backend.providers.ClaudeTurn;
+import chatmap.backend.providers.ProviderIdentity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,8 @@ import com.google.gson.JsonParser;
 public final class GeminiWebAdapter extends CdpTranscriptAdapter {
 
     static final String BASE_URL = "https://gemini.google.com/app";
+    static final String SIDEBAR_URI_PREFIX = "gemini-sidebar-index:";
+    private static final int maxDiscoverableSidebarChats = 50;
 
     GeminiWebAdapter(String cdpUrl) {
         super(cdpUrl);
@@ -39,10 +42,20 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         return BASE_URL;
     }
 
-    /** Not used: Gemini navigates by click, so {@link #openLatestConversation()} is overridden. */
     @Override
     List<ChatWebSummary> listChats(CdpPage page) {
-        return List.of();
+        CdpPage.CdpLocator conversations = conversationLocator(page);
+        int count = Math.min(conversations.count(), maxDiscoverableSidebarChats);
+        List<ChatWebSummary> summaries = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            CdpPage.CdpLocator conversation = conversations.nth(i);
+            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(conversation));
+            String uri = stableUrlAfterClick(page, i);
+            summaries.add(new ChatWebSummary(
+                    title == null || title.isBlank() ? "Gemini conversation" : title,
+                    uri == null ? SIDEBAR_URI_PREFIX + i : uri));
+        }
+        return summaries;
     }
 
     @Override
@@ -69,6 +82,22 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         } catch (Exception unavailable) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    Optional<OpenConversation> openConversation(ChatWebSummary summary) {
+        if (summary.url().startsWith(SIDEBAR_URI_PREFIX)) {
+            CdpPage page = openPage(siteBaseUrl());
+            int index = Integer.parseInt(summary.url().substring(SIDEBAR_URI_PREFIX.length()));
+            CdpPage.CdpLocator conversations = conversationLocator(page);
+            if (index >= conversations.count()) {
+                return Optional.empty();
+            }
+            conversations.nth(index).click(6000);
+            page.waitForTimeout(3000);
+            return Optional.of(new OpenConversation(summary.title(), page.url(), page));
+        }
+        return super.openConversation(summary);
     }
 
     @Override
@@ -121,5 +150,27 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
             // return whatever parsed so far (empty on malformed input)
         }
         return turns;
+    }
+
+    private static CdpPage.CdpLocator conversationLocator(CdpPage page) {
+        CdpPage.CdpLocator conversations = page.locator("[data-test-id='conversation']");
+        if (conversations.count() == 0) {
+            page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
+                    .first().click(4000);
+            page.waitForTimeout(1500);
+            conversations = page.locator("[data-test-id='conversation']");
+        }
+        return conversations;
+    }
+
+    private static String stableUrlAfterClick(CdpPage page, int index) {
+        try {
+            page.locator("[data-test-id='conversation']").nth(index).click(3000);
+            page.waitForTimeout(500);
+            String url = page.url();
+            return ProviderIdentity.geminiWebId(url) == null ? null : url;
+        } catch (Exception unavailable) {
+            return null;
+        }
     }
 }

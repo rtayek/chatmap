@@ -99,6 +99,18 @@ tasks.register<JavaExec>("importChatGptArchive") {
     }
 }
 
+tasks.register<JavaExec>("conversationInventory") {
+    group = "application"
+    description = "Lists all discoverable conversations from configured ChatMap sources."
+    mainClass.set("chatmap.cli.ConversationInventoryCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString())
+    }
+}
+
 tasks.register<JavaExec>("runPrompt") {
     group = "application"
     description = "Submits a prompt to an AI backend and stores the result. Usage: -Pargs='<backendId> <prompt>'"

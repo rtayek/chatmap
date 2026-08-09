@@ -40,6 +40,24 @@ class CliHistoryProvidersTest {
     }
 
     @Test
+    void listSessionFilesReturnsEveryJsonlNewestFirstWithPathTieBreak(@TempDir Path dir) throws Exception {
+        Path nested = dir.resolve("2026/08/04");
+        Files.createDirectories(nested);
+        Path second = nested.resolve("b.jsonl");
+        Path first = nested.resolve("a.jsonl");
+        Path newest = dir.resolve("newest.jsonl");
+        Files.writeString(first, "{}");
+        Files.writeString(second, "{}");
+        Files.writeString(newest, "{}");
+        Files.writeString(dir.resolve("ignore.txt"), "{}");
+        assertTrue(first.toFile().setLastModified(1_000_000_000_000L));
+        assertTrue(second.toFile().setLastModified(1_000_000_000_000L));
+        assertTrue(newest.toFile().setLastModified(2_000_000_000_000L));
+
+        assertEquals(List.of(newest, first, second), LocalCliSessions.listSessionFiles(dir));
+    }
+
+    @Test
     void newestSessionFileEmptyWhenDirectoryMissing(@TempDir Path dir) {
         assertTrue(LocalCliSessions.newestSessionFile(dir.resolve("does-not-exist")).isEmpty());
     }
@@ -70,6 +88,30 @@ class CliHistoryProvidersTest {
         assertEquals(Source.claudeCode, chat.chat().source());
         assertEquals("session.jsonl", chat.chat().externalConversationId());
         assertEquals(2, chat.messages().size());
+    }
+
+    @Test
+    void cliProvidersExposeMultipleCandidatesAndFetchSelectedSessions(@TempDir Path dir) throws Exception {
+        Path codexRoot = dir.resolve("codex");
+        Files.createDirectories(codexRoot.resolve("2026/08/09"));
+        Path older = codexRoot.resolve("2026/08/09/rollout-a.jsonl");
+        Path newer = codexRoot.resolve("2026/08/09/rollout-b.jsonl");
+        Files.write(older, List.of(
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":\"old q\"}}",
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"old a\"}}"));
+        Files.write(newer, List.of(
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":\"new q\"}}",
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"new a\"}}"));
+        assertTrue(older.toFile().setLastModified(1_000_000_000_000L));
+        assertTrue(newer.toFile().setLastModified(2_000_000_000_000L));
+
+        CodexCliHistoryProvider provider = new CodexCliHistoryProvider(codexRoot);
+
+        var candidates = provider.listChats();
+        assertEquals(List.of("2026/08/09/rollout-b.jsonl", "2026/08/09/rollout-a.jsonl"),
+                candidates.stream().map(chatmap.domain.ConversationCandidate::externalConversationId).toList());
+        ImportedChat fetched = provider.fetch(candidates.get(1));
+        assertEquals("old q", fetched.messages().getFirst().text());
     }
 
     @Test

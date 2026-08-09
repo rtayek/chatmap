@@ -9,6 +9,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 
 /**
@@ -30,6 +32,16 @@ import chatmap.importer.ImportedChat;
  */
 public final class GeminiCliHistoryProvider implements ChatProvider {
 
+    private final Path root;
+
+    public GeminiCliHistoryProvider() {
+        this(Path.of(System.getProperty("user.home"), ".gemini", "tmp"));
+    }
+
+    GeminiCliHistoryProvider(Path root) {
+        this.root = root;
+    }
+
     @Override
     public String name() {
         return "Gemini (CLI)";
@@ -37,8 +49,23 @@ public final class GeminiCliHistoryProvider implements ChatProvider {
 
     @Override
     public Optional<ImportedChat> latestChat() {
-        Path root = Path.of(System.getProperty("user.home"), ".gemini", "tmp");
         return LocalCliSessions.newestSessionFile(root).flatMap(file -> buildFrom(root, file));
+    }
+
+    @Override
+    public List<ConversationCandidate> listChats() throws Exception {
+        List<ConversationCandidate> candidates = new ArrayList<>();
+        for (Path file : LocalCliSessions.listSessionFiles(root)) {
+            candidates.add(candidate(file));
+        }
+        return candidates;
+    }
+
+    @Override
+    public ImportedChat fetch(ConversationCandidate candidate) {
+        return buildFrom(root, root.resolve(candidate.externalConversationId()).normalize())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No importable Gemini CLI session: " + candidate.externalConversationId()));
     }
 
     static Optional<ImportedChat> buildFrom(Path file) {
@@ -54,8 +81,8 @@ public final class GeminiCliHistoryProvider implements ChatProvider {
         String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
         String modifiedAt = LocalCliSessions.modifiedAt(file);
         return Optional.of(LocalCliSessions.toImportedChat(title, turns, modifiedAt,
-                chatmap.domain.Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
-                file.toAbsolutePath().normalize().toUri().toString()));
+                Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
+                LocalCliSessions.sourceUri(file)));
     }
 
     static List<ClaudeTurn> parse(Path file) {
@@ -134,5 +161,13 @@ public final class GeminiCliHistoryProvider implements ChatProvider {
             return sb.toString();
         }
         return "";
+    }
+
+    private ConversationCandidate candidate(Path file) {
+        Path fn = file.getFileName();
+        String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
+        String modifiedAt = LocalCliSessions.modifiedAt(file);
+        return new ConversationCandidate(Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
+                title, LocalCliSessions.sourceUri(file), modifiedAt);
     }
 }
