@@ -27,13 +27,15 @@ class LiveChatFetchServiceTest {
 
     private Connection conn;
     private ChatRepository chats;
+    private MessageRepository messages;
     private ImportService importService;
 
     @BeforeEach
     void setUp() throws Exception {
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         chats = new ChatRepository(conn);
-        importService = new ImportService(chats, new MessageRepository(conn));
+        messages = new MessageRepository(conn);
+        importService = new ImportService(chats, messages);
     }
 
     @AfterEach
@@ -89,6 +91,44 @@ class LiveChatFetchServiceTest {
     }
 
     @Test
+    void consumesSearchableChatsFromAllSixProviderSources() throws Exception {
+        List<ProviderCase> providerCases = List.of(
+                new ProviderCase("Claude (web)", Source.claudeWeb, "claude-web-1",
+                        "https://claude.ai/chat/claude-web-1"),
+                new ProviderCase("ChatGPT (web)", Source.chatGptWeb, "chatgpt-web-1",
+                        "https://chatgpt.com/c/chatgpt-web-1"),
+                new ProviderCase("Gemini (web)", Source.geminiWeb, "gemini-web-1",
+                        "https://gemini.google.com/app/gemini-web-1"),
+                new ProviderCase("Claude Code (CLI)", Source.claudeCode, "project-a/session-1.jsonl",
+                        "file:///sessions/claude-code/project-a/session-1.jsonl"),
+                new ProviderCase("Codex (CLI)", Source.codexCli, "2026/08/04/rollout-1.jsonl",
+                        "file:///sessions/codex/2026/08/04/rollout-1.jsonl"),
+                new ProviderCase("Gemini (CLI)", Source.geminiCli, "project-hash/chats/session-1.jsonl",
+                        "file:///sessions/gemini/project-hash/chats/session-1.jsonl"));
+
+        for (ProviderCase providerCase : providerCases) {
+            String token = providerCase.source().dbValue().toLowerCase(java.util.Locale.ROOT) + "token";
+            ImportedChat imported = providerChat(providerCase.source(), providerCase.externalId(),
+                    providerCase.sourceUri(), providerCase.name(), token);
+
+            Resolution resolution = service(stubProvider(providerCase.name(), imported)).resolve(null);
+
+            Chat stored = chats.findById(resolution.chatId()).orElseThrow();
+            assertEquals(providerCase.source(), stored.source(), providerCase.name());
+            assertEquals(providerCase.externalId(), stored.externalConversationId(), providerCase.name());
+            assertEquals(providerCase.sourceUri(), stored.sourceUri(), providerCase.name());
+            assertEquals(providerCase.name(), stored.title(), providerCase.name());
+            assertEquals(List.of("Question with " + token, "Answer with " + token),
+                    messages.findByChat(stored.id()).stream().map(Message::text).toList(),
+                    providerCase.name());
+            assertEquals(2, messages.searchText(token).size(), providerCase.name());
+            assertTrue(resolution.how().contains(providerCase.name()), resolution.how());
+        }
+
+        assertEquals(providerCases.size(), chats.findAll().size());
+    }
+
+    @Test
     void fallsBackToMostRecentWhenProviderHasNoLiveChat() throws Exception {
         insertChat("Stored", "2026-08-01T00:00:00Z");
         Resolution resolution = service(stubProvider("Claude", null)).resolve(null);
@@ -127,6 +167,15 @@ class LiveChatFetchServiceTest {
         return new ImportedChat(chat, List.of(message));
     }
 
+    private static ImportedChat providerChat(Source source, String externalId, String sourceUri,
+            String title, String token) {
+        Chat chat = new Chat(0, null, source, title, null, null, "2026-08-04T00:00:00Z", false,
+                externalId, sourceUri, null, null, "2026-08-04T00:00:00Z");
+        return new ImportedChat(chat, List.of(
+                new Message(0, 0, "user", "Question with " + token, 0, null, null),
+                new Message(0, 0, "assistant", "Answer with " + token, 1, null, null)));
+    }
+
     private static ChatProvider stubProvider(String name, ImportedChat live) {
         return new ChatProvider() {
             @Override public String name() { return name; }
@@ -134,5 +183,8 @@ class LiveChatFetchServiceTest {
                 return Optional.ofNullable(live);
             }
         };
+    }
+
+    private record ProviderCase(String name, Source source, String externalId, String sourceUri) {
     }
 }
