@@ -50,11 +50,11 @@ public final class ChatConsolidatorCli {
             Database.initialize(conn);
             CliBootstrap.CliContext context = CliBootstrap.createContext(conn, null);
 
-            ChatRepository chats = context.chats();
-            ProjectRepository projects = context.projects();
+            ChatRepository chats = context.services().chats();
+            ProjectRepository projects = context.services().projects();
 
-            ImportService importService = context.importService();
-            ExportService exportService = context.exportService();
+            ImportService importService = context.services().importService();
+            ExportService exportService = context.services().exportService();
 
             Map<String, List<Path>> projectFiles = scanWorkspace(rootPath);
 

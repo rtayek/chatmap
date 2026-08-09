@@ -28,7 +28,7 @@ public final class ImportChatGptArchiveCli {
         System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));
 
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
-            BulkImportResult result = context.archiveImportService().importArchive(archive);
+            BulkImportResult result = context.services().archiveImportService().importArchive(archive);
             System.out.println(result.summary());
             System.out.println("conversation entries: " + result.conversationEntries().size());
             System.out.println("unsupported content parts: " + result.unsupportedContentParts());

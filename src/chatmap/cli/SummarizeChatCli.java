@@ -54,7 +54,7 @@ public final class SummarizeChatCli {
                 CliBootstrap.open(parsedArguments, DefaultServiceIntegrations.create())) {
             LiveChatFetchService.Resolution resolution;
             try {
-                resolution = context.liveChatFetchService().resolve(requestedChatId);
+                resolution = context.services().liveChatFetchService().resolve(requestedChatId);
             } catch (LiveChatFetchService.NoChatAvailableException e) {
                 System.err.println(e.getMessage());
                 System.exit(1);
@@ -66,7 +66,7 @@ public final class SummarizeChatCli {
             }
 
             System.out.println("Summarizing chat " + chatId + " ...");
-            ChatSummary summary = context.summaryService().summarize(chatId);
+            ChatSummary summary = context.services().summaryService().summarize(chatId);
 
             System.out.println();
             System.out.println("Summary:");

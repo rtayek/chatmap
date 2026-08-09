@@ -53,7 +53,7 @@ public final class RunPromptCli {
             PromptService promptService = new PromptService(
                     backends,
                     null,
-                    context.importService(),
+                    context.services().importService(),
                     clock,
                     context.paths().transcriptsDirectory());
 
