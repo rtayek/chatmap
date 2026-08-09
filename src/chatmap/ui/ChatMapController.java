@@ -21,6 +21,7 @@ import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
 import chatmap.service.SearchService;
+import chatmap.service.ServiceGraph;
 import chatmap.service.SummaryService;
 import chatmap.service.TagService;
 
@@ -74,12 +75,17 @@ public final class ChatMapController {
         listState = new ChatListState();
     }
 
+    /** Wires the controller from the shared {@link ServiceGraph} — the production path. */
+    public ChatMapController(ServiceGraph services) {
+        this(services.importService(), services.exportService(), services.searchService(),
+                services.projectService(), services.tagService(), services.summaryService(),
+                services.liveChatFetchService(), services.archiveImportService());
+    }
+
     public ChatListState.Snapshot loadAllChats() throws SQLException {
         List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
-            currentQuery = "";
-            currentProjectId = null;
-            currentTagId = null;
+            resetFiltersLocked();
             return listState.showAll(results, "Loaded " + results.size() + " chats.");
         }
     }
@@ -100,9 +106,7 @@ public final class ChatMapController {
         Chat imported = importService.importFile(file);
         List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
-            currentQuery = "";
-            currentProjectId = null;
-            currentTagId = null;
+            resetFiltersLocked();
             listState.showAll(results, "Imported " + imported.title());
             return listState.select(imported.id());
         }
@@ -115,9 +119,7 @@ public final class ChatMapController {
         BulkImportResult result = archiveImportService.importArchive(zipFile);
         List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
-            currentQuery = "";
-            currentProjectId = null;
-            currentTagId = null;
+            resetFiltersLocked();
             return listState.showAll(results, result.summary());
         }
     }
@@ -138,9 +140,7 @@ public final class ChatMapController {
         LiveChatFetchService.Resolution resolution = liveChatFetchService.resolve(null);
         List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
-            currentQuery = "";
-            currentProjectId = null;
-            currentTagId = null;
+            resetFiltersLocked();
             listState.showAll(results, "Using " + resolution.how());
             return listState.select(resolution.chatId());
         }
@@ -226,11 +226,16 @@ public final class ChatMapController {
     }
 
     private ChatListState.Snapshot loadAllChatsInternal() throws SQLException {
+        resetFiltersLocked();
+        List<SearchResult> results = searchService.searchResults("");
+        return listState.showAll(results, "Loaded " + results.size() + " chats.");
+    }
+
+    /** Clears the active search query and project/tag filters. Caller must hold {@code stateLock}. */
+    private void resetFiltersLocked() {
         currentQuery = "";
         currentProjectId = null;
         currentTagId = null;
-        List<SearchResult> results = searchService.searchResults("");
-        return listState.showAll(results, "Loaded " + results.size() + " chats.");
     }
 
     private ChatListState.Snapshot filteredSnapshotLocked() throws SQLException {
@@ -265,22 +270,21 @@ public final class ChatMapController {
     }
 
     private static String formatMatchStatus(int matches) {
-        if (matches == 0) {
-            return "No matches";
-        }
-        if (matches == 1) {
-            return "1 match";
-        }
-        return matches + " matches";
+        return countLabel(matches, "No matches", "1 match", " matches");
     }
 
     private static String formatFilterStatus(int matches) {
-        if (matches == 0) {
-            return "No chats";
+        return countLabel(matches, "No chats", "1 chat", " chats");
+    }
+
+    /** Pluralized count label: {@code none} at 0, {@code singular} at 1, else {@code count + plural}. */
+    private static String countLabel(int count, String none, String singular, String plural) {
+        if (count == 0) {
+            return none;
         }
-        if (matches == 1) {
-            return "1 chat";
+        if (count == 1) {
+            return singular;
         }
-        return matches + " chats";
+        return count + plural;
     }
 }

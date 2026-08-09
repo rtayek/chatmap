@@ -17,16 +17,7 @@ public final class ChatMapControllerFactory {
     }
 
     static ChatMapController create(Connection connection, Integrations integrations) {
-        ServiceGraph services = ServiceGraph.create(connection, integrations);
-        return new ChatMapController(
-                services.importService(),
-                services.exportService(),
-                services.searchService(),
-                services.projectService(),
-                services.tagService(),
-                services.summaryService(),
-                services.liveChatFetchService(),
-                services.archiveImportService());
+        return new ChatMapController(ServiceGraph.create(connection, integrations));
     }
 
     static Integrations defaultIntegrations() {
