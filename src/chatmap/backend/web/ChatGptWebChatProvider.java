@@ -58,6 +58,10 @@ public final class ChatGptWebChatProvider implements ChatProvider {
                 transcript.get().turns(), Instant.now().toString()));
     }
 
+    public Optional<String> lastUnavailableReason() {
+        return adapter.lastUnavailableReason();
+    }
+
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt) {
         return toImportedChat(title, null, turns, importedAt);
     }

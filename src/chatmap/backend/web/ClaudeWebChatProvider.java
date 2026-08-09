@@ -70,6 +70,10 @@ public final class ClaudeWebChatProvider implements ChatProvider {
                 transcript.get().turns(), Instant.now().toString()));
     }
 
+    public Optional<String> lastUnavailableReason() {
+        return adapter.lastUnavailableReason();
+    }
+
     /**
      * Builds an {@link ImportedChat} directly from conversation turns — no
      * Markdown intermediary. Package-visible and browser-free so it can be tested

@@ -26,19 +26,23 @@ final class CdpPage implements AutoCloseable {
     private static final long POLL_INTERVAL_MILLIS = 100;
     private static final Gson GSON = new Gson();
 
-    private final CdpSocket socket;
+    private final CdpTransport transport;
 
     CdpPage(String webSocketUrl) {
-        socket = new CdpSocket(webSocketUrl);
+        this(new CdpSocket(webSocketUrl));
+    }
+
+    CdpPage(CdpTransport transport) {
+        this.transport = transport;
     }
 
     void navigate(String url) {
-        socket.send("Page.navigate", Map.of("url", url));
+        transport.send("Page.navigate", Map.of("url", url));
         waitForReadyState(Duration.ofSeconds(8));
     }
 
     void bringToFront() {
-        socket.send("Page.bringToFront", Map.of());
+        transport.send("Page.bringToFront", Map.of());
     }
 
     String url() {
@@ -62,10 +66,13 @@ final class CdpPage implements AutoCloseable {
     }
 
     Object evaluate(String script) {
-        JsonObject response = socket.send("Runtime.evaluate", Map.of(
+        JsonObject response = transport.send("Runtime.evaluate", Map.of(
                 "expression", expression(script),
                 "returnByValue", true,
                 "awaitPromise", true));
+        if (response.has("error")) {
+            throw new IllegalStateException("CDP command failed: Runtime.evaluate");
+        }
         JsonObject result = response.getAsJsonObject("result");
         if (result == null || result.has("exceptionDetails")) {
             throw new IllegalStateException("CDP evaluation failed");
@@ -83,7 +90,7 @@ final class CdpPage implements AutoCloseable {
 
     @Override
     public void close() {
-        socket.close();
+        transport.close();
     }
 
     private void waitForReadyState(Duration timeout) {
@@ -203,7 +210,25 @@ final class CdpPage implements AutoCloseable {
         }
     }
 
-    private static final class CdpSocket implements WebSocket.Listener {
+    static JsonObject successfulValue(Object value) {
+        JsonObject response = new JsonObject();
+        JsonObject result = new JsonObject();
+        JsonObject remoteObject = new JsonObject();
+        remoteObject.add("value", GSON.toJsonTree(value));
+        result.add("result", remoteObject);
+        response.add("result", result);
+        return response;
+    }
+
+    static JsonObject commandError(String message) {
+        JsonObject response = new JsonObject();
+        JsonObject error = new JsonObject();
+        error.addProperty("message", message);
+        response.add("error", error);
+        return response;
+    }
+
+    private static final class CdpSocket implements WebSocket.Listener, CdpTransport {
 
         private final AtomicLong nextId = new AtomicLong(1);
         private final Map<Long, java.util.concurrent.CompletableFuture<JsonObject>> pending =
@@ -231,7 +256,8 @@ final class CdpPage implements AutoCloseable {
             socket.request(1);
         }
 
-        JsonObject send(String method, Map<String, ?> params) {
+        @Override
+        public JsonObject send(String method, Map<String, ?> params) {
             long id = nextId.getAndIncrement();
             java.util.concurrent.CompletableFuture<JsonObject> result = new java.util.concurrent.CompletableFuture<>();
             pending.put(id, result);
@@ -282,7 +308,8 @@ final class CdpPage implements AutoCloseable {
             futures.forEach(future -> future.completeExceptionally(error));
         }
 
-        void close() {
+        @Override
+        public void close() {
             try {
                 webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
             } catch (Exception ignored) {

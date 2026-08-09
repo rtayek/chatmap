@@ -33,6 +33,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     private final String cdpUrl;
     private CdpBrowserConnection browser;
     private final List<CdpPage> openPages = new ArrayList<>();
+    private String lastUnavailableReason;
 
     CdpTranscriptAdapter(String cdpUrl) {
         this.cdpUrl = Objects.requireNonNull(cdpUrl, "cdpUrl");
@@ -71,6 +72,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
      * attaches, reads, and releases the CDP connection each call.
      */
     public final Optional<Transcript> latestTranscript() {
+        lastUnavailableReason = null;
         try {
             if (!connectViaCdpOnly()) {
                 return Optional.empty();
@@ -86,10 +88,15 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             }
             return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));
         } catch (Exception unavailable) {
+            lastUnavailableReason = diagnostic(unavailable);
             return Optional.empty();
         } finally {
             close(); // release the CDP connection (does not close the user's Chrome)
         }
+    }
+
+    public final Optional<String> lastUnavailableReason() {
+        return Optional.ofNullable(lastUnavailableReason);
     }
 
     /** Attaches to a running Chrome over CDP only; never launches a browser. */
@@ -122,5 +129,14 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
         }
         openPages.clear();
         browser = null;
+    }
+
+    private static String diagnostic(Exception failure) {
+        String simpleName = failure.getClass().getSimpleName();
+        String message = failure.getMessage();
+        if (message == null || message.isBlank()) {
+            return simpleName;
+        }
+        return simpleName + ": " + message;
     }
 }
