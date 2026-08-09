@@ -5,6 +5,8 @@ import java.sql.Connection;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
@@ -232,15 +234,10 @@ public final class ChatMapApp extends Application {
         if (file == null) {
             return;
         }
-        status.setText("Exporting chat...");
-        backgroundExecutor.submit(() -> {
-            try {
-                boolean exported = controller.exportChatMarkdown(selected.id(), file.toPath());
-                Platform.runLater(() -> status.setText(exported ? "Exported " + selected.title() : "Selected chat no longer exists."));
-            } catch (Exception e) {
-                Platform.runLater(() -> reportError(e));
-            }
-        });
+        runInBackground("Exporting chat...", null,
+                () -> controller.exportChatMarkdown(selected.id(), file.toPath()),
+                exported -> status.setText(
+                        exported ? "Exported " + selected.title() : "Selected chat no longer exists."));
     }
 
     private void importChatGptArchive() {
@@ -297,6 +294,31 @@ public final class ChatMapApp extends Application {
         });
     }
 
+    /**
+     * Runs a blocking controller call off the FX thread, then applies its result
+     * back on the FX thread via {@code onSuccess} (or reports the error). A null
+     * pendingStatus leaves the status line unchanged; a null triggerButton
+     * disables nothing. This is the non-snapshot counterpart of the overload
+     * above, for calls that produce their own result rather than a list snapshot.
+     */
+    private <T> void runInBackground(String pendingStatus, Button triggerButton,
+            Callable<T> call, Consumer<T> onSuccess) {
+        if (pendingStatus != null) {
+            status.setText(pendingStatus);
+        }
+        if (triggerButton != null) {
+            triggerButton.setDisable(true);
+        }
+        backgroundExecutor.submit(() -> {
+            try {
+                T result = call.call();
+                Platform.runLater(() -> onSuccess.accept(result));
+            } catch (Exception e) {
+                Platform.runLater(() -> reportError(e));
+            }
+        });
+    }
+
     private void searchChats() {
         String query = searchField.getText();
         runInBackground("Searching...", null, () -> controller.searchChats(query));
@@ -317,18 +339,13 @@ public final class ChatMapApp extends Application {
         if (name.isEmpty()) {
             return;
         }
-        backgroundExecutor.submit(() -> {
-            try {
-                Project created = controller.createProject(name.get());
-                Platform.runLater(() -> {
+        runInBackground(null, null,
+                () -> controller.createProject(name.get()),
+                created -> {
                     refreshOrganizationChoices();
                     projectChoice.getSelectionModel().select(created);
                     status.setText("Created project " + created.name());
                 });
-            } catch (Exception e) {
-                Platform.runLater(() -> reportError(e));
-            }
-        });
     }
 
     private void assignProject() {
@@ -364,18 +381,13 @@ public final class ChatMapApp extends Application {
         if (name.isEmpty()) {
             return;
         }
-        backgroundExecutor.submit(() -> {
-            try {
-                Tag created = controller.createTag(name.get());
-                Platform.runLater(() -> {
+        runInBackground(null, null,
+                () -> controller.createTag(name.get()),
+                created -> {
                     refreshOrganizationChoices();
                     tagChoice.getSelectionModel().select(created);
                     status.setText("Created tag " + created.name());
                 });
-            } catch (Exception e) {
-                Platform.runLater(() -> reportError(e));
-            }
-        });
     }
 
     private void addTag() {
@@ -408,18 +420,12 @@ public final class ChatMapApp extends Application {
     }
 
     private void refreshOrganizationChoices() {
-        backgroundExecutor.submit(() -> {
-            try {
-                List<Project> projects = controller.listProjects();
-                List<Tag> tags = controller.listTags();
-                Platform.runLater(() -> {
-                    projectChoice.setItems(FXCollections.observableArrayList(projects));
-                    tagChoice.setItems(FXCollections.observableArrayList(tags));
+        runInBackground(null, null,
+                () -> new OrganizationChoices(controller.listProjects(), controller.listTags()),
+                choices -> {
+                    projectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
+                    tagChoice.setItems(FXCollections.observableArrayList(choices.tags()));
                 });
-            } catch (Exception e) {
-                Platform.runLater(() -> reportError(e));
-            }
-        });
     }
 
     private Long selectedChatId() {
@@ -448,39 +454,39 @@ public final class ChatMapApp extends Application {
     }
 
     private void showChatDetails(long chatId) {
-        backgroundExecutor.submit(() -> {
-            try {
-                // Record the selection and load details on the executor, never on the FX
-                // thread: the controller lock can be held for minutes by a summarize
-                // (claude CLI) or live fetch, so touching it on the FX thread would
-                // freeze the UI. Here it just queues behind that work instead.
-                controller.selectChat(chatId);
-                ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
-                ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
-                Platform.runLater(() -> {
-                    if (model == null) {
-                        detail.clear();
-                        status.setText("Selected chat no longer exists.");
-                        return;
-                    }
-                    StringBuilder out = new StringBuilder();
-                    out.append(model.chat().title()).append("\n");
-                    out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
-                    out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
-                    if (summary != null) {
-                        out.append("AI Summary (").append(summary.generatedBy()).append("): ")
-                                .append(summary.summary()).append("\n\n");
-                    }
-                    for (Message message : model.messages()) {
-                        out.append("[").append(message.role()).append("]\n");
-                        out.append(message.text()).append("\n\n");
-                    }
-                    detail.setText(out.toString());
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> reportError(e));
-            }
-        });
+        runInBackground(null, null,
+                () -> {
+                    // Record the selection and load details on the executor, never on the FX
+                    // thread: the controller lock can be held for minutes by a summarize
+                    // (claude CLI) or live fetch, so touching it on the FX thread would
+                    // freeze the UI. Here it just queues behind that work instead.
+                    controller.selectChat(chatId);
+                    ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
+                    ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
+                    return new ChatDetail(model, summary);
+                },
+                loaded -> renderChatDetail(loaded.model(), loaded.summary()));
+    }
+
+    private void renderChatDetail(ChatExportModel model, ChatSummary summary) {
+        if (model == null) {
+            detail.clear();
+            status.setText("Selected chat no longer exists.");
+            return;
+        }
+        StringBuilder out = new StringBuilder();
+        out.append(model.chat().title()).append("\n");
+        out.append("Source: ").append(model.chat().source().dbValue()).append("\n");
+        out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
+        if (summary != null) {
+            out.append("AI Summary (").append(summary.generatedBy()).append("): ")
+                    .append(summary.summary()).append("\n\n");
+        }
+        for (Message message : model.messages()) {
+            out.append("[").append(message.role()).append("]\n");
+            out.append(message.text()).append("\n\n");
+        }
+        detail.setText(out.toString());
     }
 
 
@@ -574,5 +580,13 @@ public final class ChatMapApp extends Application {
     @FunctionalInterface
     private interface BackgroundCall {
         ChatListState.Snapshot run() throws Exception;
+    }
+
+    /** Carrier for the two lists loaded together by {@link #refreshOrganizationChoices()}. */
+    private record OrganizationChoices(List<Project> projects, List<Tag> tags) {
+    }
+
+    /** Carrier for a chat's export model plus its latest summary, loaded off the FX thread. */
+    private record ChatDetail(ChatExportModel model, ChatSummary summary) {
     }
 }
