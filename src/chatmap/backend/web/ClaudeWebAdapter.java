@@ -3,110 +3,38 @@ package chatmap.backend.web;
 import chatmap.backend.providers.ClaudeTurn;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.Set;
 
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
 
 /**
- * Reads claude.ai conversations from an already-running, already-logged-in
- * Chrome over the Chrome DevTools Protocol.
+ * Reads the most recent claude.ai conversation over CDP.
  *
- * Ported from MyClaw's PlaywrightWebAdapter (Claude-only parts). There is
- * exactly one way to get a browser here: attach to a Chrome already listening on
- * the CDP port. It never launches a browser itself — {@link ChromeCdpLauncher}
- * is responsible for making sure one is up before any of this runs. (The old
- * ChatGPT path's launch-a-fresh-headless-browser fallback is deliberately not
- * ported: a profileless, logged-out browser is useless for reading the session.)
+ * Attaches to a Chrome already listening on the CDP port — the shared plumbing
+ * (connect, open page, read newest, release) lives in {@link CdpTranscriptAdapter};
+ * this class supplies only claude.ai's URL and selectors. It never launches a
+ * browser itself ({@link ChromeCdpLauncher} does that).
  *
- * Its selectors are best-effort and undocumented; claude.ai's DOM changes, so
- * {@link #readClaudeTranscript(Page)} tries several candidates and MUST be
- * verified against a live logged-in page if it stops finding turns.
+ * The selectors are best-effort and undocumented; claude.ai's DOM changes, so
+ * {@link #readTurns(Page)} tries several candidates and MUST be verified against a
+ * live logged-in page if it stops finding turns.
  */
-public final class ClaudeWebAdapter implements AutoCloseable {
+public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
 
     public static final String CLAUDE_BASE_URL = "https://claude.ai";
 
-    /** A conversation's display title and its full URL. */
-    public record ChatWebSummary(String title, String url) {}
-
-    /** The most recent conversation's title, URL, and turns, ready to import. */
-    public record Transcript(String title, String url, List<ClaudeTurn> turns) {
-        public Transcript {
-            turns = List.copyOf(turns);
-        }
+    ClaudeWebAdapter(String cdpUrl) {
+        super(cdpUrl);
     }
 
-    private final String cdpUrl;
-    private Playwright playwright;
-    private Browser browser;
-    private boolean connectedViaCdp;
-
-    public ClaudeWebAdapter(String cdpUrl) {
-        this.cdpUrl = Objects.requireNonNull(cdpUrl, "cdpUrl");
-    }
-
-    /**
-     * The most recent claude.ai conversation as title + turns, or empty when
-     * nothing is reachable (browser not running, not logged in, no chats, or the
-     * page layout no longer matches any known selector). Never throws for the
-     * "nothing available" case. Self-contained: it attaches, reads, and releases
-     * the Playwright connection each call, so a one-shot CLI leaves nothing behind.
-     */
-    public Optional<Transcript> latestTranscript() {
-        try {
-            if (!connectViaCdpOnly()) {
-                return Optional.empty();
-            }
-            Optional<ChatWebSummary> latest = latestClaudeChat();
-            if (latest.isEmpty()) {
-                return Optional.empty();
-            }
-            Page page = openConversation(latest.get().url());
-            List<ClaudeTurn> turns = readClaudeTranscript(page);
-            if (turns.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(new Transcript(latest.get().title(), latest.get().url(), turns));
-        } catch (Exception unavailable) {
-            return Optional.empty();
-        } finally {
-            close(); // release the CDP connection (does not close the user's Chrome)
-        }
-    }
-
-    /**
-     * Attaches to an already-running Chrome over CDP only; never launches a
-     * browser. Returns false (leaving the adapter unconnected) when no CDP
-     * endpoint is reachable.
-     */
-    boolean connectViaCdpOnly() {
-        if (playwright == null) {
-            playwright = Playwright.create();
-        }
-        if (browser != null && browser.isConnected() && connectedViaCdp) {
-            return true;
-        }
-        try {
-            browser = playwright.chromium().connectOverCDP(cdpUrl);
-            connectedViaCdp = true;
-            return true;
-        } catch (Exception cdpUnreachable) {
-            connectedViaCdp = false;
-            return false;
-        }
-    }
-
-    /** The most recently updated claude.ai conversation from the sidebar, or empty. */
-    Optional<ChatWebSummary> latestClaudeChat() {
-        List<ChatWebSummary> chats = listClaudeChats();
-        return chats.isEmpty() ? Optional.empty() : Optional.of(chats.get(0));
+    @Override
+    String siteBaseUrl() {
+        return CLAUDE_BASE_URL;
     }
 
     /**
@@ -114,8 +42,8 @@ public final class ClaudeWebAdapter implements AutoCloseable {
      * claude.ai conversation links are {@code /chat/<uuid>}; the sidebar renders
      * them newest-first, so element order is recency order.
      */
-    List<ChatWebSummary> listClaudeChats() {
-        Page page = openConversation(CLAUDE_BASE_URL);
+    @Override
+    List<ChatWebSummary> listChats(Page page) {
         Objects.requireNonNull(page, "page");
         try {
             page.waitForSelector("a[href*='/chat/']",
@@ -125,7 +53,7 @@ public final class ClaudeWebAdapter implements AutoCloseable {
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
-        java.util.Set<String> seenUrls = new java.util.LinkedHashSet<>();
+        Set<String> seenUrls = new LinkedHashSet<>();
         Locator chatLinks = page.locator("a[href*='/chat/']");
         int count = chatLinks.count();
         for (int i = 0; i < count; i++) {
@@ -137,8 +65,9 @@ public final class ClaudeWebAdapter implements AutoCloseable {
             String fullUrl = href.startsWith("/") ? CLAUDE_BASE_URL + href : href;
             // The sidebar title is split into two identical spans (data-testid
             // 'chat-title-split'), so innerText repeats it — collapse the repeat.
-            String title = collapseRepeatedLines(firstNonBlank(
-                    safeInnerText(link), link.getAttribute("title"), link.getAttribute("aria-label")));
+            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.firstNonBlank(
+                    WebTranscripts.safeInnerText(link), link.getAttribute("title"),
+                    link.getAttribute("aria-label")));
             if (title == null || title.isBlank()) {
                 title = "Untitled Chat";
             }
@@ -150,9 +79,9 @@ public final class ClaudeWebAdapter implements AutoCloseable {
     }
 
     /**
-     * Reads the full transcript of an open claude.ai conversation page, turn by
-     * turn, preserving user/assistant roles. Tries several selectors in order and
-     * falls back; roles are inferred from stable-looking attributes first.
+     * Reads the turns of an open claude.ai conversation page, preserving
+     * user/assistant roles. Tries several selectors in order and falls back; the
+     * base class merges consecutive same-role turns into one message.
      *
      * NOTE: these selectors are best-effort and MUST be verified against a live
      * logged-in page; adjust the candidate lists below if claude.ai has changed.
@@ -160,12 +89,11 @@ public final class ClaudeWebAdapter implements AutoCloseable {
      * turns carry {@code data-testid='user-message'} and assistant response prose
      * lives in {@code font-claude-response-body} elements. Note the sibling
      * {@code font-claude-response} class holds Claude's collapsed *thinking*
-     * summary, not the answer, so it is deliberately not selected. Assistant
-     * responses render as several body paragraphs; consecutive same-role turns
-     * are merged back into one message below. The later candidates are older
-     * fallbacks.
+     * summary, not the answer, so it is deliberately not selected. The later
+     * candidates are older fallbacks.
      */
-    List<ClaudeTurn> readClaudeTranscript(Page page) {
+    @Override
+    List<ClaudeTurn> readTurns(Page page) {
         Objects.requireNonNull(page, "page");
 
         String[] turnSelectorCandidates = {
@@ -191,51 +119,17 @@ public final class ClaudeWebAdapter implements AutoCloseable {
             List<ClaudeTurn> result = new ArrayList<>();
             for (int i = 0; i < count; i++) {
                 Locator turn = turns.nth(i);
-                String text = safeInnerText(turn);
+                String text = WebTranscripts.safeInnerText(turn);
                 if (text == null || text.isBlank()) {
                     continue;
                 }
                 result.add(new ClaudeTurn(inferRole(turn), text.strip()));
             }
             if (!result.isEmpty()) {
-                return mergeConsecutiveSameRole(result);
+                return result;
             }
         }
         return List.of();
-    }
-
-    /** Merges runs of same-role turns into one, so a multi-paragraph answer is one message. */
-    private static List<ClaudeTurn> mergeConsecutiveSameRole(List<ClaudeTurn> turns) {
-        List<ClaudeTurn> merged = new ArrayList<>();
-        for (ClaudeTurn turn : turns) {
-            if (!merged.isEmpty() && merged.get(merged.size() - 1).role().equals(turn.role())) {
-                ClaudeTurn previous = merged.remove(merged.size() - 1);
-                merged.add(new ClaudeTurn(previous.role(), previous.text() + "\n\n" + turn.text()));
-            } else {
-                merged.add(turn);
-            }
-        }
-        return merged;
-    }
-
-    /** Finds an already-open page for the URL or opens a new one. Uses the CDP browser only. */
-    private Page openConversation(String url) {
-        BrowserContext context = browser.contexts().isEmpty()
-                ? browser.newContext()
-                : browser.contexts().get(0);
-
-        Optional<Page> existing = context.pages().stream()
-                .filter(page -> page.url().contains(url) || url.contains(page.url()))
-                .findFirst();
-        if (existing.isPresent()) {
-            Page page = existing.get();
-            page.bringToFront();
-            return page;
-        }
-
-        Page page = context.newPage();
-        page.navigate(url);
-        return page;
     }
 
     private static String inferRole(Locator turn) {
@@ -260,62 +154,5 @@ public final class ClaudeWebAdapter implements AutoCloseable {
             }
         }
         return "unknown";
-    }
-
-    private static String safeInnerText(Locator locator) {
-        try {
-            return locator.innerText();
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private static String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    /** Joins the distinct non-blank lines of a value, collapsing adjacent repeats. */
-    private static String collapseRepeatedLines(String text) {
-        if (text == null) {
-            return null;
-        }
-        StringBuilder sb = new StringBuilder();
-        String previous = null;
-        for (String line : text.split("\\R")) {
-            String trimmed = line.strip();
-            if (trimmed.isEmpty() || trimmed.equals(previous)) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append(' ');
-            }
-            sb.append(trimmed);
-            previous = trimmed;
-        }
-        return sb.toString();
-    }
-
-    @Override
-    public synchronized void close() {
-        if (browser != null) {
-            try {
-                browser.close();
-            } catch (Exception ignored) {
-            }
-            browser = null;
-        }
-        if (playwright != null) {
-            try {
-                playwright.close();
-            } catch (Exception ignored) {
-            }
-            playwright = null;
-        }
-        connectedViaCdp = false;
     }
 }

@@ -61,7 +61,7 @@ public final class ClaudeWebChatProvider implements ChatProvider {
         if (!launcher.ensureChromeRunning(cdpUrl, System.out)) {
             return Optional.empty();
         }
-        Optional<ClaudeWebAdapter.Transcript> transcript = adapter.latestTranscript();
+        Optional<CdpTranscriptAdapter.Transcript> transcript = adapter.latestTranscript();
         if (transcript.isEmpty() || transcript.get().turns().isEmpty()) {
             return Optional.empty();
         }
