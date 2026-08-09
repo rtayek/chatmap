@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -104,6 +105,36 @@ class HandoffExporterTest {
         String markdown = exportProject(project.id());
 
         assertEquals(golden("project-multiple-chats.md"), markdown);
+    }
+
+    @Test
+    void loadProjectHandoffHydratesMessagesAndTagsForAllProjectChats() throws Exception {
+        Project project = projects.insert(new Project(0, "Hydrated", null,
+                "2026-07-01T00:00:00Z", "2026-07-02T00:00:00Z"));
+        Chat first = chats.insert(new Chat(0, project.id(), Source.plainText, "First",
+                null, null, "2026-07-03T00:00:00Z", false));
+        Chat second = chats.insert(new Chat(0, project.id(), Source.plainText, "Second",
+                null, null, "2026-07-04T00:00:00Z", false));
+        Chat empty = chats.insert(new Chat(0, project.id(), Source.plainText, "Empty",
+                null, null, "2026-07-05T00:00:00Z", false));
+        Tag alpha = tags.insert(new Tag(0, "Alpha"));
+        Tag zebra = tags.insert(new Tag(0, "zebra"));
+        tags.assignToChat(first.id(), zebra.id());
+        tags.assignToChat(first.id(), alpha.id());
+        Message later = messages.insert(new Message(0, first.id(), "assistant", "later", 1, null, null));
+        Message earlier = messages.insert(new Message(0, first.id(), "user", "earlier", 0, null, null));
+        Message only = messages.insert(new Message(0, second.id(), "user", "only", 0, null, null));
+
+        ProjectHandoffModel model = exportService.loadProjectHandoff(project.id(), exportedAt).orElseThrow();
+
+        assertEquals(List.of(first.id(), second.id(), empty.id()),
+                model.chats().stream().map(entry -> entry.chat().id()).toList());
+        assertEquals(List.of(earlier, later), model.chats().get(0).messages());
+        assertEquals(List.of(alpha, zebra), model.chats().get(0).tags());
+        assertEquals(List.of(only), model.chats().get(1).messages());
+        assertEquals(List.of(), model.chats().get(1).tags());
+        assertEquals(List.of(), model.chats().get(2).messages());
+        assertEquals(List.of(), model.chats().get(2).tags());
     }
 
     private String exportProject(long projectId) throws Exception {
