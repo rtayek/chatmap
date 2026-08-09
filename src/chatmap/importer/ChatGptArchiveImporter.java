@@ -6,33 +6,24 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.LinkedHashMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.stream.JsonReader;
 
-import static chatmap.importer.ChatGptMapping.isoTimestamp;
-import static chatmap.importer.ChatGptMapping.mapRole;
 import static chatmap.importer.ChatGptMapping.object;
-import static chatmap.importer.ChatGptMapping.string;
 
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
-import chatmap.domain.Message;
 import chatmap.domain.Source;
 
 /** Reads ChatGPT export ZIP conversation JSON without extracting the archive. */
@@ -49,7 +40,7 @@ public final class ChatGptArchiveImporter {
 
             List<ImportedConversation> conversations = new ArrayList<>();
             List<Failure> failures = new ArrayList<>();
-            Counter counter = new Counter();
+            ChatGptImportCounter counter = new ChatGptImportCounter();
             int discovered = 0;
             int skipped = 0;
             for (String entryName : entries) {
@@ -106,8 +97,8 @@ public final class ChatGptArchiveImporter {
     }
 
     private static ImportedConversation parseConversation(Path archive, String entryName, int index,
-            JsonObject conversation, String importedAt, Counter counter) {
-        String externalId = firstString(conversation, "conversation_id", "id");
+            JsonObject conversation, String importedAt, ChatGptImportCounter counter) {
+        String externalId = ChatGptConversationParser.firstString(conversation, "conversation_id", "id");
         if (externalId == null || externalId.isBlank()) {
             return emptyConversation(entryName, index, "missing conversation id", importedAt);
         }
@@ -116,30 +107,11 @@ public final class ChatGptArchiveImporter {
             return emptyConversation(entryName, index, externalId, importedAt);
         }
 
-        String currentNode = string(conversation.get("current_node"));
-        List<JsonObject> activePath = activePath(mapping, currentNode);
-        String title = nonBlank(string(conversation.get("title")), "Untitled ChatGPT conversation");
-        String createdAt = isoTimestamp(conversation.get("create_time"));
-        String updatedAt = isoTimestamp(conversation.get("update_time"));
         String sourceUri = archive.toUri() + "!" + entryName + "#conversationId=" + externalId;
+        ImportedChat imported = ChatGptConversationParser.parse(
+                conversation, "Untitled ChatGPT conversation", sourceUri, importedAt, counter);
 
-        List<Message> messages = new ArrayList<>();
-        int sequence = 0;
-        for (JsonObject node : activePath) {
-            JsonObject message = object(node.get("message"));
-            if (message == null) {
-                continue;
-            }
-            String text = messageText(message, counter);
-            if (text.isBlank()) {
-                continue;
-            }
-            messages.add(new Message(0, 0, mapRole(message), text, sequence++,
-                    isoTimestamp(message.get("create_time")), null));
-        }
-        Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt,
-                importedAt, false, new ImportMetadata(externalId, sourceUri, null, updatedAt, importedAt));
-        return new ImportedConversation(entryName, externalId, new ImportedChat(chat, messages));
+        return new ImportedConversation(entryName, externalId, imported);
     }
 
     private static ImportedConversation emptyConversation(String entryName, int index, String idOrReason,
@@ -148,90 +120,6 @@ public final class ChatGptArchiveImporter {
         Chat chat = new Chat(0, null, Source.chatgptJson, "Skipped ChatGPT conversation",
                 null, null, importedAt, false, new ImportMetadata(id, null, null, null, importedAt));
         return new ImportedConversation(entryName, id, new ImportedChat(chat, List.of()));
-    }
-
-    private static List<JsonObject> activePath(JsonObject mapping, String currentNode) {
-        String start = currentNode != null && mapping.has(currentNode) ? currentNode : fallbackLeaf(mapping);
-        return ChatGptMapping.activePath(mapping, start);
-    }
-
-    private static String fallbackLeaf(JsonObject mapping) {
-        Set<String> parents = new HashSet<>();
-        Map<String, JsonObject> nodes = new HashMap<>();
-        for (var entry : mapping.entrySet()) {
-            JsonObject node = object(entry.getValue());
-            if (node == null) {
-                continue;
-            }
-            nodes.put(entry.getKey(), node);
-            String parent = string(node.get("parent"));
-            if (parent != null) {
-                parents.add(parent);
-            }
-        }
-        return nodes.entrySet().stream()
-                .filter(entry -> !parents.contains(entry.getKey()))
-                .max(Comparator
-                        .comparingDouble((Map.Entry<String, JsonObject> entry) -> messageTime(entry.getValue()))
-                        .thenComparing(Map.Entry::getKey))
-                .map(Map.Entry::getKey)
-                .orElse(null);
-    }
-
-    private static double messageTime(JsonObject node) {
-        JsonObject message = object(node.get("message"));
-        if (message == null || !message.has("create_time")) {
-            return Double.NEGATIVE_INFINITY;
-        }
-        JsonElement value = message.get("create_time");
-        return value != null && value.isJsonPrimitive() && value.getAsJsonPrimitive().isNumber()
-                ? value.getAsDouble()
-                : Double.NEGATIVE_INFINITY;
-    }
-
-    private static String messageText(JsonObject message, Counter counter) {
-        JsonObject content = object(message.get("content"));
-        if (content == null) {
-            counter.countUnsupported("missing_or_nonobject_content:" + typeName(message.get("content")));
-            return "";
-        }
-        List<String> parts = new ArrayList<>();
-        String contentType = String.valueOf(content.get("content_type") == null
-                || content.get("content_type").isJsonNull()
-                        ? "unknown"
-                        : content.get("content_type").getAsString());
-        JsonArray partArray = array(content.get("parts"));
-        if (partArray != null) {
-            for (JsonElement part : partArray) {
-                if (part == null || part.isJsonNull()) {
-                    continue;
-                }
-                if (part.isJsonPrimitive() && part.getAsJsonPrimitive().isString()) {
-                    addNonBlank(parts, part.getAsString());
-                } else if (part.isJsonObject()) {
-                    JsonObject partObject = part.getAsJsonObject();
-                    String text = string(partObject.get("text"));
-                    if (text == null || text.isBlank()) {
-                        counter.countUnsupported("object_part:" + contentType + ":"
-                                + discriminator(partObject) + ":" + keySignature(partObject));
-                    } else {
-                        addNonBlank(parts, text);
-                    }
-                } else {
-                    counter.countUnsupported("non_string_part:" + contentType + ":" + typeName(part));
-                }
-            }
-        } else {
-            String text = string(content.get("text"));
-            if (text == null) {
-                counter.countUnsupported("missing_parts_and_text:" + contentType
-                        + ":parts=" + typeName(content.get("parts"))
-                        + ":text=" + typeName(content.get("text")));
-            } else {
-                addNonBlank(parts, text);
-            }
-        }
-        return String.join("\n\n", parts);
     }
 
     private static List<String> conversationEntries(ZipFile zip) {
@@ -268,85 +156,12 @@ public final class ChatGptArchiveImporter {
         return new LinkedHashSet<>(sample.keySet());
     }
 
-    private static String firstString(JsonObject object, String... names) {
-        for (String name : names) {
-            String value = string(object.get(name));
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private static JsonArray array(JsonElement element) {
-        return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
-    }
-
-    private static String discriminator(JsonObject object) {
-        for (String key : List.of("type", "content_type", "asset_pointer", "mime_type")) {
-            String value = string(object.get(key));
-            if (value != null && !value.isBlank()) {
-                return value.startsWith("file-") ? "asset_pointer:file-*" : value;
-            }
-        }
-        return "no-discriminator";
-    }
-
-    private static String keySignature(JsonObject object) {
-        return String.join(",", new TreeSet<>(object.keySet()));
-    }
-
-    private static String typeName(JsonElement element) {
-        if (element == null || element.isJsonNull()) {
-            return "null";
-        }
-        if (element.isJsonArray()) {
-            return "array";
-        }
-        if (element.isJsonObject()) {
-            return "object";
-        }
-        if (element.isJsonPrimitive()) {
-            if (element.getAsJsonPrimitive().isString()) {
-                return "string";
-            }
-            if (element.getAsJsonPrimitive().isNumber()) {
-                return "number";
-            }
-            if (element.getAsJsonPrimitive().isBoolean()) {
-                return "boolean";
-            }
-        }
-        return "unknown";
-    }
-
-    private static String nonBlank(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
-    private static void addNonBlank(List<String> parts, String text) {
-        if (text != null && !text.isBlank()) {
-            parts.add(text.strip());
-        }
-    }
-
     private static String concise(RuntimeException e) {
         String message = e.getMessage();
         if (message == null || message.isBlank()) {
             message = e.getClass().getSimpleName();
         }
         return message.replaceAll("\\s+", " ").strip().toLowerCase(Locale.ROOT);
-    }
-
-    private static final class Counter {
-        int unsupportedContentParts;
-
-        final Map<String, Integer> unsupportedContentCategories = new LinkedHashMap<>();
-
-        void countUnsupported(String category) {
-            unsupportedContentParts++;
-            unsupportedContentCategories.merge(category, 1, Integer::sum);
-        }
     }
 
     public record ImportedConversation(String entryName, String externalConversationId,
