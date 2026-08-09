@@ -17,13 +17,11 @@ Import → Normalize → Store → Search → Organize → Export
 The MVP supports:
 
 * importing plain text, Markdown, and ChatGPT JSON files
-* reading live web chats from Claude, ChatGPT, and Gemini via Chrome DevTools Protocol browser automation
-* storing chats in SQLite
-* searching message text with SQLite FTS5
+* reading live web chats from various Large Language Models.
+* persisting chats in a databases.
+* searching messages in the databases
 * organizing chats with projects and tags
 * exporting chats and handoffs as Markdown
-
-Live web provider readers over Chrome DevTools Protocol and Claude summary/tag generation are supported capabilities. The core application does not require cloud sync or a visual canvas.
 
 ## Architecture
 
@@ -31,7 +29,7 @@ Live web provider readers over Chrome DevTools Protocol and Claude summary/tag g
 Java desktop app
 │
 ├── ui
-│   └── JavaFX list/detail application
+│   └── Java Swing or JavaFX
 │
 ├── service
 │   ├── import orchestration
@@ -94,8 +92,9 @@ UpperCamelCase
 Java methods, fields, parameters, locals, constants, and enums:
 lowerCamelCase
 
-Database tables and columns:
-lowerCamelCase
+Database tables: UpperCamelCase
+
+Database columns: LowerCamelCase
 ```
 
 Examples:
@@ -110,11 +109,11 @@ fallbackTitle
 text
 rawJson
 
-projects
-chats
-messages
-messageFts
-chatTags
+Projects
+Chats
+Messages
+MessageFts
+ChatTags
 
 projectId
 chatId
@@ -124,7 +123,7 @@ importedAt
 enum Foo {bar,baz}
 ```
 
-No underscores or spaces in Java identifiers or database identifiers.
+No underscores or spaces in Java identifiers or database identifiers, use '-' instead.
 
 ## Core Data Model
 
