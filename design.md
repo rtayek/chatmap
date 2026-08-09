@@ -29,7 +29,7 @@ The MVP supports:
 Java desktop app
 │
 ├── ui
-│   └── Java Swing or JavaFX
+│   └── JavaFX
 │
 ├── service
 │   ├── import orchestration
@@ -74,12 +74,12 @@ Java desktop app
 
 ## Technology Choices
 
-* Language & Runtime: Java 25 (Gradle Kotlin DSL toolchain)
-* UI: JavaFX 25.0.1
+* Language & Runtime: recent version of Java and Gradle toolchain
+* UI: JavaFX
 * Storage: SQLite 3.53+
 * Search: SQLite FTS5
 * Browser Automation: Chrome DevTools Protocol
-* Quality Assurance: JUnit 5, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
+* Quality Assurance: JUnit, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
 
 ## Naming Rules
 
@@ -92,9 +92,9 @@ UpperCamelCase
 Java methods, fields, parameters, locals, constants, and enums:
 lowerCamelCase
 
-Database tables: UpperCamelCase
+Database tables: lowerCamelCase
 
-Database columns: LowerCamelCase
+Database columns: lowerCamelCase
 ```
 
 Examples:
@@ -109,11 +109,11 @@ fallbackTitle
 text
 rawJson
 
-Projects
-Chats
-Messages
-MessageFts
-ChatTags
+projects
+chats
+messages
+messageFts
+chatTags
 
 projectId
 chatId
@@ -123,7 +123,7 @@ importedAt
 enum Foo {bar,baz}
 ```
 
-No underscores or spaces in Java identifiers or database identifiers, use '-' instead.
+No underscores or spaces anywhere. In file names use '-'; in Java and database identifiers use camelCase per the rules above.
 
 ## Core Data Model
 
