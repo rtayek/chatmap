@@ -94,6 +94,18 @@ class ChatMapControllerTest {
     }
 
     @Test
+    void defaultControllerFactoryKeepsInteractiveProviderSet() {
+        assertEquals(List.of(
+                "Claude (web)", "ChatGPT (web)", "Gemini (web)",
+                "Claude Code (CLI)", "Codex (CLI)", "Gemini (CLI)"),
+                ChatMapControllerFactory.defaultIntegrations()
+                        .chatProviders()
+                        .stream()
+                        .map(chatmap.backend.ChatProvider::name)
+                        .toList());
+    }
+
+    @Test
     void searchesChats() throws Exception {
         Chat match = insertChat("Match", "ChatMap controller target");
         insertChat("Miss", "unrelated body");

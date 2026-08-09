@@ -2,12 +2,15 @@ package chatmap.service;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.util.List;
+import java.util.Objects;
 
+import chatmap.backend.AiBackend;
+import chatmap.backend.AiRequest;
+import chatmap.backend.AiResponse;
+import chatmap.backend.BackendId;
 import chatmap.backend.ChatProvider;
-import chatmap.backend.ClaudeCliBackend;
-import chatmap.backend.DefaultChatProviders;
+import chatmap.backend.AiBackendUnsupportedRequestException;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
@@ -37,8 +40,29 @@ public record ServiceGraph(
         ProjectService projectService,
         TagService tagService) implements AutoCloseable {
 
+    /**
+     * Optional outside-world capabilities. Core import/search/export can run with
+     * {@link #none()}; UI and summarize entry points opt into concrete providers.
+     */
+    public record Integrations(List<ChatProvider> chatProviders, AiBackend summaryBackend) {
+        public Integrations {
+            chatProviders = List.copyOf(Objects.requireNonNull(chatProviders, "chatProviders"));
+            summaryBackend = Objects.requireNonNull(summaryBackend, "summaryBackend");
+        }
+
+        public static Integrations none() {
+            return new Integrations(List.of(), new UnavailableSummaryBackend());
+        }
+    }
+
     /** Builds every repository and service over {@code connection}. Caller owns the connection. */
     public static ServiceGraph create(Connection connection) {
+        return create(connection, Integrations.none());
+    }
+
+    /** Builds every repository and service over {@code connection}. Caller owns the connection. */
+    public static ServiceGraph create(Connection connection, Integrations integrations) {
+        Objects.requireNonNull(integrations, "integrations");
         ChatRepository chats = new ChatRepository(connection);
         MessageRepository messages = new MessageRepository(connection);
         ProjectRepository projects = new ProjectRepository(connection);
@@ -50,10 +74,9 @@ public record ServiceGraph(
         ChatGptArchiveImportService archiveImportService =
                 new ChatGptArchiveImportService(importService);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
-                new ClaudeCliBackend(Duration.ofMinutes(3)));
-        List<ChatProvider> providers = DefaultChatProviders.ordered();
+                integrations.summaryBackend());
         LiveChatFetchService liveChatFetchService =
-                new LiveChatFetchService(providers, importService, chats);
+                new LiveChatFetchService(integrations.chatProviders(), importService, chats);
         ExportService exportService = new ExportService(chats, messages, projects, tags);
         SearchService searchService = new SearchService(search);
         ProjectService projectService = new ProjectService(projects, chats);
@@ -69,6 +92,19 @@ public record ServiceGraph(
     public void close() throws SQLException {
         if (connection != null) {
             connection.close();
+        }
+    }
+
+    private static final class UnavailableSummaryBackend implements AiBackend {
+        @Override
+        public AiResponse ask(AiRequest request) {
+            throw new AiBackendUnsupportedRequestException(
+                    "No summary AI backend configured.", new BackendId("unavailable"));
+        }
+
+        @Override
+        public String toString() {
+            return "unavailable summary backend";
         }
     }
 }

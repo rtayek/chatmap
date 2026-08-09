@@ -109,13 +109,23 @@ public final class CliBootstrap {
     }
 
     public static CliContext open(ParsedArguments parsedArguments) throws IOException, SQLException {
+        return open(parsedArguments, ServiceGraph.Integrations.none());
+    }
+
+    public static CliContext open(ParsedArguments parsedArguments, ServiceGraph.Integrations integrations)
+            throws IOException, SQLException {
         ResolvedPaths paths = parsedArguments.paths();
         Files.createDirectories(paths.homeDirectory());
         Connection conn = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
-        return createContext(conn, paths);
+        return createContext(conn, paths, integrations);
     }
 
     public static CliContext createContext(Connection connection, ResolvedPaths paths) {
-        return new CliContext(ServiceGraph.create(connection), paths);
+        return createContext(connection, paths, ServiceGraph.Integrations.none());
+    }
+
+    public static CliContext createContext(
+            Connection connection, ResolvedPaths paths, ServiceGraph.Integrations integrations) {
+        return new CliContext(ServiceGraph.create(connection, integrations), paths);
     }
 }

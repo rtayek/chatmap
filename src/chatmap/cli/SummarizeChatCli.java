@@ -1,5 +1,6 @@
 package chatmap.cli;
 
+import chatmap.app.DefaultServiceIntegrations;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.domain.ChatSummary;
@@ -49,7 +50,8 @@ public final class SummarizeChatCli {
 
         System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));
 
-        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
+        try (CliBootstrap.CliContext context =
+                CliBootstrap.open(parsedArguments, DefaultServiceIntegrations.create())) {
             LiveChatFetchService.Resolution resolution;
             try {
                 resolution = context.liveChatFetchService().resolve(requestedChatId);
