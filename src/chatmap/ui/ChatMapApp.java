@@ -1,16 +1,11 @@
 package chatmap.ui;
 
-import java.nio.file.Files;
-import java.sql.Connection;
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
-import chatmap.config.ChatMapPaths;
-import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
+import chatmap.app.ChatMapRuntime;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -18,7 +13,6 @@ import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
-import chatmap.storage.Database;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -45,7 +39,7 @@ import javafx.stage.Stage;
 public final class ChatMapApp extends Application {
     private static final String COMPACT_BUTTON_STYLE = "-fx-padding: 3 7 3 7;";
 
-    private Connection conn;
+    private ChatMapRuntime runtime;
     private ChatMapController controller;
     private ListView<SearchResult> chatList;
     private TextArea detail;
@@ -60,7 +54,6 @@ public final class ChatMapApp extends Application {
     private BorderPane root;
     private Label status;
     private boolean applyingListState;
-    private SerializedTaskExecutor backgroundExecutor;
 
     public static void main(String[] args) {
         launch(args);
@@ -68,17 +61,8 @@ public final class ChatMapApp extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        ParsedArguments parsedArguments = ChatMapPaths.parse(getParameters().getRaw());
-        if (!parsedArguments.remainingArgs().isEmpty()) {
-            throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
-        }
-        ResolvedPaths paths = parsedArguments.paths();
-        System.out.println(ChatMapPaths.diagnostics(paths));
-        Files.createDirectories(paths.homeDirectory());
-
-        conn = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
-        backgroundExecutor = new SerializedTaskExecutor("chatmap-background");
-        controller = ChatMapControllerFactory.create(conn);
+        runtime = ChatMapRuntime.open(getParameters().getRaw());
+        controller = runtime.controller();
 
         fontSizeState = new FontSizeState();
         status = new Label("Ready");
@@ -181,20 +165,8 @@ public final class ChatMapApp extends Application {
 
     @Override
     public void stop() throws Exception {
-        // Close the connection only once the background worker has actually stopped
-        // using it. If a long task (e.g. a summarize CLI call or a large archive
-        // import) has not drained in time, closing the connection under it would fail
-        // mid-operation, so leave it for the JVM to release on exit -- WAL keeps the
-        // database consistent.
-        boolean workerStopped = backgroundExecutor == null
-                || backgroundExecutor.shutdownAndAwait(Duration.ofSeconds(5));
-        if (conn != null) {
-            if (workerStopped) {
-                conn.close();
-            } else {
-                System.err.println("[ChatMap] Background work did not stop in time; "
-                        + "leaving the database connection for the JVM to release on exit.");
-            }
+        if (runtime != null) {
+            runtime.close();
         }
     }
 
@@ -278,7 +250,7 @@ public final class ChatMapApp extends Application {
         if (triggerButton != null) {
             triggerButton.setDisable(true);
         }
-        backgroundExecutor.submit(() -> {
+        runtime.submit(() -> {
             try {
                 ChatListState.Snapshot snapshot = call.run();
                 Platform.runLater(() -> {
@@ -309,7 +281,7 @@ public final class ChatMapApp extends Application {
         if (triggerButton != null) {
             triggerButton.setDisable(true);
         }
-        backgroundExecutor.submit(() -> {
+        runtime.submit(() -> {
             try {
                 T result = call.call();
                 Platform.runLater(() -> onSuccess.accept(result));
