@@ -12,7 +12,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import chatmap.backend.ChatProvider;
+import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;

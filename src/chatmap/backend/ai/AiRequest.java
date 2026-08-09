@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.ai;
 
 import java.util.Objects;
 import java.util.Optional;

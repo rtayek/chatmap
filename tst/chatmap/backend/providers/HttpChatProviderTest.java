@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.providers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

@@ -1,4 +1,10 @@
-package chatmap.backend;
+package chatmap.backend.web;
+
+import chatmap.backend.providers.ProviderIdentity;
+
+import chatmap.backend.providers.ChatProvider;
+
+import chatmap.backend.providers.ClaudeTurn;
 
 import java.time.Instant;
 import java.util.ArrayList;

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.backend.ClaudeCliBackend;
+import chatmap.backend.ai.ClaudeCliBackend;
 import chatmap.domain.Project;
 import chatmap.domain.Tag;
 import chatmap.service.ExportService;

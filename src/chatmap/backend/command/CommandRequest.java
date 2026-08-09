@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.command;
 
 import java.time.Duration;
 import java.util.List;

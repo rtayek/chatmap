@@ -5,12 +5,12 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 
-import chatmap.backend.AiBackend;
-import chatmap.backend.AiRequest;
-import chatmap.backend.AiResponse;
-import chatmap.backend.BackendId;
-import chatmap.backend.ChatProvider;
-import chatmap.backend.AiBackendUnsupportedRequestException;
+import chatmap.backend.ai.AiBackend;
+import chatmap.backend.ai.AiRequest;
+import chatmap.backend.ai.AiResponse;
+import chatmap.backend.ai.BackendId;
+import chatmap.backend.providers.ChatProvider;
+import chatmap.backend.ai.AiBackendUnsupportedRequestException;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;

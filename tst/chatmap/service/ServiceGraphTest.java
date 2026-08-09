@@ -9,8 +9,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
-import chatmap.backend.AiBackendUnsupportedRequestException;
-import chatmap.backend.ChatProvider;
+import chatmap.backend.ai.AiBackendUnsupportedRequestException;
+import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;

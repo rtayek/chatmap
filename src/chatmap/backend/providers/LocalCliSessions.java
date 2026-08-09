@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.providers;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,7 +39,10 @@ final class LocalCliSessions {
         try (Stream<Path> files = Files.walk(root)) {
             return files
                     .filter(Files::isRegularFile)
-                    .filter(p -> p.getFileName().toString().endsWith(".jsonl"))
+                    .filter(p -> {
+                        Path fileName = p.getFileName();
+                        return fileName != null && fileName.toString().endsWith(".jsonl");
+                    })
                     .max(Comparator.comparingLong(p -> p.toFile().lastModified()));
         } catch (IOException unreadable) {
             return Optional.empty();

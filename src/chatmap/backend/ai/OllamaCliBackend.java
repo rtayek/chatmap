@@ -1,4 +1,12 @@
-package chatmap.backend;
+package chatmap.backend.ai;
+
+import chatmap.backend.command.CommandExecutionException;
+
+import chatmap.backend.command.CommandResult;
+
+import chatmap.backend.command.CommandRequest;
+
+import chatmap.backend.command.CommandExecutor;
 
 import java.time.Duration;
 import java.util.List;

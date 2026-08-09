@@ -1,21 +1,21 @@
-package chatmap.backend;
+package chatmap.backend.providers;
 
 import java.nio.file.Path;
 
-final class ProviderIdentity {
+public final class ProviderIdentity {
 
     private ProviderIdentity() {
     }
 
-    static String claudeWebId(String url) {
+    public static String claudeWebId(String url) {
         return pathId(url, "/chat/");
     }
 
-    static String chatGptWebId(String url) {
+    public static String chatGptWebId(String url) {
         return pathId(url, "/c/");
     }
 
-    static String geminiWebId(String url) {
+    public static String geminiWebId(String url) {
         String id = pathId(url, "/app/");
         if (id == null || id.isBlank()) {
             return null;
@@ -23,7 +23,7 @@ final class ProviderIdentity {
         return id.equalsIgnoreCase("app") ? null : id;
     }
 
-    static String cliSessionId(Path root, Path file) {
+    public static String cliSessionId(Path root, Path file) {
         return root.toAbsolutePath().normalize()
                 .relativize(file.toAbsolutePath().normalize())
                 .toString()

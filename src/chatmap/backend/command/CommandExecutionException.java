@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.command;
 
 public final class CommandExecutionException extends RuntimeException {
     private static final long serialVersionUID = 1L;

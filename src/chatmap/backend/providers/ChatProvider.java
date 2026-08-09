@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.providers;
 
 import java.util.Optional;
 

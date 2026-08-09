@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.web;
 
 import java.io.IOException;
 import java.io.PrintStream;

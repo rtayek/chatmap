@@ -1,4 +1,6 @@
-package chatmap.backend;
+package chatmap.backend.web;
+
+import chatmap.backend.providers.ClaudeTurn;
 
 import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserContext;

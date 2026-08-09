@@ -1,4 +1,6 @@
-package chatmap.backend;
+package chatmap.backend.web;
+
+import chatmap.backend.providers.ClaudeTurn;
 
 import java.util.List;
 import java.util.Objects;

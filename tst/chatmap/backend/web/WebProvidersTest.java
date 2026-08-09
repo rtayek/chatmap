@@ -1,4 +1,10 @@
-package chatmap.backend;
+package chatmap.backend.web;
+
+import chatmap.backend.providers.DefaultChatProviders;
+
+import chatmap.backend.providers.ChatProvider;
+
+import chatmap.backend.providers.ClaudeTurn;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;

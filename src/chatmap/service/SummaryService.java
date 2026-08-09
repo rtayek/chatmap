@@ -9,7 +9,7 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import chatmap.backend.AiBackend;
+import chatmap.backend.ai.AiBackend;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;

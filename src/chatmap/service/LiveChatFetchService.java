@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
-import chatmap.backend.ChatProvider;
+import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.importer.ImportedChat;
 import chatmap.storage.ChatRepository;

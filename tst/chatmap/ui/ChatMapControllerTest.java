@@ -18,7 +18,7 @@ import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
-import chatmap.backend.ClaudeCliBackend;
+import chatmap.backend.ai.ClaudeCliBackend;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
@@ -101,7 +101,7 @@ class ChatMapControllerTest {
                 ChatMapControllerFactory.defaultIntegrations()
                         .chatProviders()
                         .stream()
-                        .map(chatmap.backend.ChatProvider::name)
+                        .map(chatmap.backend.providers.ChatProvider::name)
                         .toList());
     }
 
@@ -223,7 +223,7 @@ class ChatMapControllerTest {
         java.util.concurrent.CountDownLatch slowProviderStarted = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch slowProviderCanFinish = new java.util.concurrent.CountDownLatch(1);
 
-        chatmap.backend.ChatProvider slowProvider = new chatmap.backend.ChatProvider() {
+        chatmap.backend.providers.ChatProvider slowProvider = new chatmap.backend.providers.ChatProvider() {
             @Override
             public String name() {
                 return "Slow Test Provider";

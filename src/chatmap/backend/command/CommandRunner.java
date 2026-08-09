@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.command;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

@@ -1,4 +1,6 @@
-package chatmap.backend;
+package chatmap.backend.ai;
+
+import chatmap.backend.command.CommandResult;
 
 import java.util.List;
 import java.util.Objects;

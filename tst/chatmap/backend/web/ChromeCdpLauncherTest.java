@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.web;
 
 import com.sun.net.httpserver.HttpServer;
 

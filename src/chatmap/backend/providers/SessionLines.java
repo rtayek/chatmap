@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.providers;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -11,13 +11,13 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 /** Small JSONL reading + safe Gson accessors shared by the CLI-history parsers. */
-final class SessionLines {
+public final class SessionLines {
 
     private SessionLines() {
     }
 
     /** All lines of a session file, or an empty list if it cannot be read. */
-    static List<String> read(Path file) {
+    public static List<String> read(Path file) {
         try {
             return Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (IOException unreadable) {
@@ -26,7 +26,7 @@ final class SessionLines {
     }
 
     /** Parses one line as a JSON object, or null when the line is blank or not an object. */
-    static JsonObject asObject(String line) {
+    public static JsonObject asObject(String line) {
         if (line == null || line.isBlank()) {
             return null;
         }
@@ -39,7 +39,7 @@ final class SessionLines {
     }
 
     /** A string field, or null when absent/non-primitive. */
-    static String string(JsonObject object, String key) {
+    public static String string(JsonObject object, String key) {
         if (object == null || !object.has(key)) {
             return null;
         }

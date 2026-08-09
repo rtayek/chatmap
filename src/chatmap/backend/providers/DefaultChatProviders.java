@@ -1,4 +1,10 @@
-package chatmap.backend;
+package chatmap.backend.providers;
+
+import chatmap.backend.web.GeminiWebChatProvider;
+
+import chatmap.backend.web.ChatGptWebChatProvider;
+
+import chatmap.backend.web.ClaudeWebChatProvider;
 
 import java.util.List;
 

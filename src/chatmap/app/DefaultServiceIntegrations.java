@@ -2,8 +2,8 @@ package chatmap.app;
 
 import java.time.Duration;
 
-import chatmap.backend.ClaudeCliBackend;
-import chatmap.backend.DefaultChatProviders;
+import chatmap.backend.ai.ClaudeCliBackend;
+import chatmap.backend.providers.DefaultChatProviders;
 import chatmap.service.ServiceGraph.Integrations;
 
 /** Default optional integrations used by interactive entry points. */

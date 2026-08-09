@@ -1,4 +1,10 @@
-package chatmap.backend;
+package chatmap.backend.ai;
+
+import chatmap.backend.command.CommandResult;
+
+import chatmap.backend.command.CommandRequest;
+
+import chatmap.backend.command.CommandExecutor;
 
 import org.junit.jupiter.api.Test;
 

@@ -11,8 +11,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import chatmap.backend.AiResponse;
-import chatmap.backend.BackendId;
+import chatmap.backend.ai.AiResponse;
+import chatmap.backend.ai.BackendId;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;

@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.ai;
 
 public final class AiBackendUnsupportedRequestException extends AiBackendException {
     private static final long serialVersionUID = 1L;

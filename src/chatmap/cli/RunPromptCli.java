@@ -4,8 +4,8 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.backend.AiBackend;
-import chatmap.backend.DefaultAiBackends;
+import chatmap.backend.ai.AiBackend;
+import chatmap.backend.ai.DefaultAiBackends;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.service.PromptResult;

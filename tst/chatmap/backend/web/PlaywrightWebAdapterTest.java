@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.web;
 
 import org.junit.jupiter.api.Test;
 

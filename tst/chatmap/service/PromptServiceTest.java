@@ -12,12 +12,12 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.backend.AiRequest;
-import chatmap.backend.AiResponse;
-import chatmap.backend.BackendId;
-import chatmap.backend.CommandBackedAiBackend;
-import chatmap.backend.CommandBackedRun;
-import chatmap.backend.CommandResult;
+import chatmap.backend.ai.AiRequest;
+import chatmap.backend.ai.AiResponse;
+import chatmap.backend.ai.BackendId;
+import chatmap.backend.ai.CommandBackedAiBackend;
+import chatmap.backend.ai.CommandBackedRun;
+import chatmap.backend.command.CommandResult;
 import chatmap.domain.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

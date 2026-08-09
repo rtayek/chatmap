@@ -1,4 +1,4 @@
-package chatmap.backend;
+package chatmap.backend.ai;
 
 import java.time.Duration;
 import java.util.Objects;
