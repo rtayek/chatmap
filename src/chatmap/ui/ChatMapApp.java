@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import chatmap.app.ChatMapRuntime;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
+import chatmap.domain.ConversationInventory;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
@@ -46,6 +47,7 @@ public final class ChatMapApp extends Application {
     private ComboBox<Tag> tagChoice;
     private Button exportChatButton;
     private Button getLatestChatButton;
+    private Button inventoryButton;
     private Button summarizeButton;
     private ComboBox<Integer> fontSizeChoice;
     private FontSizeState fontSizeState;
@@ -97,6 +99,7 @@ public final class ChatMapApp extends Application {
         exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
         exportChatButton.setDisable(true);
         getLatestChatButton = button("Import available chat", this::getLatestChat);
+        inventoryButton = button("Conversation Inventory", this::showConversationInventory);
         summarizeButton = button("Summarize & tag", this::summarizeSelectedChat);
         summarizeButton.setDisable(true);
 
@@ -116,6 +119,7 @@ public final class ChatMapApp extends Application {
                 button("Import ChatGPT Archive", this::importChatGptArchive),
                 exportChatButton,
                 getLatestChatButton,
+                inventoryButton,
                 summarizeButton,
                 new Label("Font"),
                 fontSizeChoice);
@@ -227,6 +231,28 @@ public final class ChatMapApp extends Application {
     private void getLatestChat() {
         // Provider reads may block; run off the FX thread so the UI stays responsive.
         runInBackground("Importing available chat...", getLatestChatButton, controller::fetchLatestChat);
+    }
+
+    private void showConversationInventory() {
+        runInBackground("Discovering all discoverable conversations...", inventoryButton,
+                controller::conversationInventory, this::showConversationInventoryDialog);
+    }
+
+    private void showConversationInventoryDialog(ConversationInventory inventory) {
+        TextArea text = new TextArea(ConversationInventoryFormatter.format(inventory));
+        text.setEditable(false);
+        text.setWrapText(false);
+        text.setPrefColumnCount(110);
+        text.setPrefRowCount(28);
+        text.setStyle("-fx-font-size: " + fontSizeState.current() + "pt;");
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("ChatMap");
+        alert.setHeaderText("All discoverable conversations");
+        alert.getDialogPane().setContent(text);
+        alert.setResizable(true);
+        alert.showAndWait();
+        status.setText("Conversation inventory loaded.");
     }
 
     private void summarizeSelectedChat() {

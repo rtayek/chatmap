@@ -9,6 +9,7 @@ import java.util.Optional;
 
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
+import chatmap.domain.ConversationInventory;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
@@ -16,6 +17,7 @@ import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
 import chatmap.service.ChatGptArchiveImportService;
 import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
+import chatmap.service.ConversationInventoryService;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
@@ -35,6 +37,7 @@ public final class ChatMapController {
     private final SummaryService summaryService;
     private final LiveChatFetchService liveChatFetchService;
     private final ChatGptArchiveImportService archiveImportService;
+    private final ConversationInventoryService conversationInventoryService;
     private final ChatListState listState;
     private final Object stateLock = new Object();
 
@@ -49,7 +52,7 @@ public final class ChatMapController {
             SummaryService summaryService,
             LiveChatFetchService liveChatFetchService) {
         this(importService, exportService, searchService, projectService, tagService,
-                summaryService, liveChatFetchService, null);
+                summaryService, liveChatFetchService, null, null);
     }
 
     public ChatMapController(
@@ -61,6 +64,20 @@ public final class ChatMapController {
             SummaryService summaryService,
             LiveChatFetchService liveChatFetchService,
             ChatGptArchiveImportService archiveImportService) {
+        this(importService, exportService, searchService, projectService, tagService,
+                summaryService, liveChatFetchService, archiveImportService, null);
+    }
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService,
+            ConversationInventoryService conversationInventoryService) {
         this.importService = importService;
         this.exportService = exportService;
         this.searchService = searchService;
@@ -69,6 +86,7 @@ public final class ChatMapController {
         this.summaryService = summaryService;
         this.liveChatFetchService = liveChatFetchService;
         this.archiveImportService = archiveImportService;
+        this.conversationInventoryService = conversationInventoryService;
         listState = new ChatListState();
     }
 
@@ -76,7 +94,8 @@ public final class ChatMapController {
     public ChatMapController(ServiceGraph services) {
         this(services.importService(), services.exportService(), services.searchService(),
                 services.projectService(), services.tagService(), services.summaryService(),
-                services.liveChatFetchService(), services.archiveImportService());
+                services.liveChatFetchService(), services.archiveImportService(),
+                services.conversationInventoryService());
     }
 
     public ChatFilterCriteria filterCriteria() {
@@ -124,6 +143,13 @@ public final class ChatMapController {
             resetFiltersLocked();
             return listState.showAll(results, result.summary());
         }
+    }
+
+    public ConversationInventory conversationInventory() throws Exception {
+        if (conversationInventoryService == null) {
+            throw new IllegalStateException("Conversation inventory is not configured.");
+        }
+        return conversationInventoryService.inventory();
     }
 
     public ChatListState.Snapshot selectChat(long chatId) {

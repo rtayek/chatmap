@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.ConversationInventory;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
@@ -21,6 +23,7 @@ import chatmap.domain.Tag;
 import chatmap.backend.ai.ClaudeCliBackend;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
+import chatmap.service.ConversationInventoryService;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
@@ -130,6 +133,51 @@ class ChatMapControllerTest {
         assertEquals("controller.txt", snapshot.currentItems().getFirst().chat().title());
         assertEquals(snapshot.currentItems().getFirst().chatId(), snapshot.selectedChatId());
         assertEquals("Imported controller.txt", snapshot.statusText());
+    }
+
+    @Test
+    void loadsConversationInventoryThroughConfiguredService() throws Exception {
+        Chat stored = chats.insert(new Chat(0, null, Source.codexCli, "Stored",
+                null, null, "2026-07-08T00:00:00Z", false,
+                new chatmap.domain.ImportMetadata("stored-id", "source://stored",
+                        null, null, null)));
+        chatmap.backend.providers.ChatProvider provider = new chatmap.backend.providers.ChatProvider() {
+            @Override
+            public String name() {
+                return "Codex (CLI)";
+            }
+
+            @Override
+            public java.util.Optional<chatmap.importer.ImportedChat> latestChat() {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public List<ConversationCandidate> listChats() {
+                return List.of(
+                        new ConversationCandidate(Source.codexCli, "stored-id",
+                                "Stored", "source://stored", null),
+                        new ConversationCandidate(Source.codexCli, "missing-id",
+                                "Missing", "source://missing", null));
+            }
+        };
+        ChatMapController inventoryController = new ChatMapController(
+                new ImportService(chats, messages),
+                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn)),
+                new SearchService(new SearchRepository(conn)),
+                projectService,
+                tagService,
+                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
+                        new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
+                new LiveChatFetchService(List.of(provider), new ImportService(chats, messages), chats),
+                null,
+                new ConversationInventoryService(List.of(provider), chats));
+
+        ConversationInventory inventory = inventoryController.conversationInventory();
+
+        assertEquals(1, inventory.providers().size());
+        assertEquals(stored.id(), inventory.providers().getFirst().conversations().getFirst().importedChatId());
+        assertEquals(false, inventory.providers().getFirst().conversations().get(1).alreadyImported());
     }
 
     @Test
