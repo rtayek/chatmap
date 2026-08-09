@@ -14,6 +14,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Source;
 
 class DatabaseMigrationTest {
@@ -35,8 +36,8 @@ class DatabaseMigrationTest {
 
             ChatRepository chats = new ChatRepository(conn);
             chats.insert(new Chat(0, null, Source.chatGptWeb, "One", null, null,
-                    "2026-08-05T00:00:00Z", false, "abc", "https://chatgpt.com/c/abc",
-                    "hash", null, "2026-08-05T00:00:00Z"));
+                    "2026-08-05T00:00:00Z", false, new ImportMetadata("abc", "https://chatgpt.com/c/abc",
+                    "hash", null, "2026-08-05T00:00:00Z")));
 
             assertDoesNotThrow(() -> Database.initialize(conn), "migration must be idempotent");
             assertEquals(1, chats.findAll().size());

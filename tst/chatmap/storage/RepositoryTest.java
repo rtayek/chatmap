@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
@@ -176,19 +177,19 @@ class RepositoryTest {
     @Test
     void enforcesUniqueExternalProviderIdentity() throws Exception {
         chats.insert(new Chat(0, null, Source.chatGptWeb, "First", null, null,
-                "2026-08-05T00:00:00Z", false, "same-id", "https://chatgpt.com/c/same-id",
-                "hash-one", null, "2026-08-05T00:00:00Z"));
+                "2026-08-05T00:00:00Z", false, new ImportMetadata("same-id", "https://chatgpt.com/c/same-id",
+                "hash-one", null, "2026-08-05T00:00:00Z")));
 
         assertThrows(SQLException.class, () -> chats.insert(new Chat(0, null, Source.chatGptWeb,
-                "Second", null, null, "2026-08-05T00:00:00Z", false, "same-id",
-                "https://chatgpt.com/c/same-id", "hash-two", null, "2026-08-05T00:00:00Z")));
+                "Second", null, null, "2026-08-05T00:00:00Z", false, new ImportMetadata("same-id",
+                "https://chatgpt.com/c/same-id", "hash-two", null, "2026-08-05T00:00:00Z"))));
     }
 
     @Test
     void latestSummaryOnlyReturnsCurrentContentHash() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.chatGptWeb, "Summarized", null, null,
-                "2026-08-05T00:00:00Z", false, "summary-id", "https://chatgpt.com/c/summary-id",
-                "old-hash", null, "2026-08-05T00:00:00Z"));
+                "2026-08-05T00:00:00Z", false, new ImportMetadata("summary-id", "https://chatgpt.com/c/summary-id",
+                "old-hash", null, "2026-08-05T00:00:00Z")));
         ChatSummary summary = summaries.insert(new ChatSummary(0, chat.id(), "Old summary",
                 "claude", "2026-08-05T00:01:00Z", "old-hash"));
 

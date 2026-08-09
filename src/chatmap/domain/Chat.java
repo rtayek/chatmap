@@ -24,15 +24,6 @@ public record Chat(
                 ImportMetadata.none(updatedAt, importedAt));
     }
 
-    public Chat(long id, Long projectId, Source source, String title, String createdAt,
-            String updatedAt, String importedAt, boolean archived,
-            String externalConversationId, String sourceUri, String contentHash,
-            String sourceUpdatedAt, String lastImportedAt) {
-        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
-                new ImportMetadata(externalConversationId, sourceUri, contentHash,
-                        sourceUpdatedAt, lastImportedAt));
-    }
-
     public String externalConversationId() {
         return importMetadata.externalConversationId();
     }

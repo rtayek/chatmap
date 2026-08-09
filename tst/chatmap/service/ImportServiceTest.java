@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
@@ -273,7 +274,7 @@ class ImportServiceTest {
     private static ImportedChat providerChatWithMessages(Source source, String externalId, String sourceUri,
             String title, List<Message> messages) {
         Chat chat = new Chat(0, null, source, title, null, null, "2026-08-05T00:00:00Z", false,
-                externalId, sourceUri, null, null, "2026-08-05T00:00:00Z");
+                new ImportMetadata(externalId, sourceUri, null, null, "2026-08-05T00:00:00Z"));
         return new ImportedChat(chat, messages);
     }
 

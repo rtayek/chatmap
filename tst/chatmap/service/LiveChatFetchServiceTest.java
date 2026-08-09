@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
+import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
@@ -170,7 +171,7 @@ class LiveChatFetchServiceTest {
     private static ImportedChat providerChat(Source source, String externalId, String sourceUri,
             String title, String token) {
         Chat chat = new Chat(0, null, source, title, null, null, "2026-08-04T00:00:00Z", false,
-                externalId, sourceUri, null, null, "2026-08-04T00:00:00Z");
+                new ImportMetadata(externalId, sourceUri, null, null, "2026-08-04T00:00:00Z"));
         return new ImportedChat(chat, List.of(
                 new Message(0, 0, "user", "Question with " + token, 0, null, null),
                 new Message(0, 0, "assistant", "Answer with " + token, 1, null, null)));
