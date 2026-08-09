@@ -58,50 +58,6 @@ Java desktop app
 * Browser Automation: Chrome DevTools Protocol
 * Quality Assurance: JUnit 5, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
 
-## Naming Rules
-
-Use standard Java type naming and lower camel case everywhere else.
-
-```text
-Java classes, records, interfaces:
-UpperCamelCase
-
-Java methods, fields, parameters, locals, constants, and enums:
-lowerCamelCase
-
-Database tables: lowerCamelCase
-
-Database columns: lowerCamelCase
-```
-
-Examples:
-
-```text
-PlainTextImporter
-MarkdownExporter
-SearchRepository
-
-importText
-fallbackTitle
-text
-rawJson
-
-projects
-chats
-messages
-messageFts
-chatTags
-
-projectId
-chatId
-createdAt
-updatedAt
-importedAt
-enum Foo {bar,baz}
-```
-
-No underscores or spaces anywhere. In file names use '-'; in Java and database identifiers use camelCase per the rules above.
-
 ## Storage Details
 
 `messages` stores durable message rows.

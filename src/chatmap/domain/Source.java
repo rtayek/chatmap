@@ -21,6 +21,7 @@ public enum Source {
     claudeCode("claudeCode", true),
     codexCli("codexCli", true),
     geminiCli("geminiCli", true),
+    jshellHarness("jshellHarness", true),
     unknown("unknown", false);
 
     private final String dbValue;

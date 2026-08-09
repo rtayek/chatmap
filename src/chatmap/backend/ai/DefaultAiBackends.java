@@ -24,7 +24,8 @@ public final class DefaultAiBackends {
                 "claude", new ClaudeCliBackend(executor, timeout),
                 "codex", new CodexCliBackend(executor, timeout),
                 "agy", new AgyCliBackend(executor, timeout),
-                "ollama", new OllamaCliBackend(executor, timeout, "llama3")
+                "ollama", new OllamaCliBackend(executor, timeout, "llama3"),
+                "jshell", new JShellBackend()
         );
     }
 }

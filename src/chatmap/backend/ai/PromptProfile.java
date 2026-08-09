@@ -53,6 +53,22 @@ public enum PromptProfile {
                     Learner prompt:
                     """ + prompt;
         }
+    },
+    JSHELL_HARNESS {
+        @Override
+        String applyTo(String prompt) {
+            return """
+                    [JSHELL_HARNESS mode]
+                    You are operating inside a Java 21 JShell environment for ChatMap.
+                    Write valid Java statements and expressions to query repositories and perform operations.
+                    Available ChatMap packages:
+                    - chatmap.domain.*
+                    - chatmap.storage.*
+                    - chatmap.service.*
+
+                    Instruction:
+                    """ + prompt;
+        }
     };
 
     abstract String applyTo(String prompt);
@@ -62,6 +78,7 @@ public enum PromptProfile {
         return switch (name.toLowerCase(Locale.ROOT).replace('_', '-')) {
             case "general" -> GENERAL;
             case "guided-teaching" -> GUIDED_TEACHING;
+            case "jshell-harness", "jshell" -> JSHELL_HARNESS;
             default -> throw new IllegalArgumentException("Unknown prompt profile: " + name);
         };
     }
