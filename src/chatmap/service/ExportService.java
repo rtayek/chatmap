@@ -7,11 +7,14 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
+import chatmap.domain.Message;
 import chatmap.domain.Project;
+import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
 import chatmap.exporter.HandoffExporter;
 import chatmap.exporter.MarkdownExporter;
@@ -71,12 +74,17 @@ public final class ExportService {
             return Optional.empty();
         }
 
+        List<Chat> projectChats = chats.findByProject(projectId);
+        List<Long> chatIds = projectChats.stream().map(Chat::id).toList();
+        Map<Long, List<Message>> messagesByChat = messages.findByChatIds(chatIds);
+        Map<Long, List<Tag>> tagsByChat = tags.findByChatIds(chatIds);
+
         List<ProjectHandoffModel.ChatEntry> entries = new ArrayList<>();
-        for (Chat chat : chats.findByProject(projectId)) {
+        for (Chat chat : projectChats) {
             entries.add(new ProjectHandoffModel.ChatEntry(
                     chat,
-                    messages.findByChat(chat.id()),
-                    tags.findByChat(chat.id())));
+                    messagesByChat.getOrDefault(chat.id(), List.of()),
+                    tagsByChat.getOrDefault(chat.id(), List.of())));
         }
 
         return Optional.of(new ProjectHandoffModel(project.get(), exportedAt, entries));

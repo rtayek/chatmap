@@ -6,7 +6,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import chatmap.domain.Message;
 
@@ -108,6 +110,30 @@ public final class MessageRepository {
         }
     }
 
+    /** Messages for each requested chat, ordered by message sequence within each chat. */
+    public Map<Long, List<Message>> findByChatIds(List<Long> chatIds) throws SQLException {
+        Map<Long, List<Message>> byChat = emptyListsByChatId(chatIds);
+        if (byChat.isEmpty()) {
+            return byChat;
+        }
+        String sql = "SELECT id, chatId, role, text, sequence, timestamp, rawJson "
+                + "FROM messages WHERE chatId IN (" + placeholders(byChat.size()) + ") "
+                + "ORDER BY chatId, sequence";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            int index = 1;
+            for (Long chatId : byChat.keySet()) {
+                ps.setLong(index++, chatId);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Message message = read(rs);
+                    byChat.get(message.chatId()).add(message);
+                }
+                return byChat;
+            }
+        }
+    }
+
     /**
      * Full-text search over message text via FTS5. Returns matching message ids.
      * The query uses FTS5 MATCH syntax; a bare word or phrase is fine for MVP.
@@ -136,5 +162,17 @@ public final class MessageRepository {
                 rs.getInt("sequence"),
                 rs.getString("timestamp"),
                 rs.getString("rawJson"));
+    }
+
+    private static Map<Long, List<Message>> emptyListsByChatId(List<Long> chatIds) {
+        Map<Long, List<Message>> byChat = new LinkedHashMap<>();
+        for (Long chatId : chatIds) {
+            byChat.putIfAbsent(chatId, new ArrayList<>());
+        }
+        return byChat;
+    }
+
+    private static String placeholders(int count) {
+        return String.join(", ", java.util.Collections.nCopies(count, "?"));
     }
 }

@@ -79,7 +79,7 @@ public final class CommandRunner implements CommandExecutor {
             if (!process.waitFor(250, TimeUnit.MILLISECONDS)) {
                 process.descendants().forEach(ProcessHandle::destroyForcibly);
                 process.destroyForcibly();
-                process.waitFor();
+                process.waitFor(1000, TimeUnit.MILLISECONDS);
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();

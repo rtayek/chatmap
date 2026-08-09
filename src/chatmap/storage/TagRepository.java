@@ -6,7 +6,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import chatmap.domain.Tag;
@@ -121,7 +123,43 @@ public final class TagRepository {
         }
     }
 
+    /** Tags for each requested chat, ordered by tag name case-insensitively. */
+    public Map<Long, List<Tag>> findByChatIds(List<Long> chatIds) throws SQLException {
+        Map<Long, List<Tag>> byChat = emptyListsByChatId(chatIds);
+        if (byChat.isEmpty()) {
+            return byChat;
+        }
+        String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
+                + "JOIN chatTags ct ON ct.tagId = t.id "
+                + "WHERE ct.chatId IN (" + placeholders(byChat.size()) + ") "
+                + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            int index = 1;
+            for (Long chatId : byChat.keySet()) {
+                ps.setLong(index++, chatId);
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    byChat.get(rs.getLong("chatId")).add(read(rs));
+                }
+                return byChat;
+            }
+        }
+    }
+
     private static Tag read(ResultSet rs) throws SQLException {
         return new Tag(rs.getLong("id"), rs.getString("name"));
+    }
+
+    private static Map<Long, List<Tag>> emptyListsByChatId(List<Long> chatIds) {
+        Map<Long, List<Tag>> byChat = new LinkedHashMap<>();
+        for (Long chatId : chatIds) {
+            byChat.putIfAbsent(chatId, new ArrayList<>());
+        }
+        return byChat;
+    }
+
+    private static String placeholders(int count) {
+        return String.join(", ", java.util.Collections.nCopies(count, "?"));
     }
 }

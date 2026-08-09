@@ -141,6 +141,26 @@ class RepositoryTest {
     }
 
     @Test
+    void findsMessagesForManyChatsInSequenceOrder() throws Exception {
+        Chat first = chats.insert(new Chat(0, null, Source.plainText, "First",
+                null, null, "2026-07-06T00:00:00Z", false));
+        Chat second = chats.insert(new Chat(0, null, Source.plainText, "Second",
+                null, null, "2026-07-06T00:01:00Z", false));
+        Chat empty = chats.insert(new Chat(0, null, Source.plainText, "Empty",
+                null, null, "2026-07-06T00:02:00Z", false));
+        Message firstTwo = messages.insert(new Message(0, first.id(), "assistant", "two", 2, null, null));
+        Message firstOne = messages.insert(new Message(0, first.id(), "user", "one", 1, null, null));
+        Message secondOne = messages.insert(new Message(0, second.id(), "user", "other", 0, null, null));
+
+        var byChat = messages.findByChatIds(List.of(first.id(), second.id(), empty.id()));
+
+        assertEquals(List.of(firstOne, firstTwo), byChat.get(first.id()));
+        assertEquals(List.of(secondOne), byChat.get(second.id()));
+        assertEquals(List.of(), byChat.get(empty.id()));
+        assertTrue(messages.findByChatIds(List.of()).isEmpty());
+    }
+
+    @Test
     void assignsFindsRemovesAndCascadesTags() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Tagged",
                 null, null, "2026-07-06T00:00:00Z", false));
@@ -162,6 +182,29 @@ class RepositoryTest {
 
         assertTrue(tags.findByChat(chat.id()).isEmpty());
         assertEquals(tag, tags.findById(tag.id()).orElseThrow());
+    }
+
+    @Test
+    void findsTagsForManyChatsInNameOrder() throws Exception {
+        Chat first = chats.insert(new Chat(0, null, Source.plainText, "First",
+                null, null, "2026-07-06T00:00:00Z", false));
+        Chat second = chats.insert(new Chat(0, null, Source.plainText, "Second",
+                null, null, "2026-07-06T00:01:00Z", false));
+        Chat empty = chats.insert(new Chat(0, null, Source.plainText, "Empty",
+                null, null, "2026-07-06T00:02:00Z", false));
+        Tag zebra = tags.insert(new Tag(0, "zebra"));
+        Tag alpha = tags.insert(new Tag(0, "Alpha"));
+        Tag beta = tags.insert(new Tag(0, "beta"));
+        tags.assignToChat(first.id(), zebra.id());
+        tags.assignToChat(first.id(), alpha.id());
+        tags.assignToChat(second.id(), beta.id());
+
+        var byChat = tags.findByChatIds(List.of(first.id(), second.id(), empty.id()));
+
+        assertEquals(List.of(alpha, zebra), byChat.get(first.id()));
+        assertEquals(List.of(beta), byChat.get(second.id()));
+        assertEquals(List.of(), byChat.get(empty.id()));
+        assertTrue(tags.findByChatIds(List.of()).isEmpty());
     }
 
     @Test
