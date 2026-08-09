@@ -32,12 +32,8 @@ public record Chat(
         return importMetadata.sourceUri();
     }
 
-    /** Compatibility accessor for the transcript hash stored in chats.contentHash. */
+    /** Hash of the transcript, persisted in the chats.contentHash column. */
     public String contentHash() {
-        return importMetadata.transcriptHash();
-    }
-
-    public String transcriptHash() {
         return importMetadata.transcriptHash();
     }
 
@@ -70,7 +66,7 @@ public record Chat(
         private boolean archived;
         private String externalConversationId;
         private String sourceUri;
-        private String transcriptHash;
+        private String contentHash;
         private String sourceUpdatedAt;
         private String lastImportedAt;
 
@@ -85,7 +81,7 @@ public record Chat(
             this.archived = chat.archived;
             this.externalConversationId = chat.importMetadata.externalConversationId();
             this.sourceUri = chat.importMetadata.sourceUri();
-            this.transcriptHash = chat.importMetadata.transcriptHash();
+            this.contentHash = chat.importMetadata.transcriptHash();
             this.sourceUpdatedAt = chat.importMetadata.sourceUpdatedAt();
             this.lastImportedAt = chat.importMetadata.lastImportedAt();
         }
@@ -126,12 +122,7 @@ public record Chat(
         }
 
         public Builder contentHash(String contentHash) {
-            this.transcriptHash = contentHash;
-            return this;
-        }
-
-        public Builder transcriptHash(String transcriptHash) {
-            this.transcriptHash = transcriptHash;
+            this.contentHash = contentHash;
             return this;
         }
 
@@ -148,7 +139,7 @@ public record Chat(
         public Chat build() {
             return new Chat(id, projectId, source, title, createdAt, updatedAt, importedAt,
                     archived, new ImportMetadata(externalConversationId, sourceUri,
-                            transcriptHash, sourceUpdatedAt, lastImportedAt));
+                            contentHash, sourceUpdatedAt, lastImportedAt));
         }
     }
 }

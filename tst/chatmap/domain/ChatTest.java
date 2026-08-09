@@ -47,7 +47,7 @@ class ChatTest {
     void builderChainsMultipleFieldChanges() {
         Chat changed = sample().toBuilder()
                 .externalConversationId("ext-2")
-                .transcriptHash("hash-2")
+                .contentHash("hash-2")
                 .lastImportedAt("2026-02-01T00:00:00Z")
                 .build();
 
