@@ -13,9 +13,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Page;
-
 /**
  * Reads the most recent gemini.google.com conversation over CDP.
  *
@@ -44,28 +41,28 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
 
     /** Not used: Gemini navigates by click, so {@link #openLatestConversation()} is overridden. */
     @Override
-    List<ChatWebSummary> listChats(Page page) {
+    List<ChatWebSummary> listChats(CdpPage page) {
         return List.of();
     }
 
     @Override
     Optional<OpenConversation> openLatestConversation() {
-        Page page = openPage(siteBaseUrl());
+        CdpPage page = openPage(siteBaseUrl());
         try {
-            Locator conversations = page.locator("[data-test-id='conversation']");
+            CdpPage.CdpLocator conversations = page.locator("[data-test-id='conversation']");
             if (conversations.count() == 0) {
                 // Expand the side nav so the conversation list renders.
                 page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
-                        .first().click(new Locator.ClickOptions().setTimeout(4000));
+                        .first().click(4000);
                 page.waitForTimeout(1500);
                 conversations = page.locator("[data-test-id='conversation']");
             }
             if (conversations.count() == 0) {
                 return Optional.empty();
             }
-            Locator newest = conversations.first();
+            CdpPage.CdpLocator newest = conversations.first();
             String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(newest));
-            newest.click(new Locator.ClickOptions().setTimeout(6000));
+            newest.click(6000);
             page.waitForTimeout(3000);
             return Optional.of(new OpenConversation(
                     title == null || title.isBlank() ? "Gemini conversation" : title, page.url(), page));
@@ -75,11 +72,10 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     }
 
     @Override
-    List<ClaudeTurn> readTurns(Page page) {
+    List<ClaudeTurn> readTurns(CdpPage page) {
         Objects.requireNonNull(page, "page");
         try {
-            page.waitForSelector("user-query, model-response",
-                    new Page.WaitForSelectorOptions().setTimeout(5000));
+            page.waitForSelector("user-query, model-response", 5000);
         } catch (Exception ignored) {
             // No messages in time -> empty transcript.
         }

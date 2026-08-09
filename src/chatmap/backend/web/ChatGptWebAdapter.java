@@ -8,9 +8,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Page;
-
 /**
  * Reads the most recent chatgpt.com conversation over CDP.
  *
@@ -38,20 +35,20 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
     }
 
     @Override
-    List<ChatWebSummary> listChats(Page page) {
+    List<ChatWebSummary> listChats(CdpPage page) {
         Objects.requireNonNull(page, "page");
         try {
-            page.waitForSelector("a[href*='/c/']", new Page.WaitForSelectorOptions().setTimeout(5000));
+            page.waitForSelector("a[href*='/c/']", 5000);
         } catch (Exception ignored) {
             // Sidebar may be slow, or absent when logged out.
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
         Set<String> seenUrls = new LinkedHashSet<>();
-        Locator links = page.locator("a[href*='/c/']");
+        CdpPage.CdpLocator links = page.locator("a[href*='/c/']");
         int count = links.count();
         for (int i = 0; i < count; i++) {
-            Locator link = links.nth(i);
+            CdpPage.CdpLocator link = links.nth(i);
             String href = link.getAttribute("href");
             if (href == null || href.isBlank()) {
                 continue;
@@ -71,20 +68,19 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
     }
 
     @Override
-    List<ClaudeTurn> readTurns(Page page) {
+    List<ClaudeTurn> readTurns(CdpPage page) {
         Objects.requireNonNull(page, "page");
         try {
-            page.waitForSelector("[data-message-author-role]",
-                    new Page.WaitForSelectorOptions().setTimeout(5000));
+            page.waitForSelector("[data-message-author-role]", 5000);
         } catch (Exception ignored) {
             // No messages in time (e.g. not logged in) -> empty transcript.
         }
 
         List<ClaudeTurn> turns = new ArrayList<>();
-        Locator messages = page.locator("[data-message-author-role]");
+        CdpPage.CdpLocator messages = page.locator("[data-message-author-role]");
         int count = messages.count();
         for (int i = 0; i < count; i++) {
-            Locator message = messages.nth(i);
+            CdpPage.CdpLocator message = messages.nth(i);
             String role = mapRole(message.getAttribute("data-message-author-role"));
             if (role == null) {
                 continue;

@@ -17,13 +17,13 @@ Import → Normalize → Store → Search → Organize → Export
 The MVP supports:
 
 * importing plain text, Markdown, and ChatGPT JSON files
-* reading live web chats from Claude, ChatGPT, and Gemini via CDP / Playwright browser automation
+* reading live web chats from Claude, ChatGPT, and Gemini via Chrome DevTools Protocol browser automation
 * storing chats in SQLite
 * searching message text with SQLite FTS5
 * organizing chats with projects and tags
 * exporting chats and handoffs as Markdown
 
-Live web provider readers (over CDP / Playwright) and Claude summary/tag generation are supported capabilities. The core application does not require cloud sync or a visual canvas.
+Live web provider readers over Chrome DevTools Protocol and Claude summary/tag generation are supported capabilities. The core application does not require cloud sync or a visual canvas.
 
 ## Architecture
 
@@ -80,7 +80,7 @@ Java desktop app
 * UI: JavaFX 25.0.1
 * Storage: SQLite 3.53+
 * Search: SQLite FTS5
-* Browser Automation / CDP: Playwright / Chrome DevTools Protocol
+* Browser Automation: Chrome DevTools Protocol
 * Quality Assurance: JUnit 5, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
 
 ## Naming Rules
@@ -296,7 +296,7 @@ These provider integrations and browser automation tools are supported in the co
 
 * live web readers for Claude, ChatGPT, and Gemini (`Source` values
   `claudeWeb`, `chatGptWeb`, `geminiWeb`)
-* browser automation for those readers (Playwright and Chrome DevTools Protocol)
+* browser automation for those readers (Chrome DevTools Protocol)
 * CLI-history readers (Claude Code, Codex, Gemini)
 * prompt execution against local CLIs, with automatic chat recording
 * Claude-generated chat summaries (`chatSummaries`)

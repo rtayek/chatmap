@@ -9,9 +9,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
-import com.microsoft.playwright.Locator;
-import com.microsoft.playwright.Page;
-
 /**
  * Reads the most recent claude.ai conversation over CDP.
  *
@@ -21,7 +18,7 @@ import com.microsoft.playwright.Page;
  * browser itself ({@link ChromeCdpLauncher} does that).
  *
  * The selectors are best-effort and undocumented; claude.ai's DOM changes, so
- * {@link #readTurns(Page)} tries several candidates and MUST be verified against a
+     * {@link #readTurns(CdpPage)} tries several candidates and MUST be verified against a
  * live logged-in page if it stops finding turns.
  */
 public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
@@ -43,21 +40,20 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
      * them newest-first, so element order is recency order.
      */
     @Override
-    List<ChatWebSummary> listChats(Page page) {
+    List<ChatWebSummary> listChats(CdpPage page) {
         Objects.requireNonNull(page, "page");
         try {
-            page.waitForSelector("a[href*='/chat/']",
-                    new Page.WaitForSelectorOptions().setTimeout(5000));
+            page.waitForSelector("a[href*='/chat/']", 5000);
         } catch (Exception ignored) {
             // Sidebar may be slow, or absent when logged out.
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
         Set<String> seenUrls = new LinkedHashSet<>();
-        Locator chatLinks = page.locator("a[href*='/chat/']");
+        CdpPage.CdpLocator chatLinks = page.locator("a[href*='/chat/']");
         int count = chatLinks.count();
         for (int i = 0; i < count; i++) {
-            Locator link = chatLinks.nth(i);
+            CdpPage.CdpLocator link = chatLinks.nth(i);
             String href = link.getAttribute("href");
             if (href == null || href.isBlank()) {
                 continue;
@@ -93,7 +89,7 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
      * candidates are older fallbacks.
      */
     @Override
-    List<ClaudeTurn> readTurns(Page page) {
+    List<ClaudeTurn> readTurns(CdpPage page) {
         Objects.requireNonNull(page, "page");
 
         String[] turnSelectorCandidates = {
@@ -104,21 +100,20 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         };
 
         try {
-            page.waitForSelector(String.join(", ", turnSelectorCandidates),
-                    new Page.WaitForSelectorOptions().setTimeout(5000));
+            page.waitForSelector(String.join(", ", turnSelectorCandidates), 5000);
         } catch (Exception ignored) {
             // No messages found in time (e.g. not logged in) -> empty transcript.
         }
 
         for (String selector : turnSelectorCandidates) {
-            Locator turns = page.locator(selector);
+            CdpPage.CdpLocator turns = page.locator(selector);
             int count = turns.count();
             if (count == 0) {
                 continue;
             }
             List<ClaudeTurn> result = new ArrayList<>();
             for (int i = 0; i < count; i++) {
-                Locator turn = turns.nth(i);
+                CdpPage.CdpLocator turn = turns.nth(i);
                 String text = WebTranscripts.safeInnerText(turn);
                 if (text == null || text.isBlank()) {
                     continue;
@@ -132,7 +127,7 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         return List.of();
     }
 
-    private static String inferRole(Locator turn) {
+    private static String inferRole(CdpPage.CdpLocator turn) {
         String testId = turn.getAttribute("data-testid");
         if (testId != null) {
             String lowered = testId.toLowerCase(Locale.ROOT);

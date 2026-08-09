@@ -5,8 +5,6 @@ import chatmap.backend.providers.ClaudeTurn;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.microsoft.playwright.Locator;
-
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
@@ -67,7 +65,7 @@ final class WebTranscripts {
         return null;
     }
 
-    static String safeInnerText(Locator locator) {
+    static String safeInnerText(CdpPage.CdpLocator locator) {
         try {
             return locator.innerText();
         } catch (Exception ignored) {

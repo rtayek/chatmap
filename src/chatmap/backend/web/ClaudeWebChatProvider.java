@@ -73,7 +73,7 @@ public final class ClaudeWebChatProvider implements ChatProvider {
     /**
      * Builds an {@link ImportedChat} directly from conversation turns — no
      * Markdown intermediary. Package-visible and browser-free so it can be tested
-     * without Playwright. Roles come straight from the turns (already user /
+     * without a browser driver. Roles come straight from the turns (already user /
      * assistant / unknown); a blank title falls back to a sensible default.
      */
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt) {

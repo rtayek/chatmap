@@ -2,14 +2,10 @@ package chatmap.backend.web;
 
 import chatmap.backend.providers.ClaudeTurn;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-
-import com.microsoft.playwright.Browser;
-import com.microsoft.playwright.BrowserContext;
-import com.microsoft.playwright.Page;
-import com.microsoft.playwright.Playwright;
 
 /**
  * Base for adapters that read a vendor's web chat over CDP from an already-running,
@@ -35,9 +31,8 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     }
 
     private final String cdpUrl;
-    private Playwright playwright;
-    private Browser browser;
-    private boolean connectedViaCdp;
+    private CdpBrowserConnection browser;
+    private final List<CdpPage> openPages = new ArrayList<>();
 
     CdpTranscriptAdapter(String cdpUrl) {
         this.cdpUrl = Objects.requireNonNull(cdpUrl, "cdpUrl");
@@ -47,17 +42,17 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     abstract String siteBaseUrl();
 
     /** Conversations from the sidebar, most-recent first (titles + urls only). */
-    abstract List<ChatWebSummary> listChats(Page page);
+    abstract List<ChatWebSummary> listChats(CdpPage page);
 
     /** The turns of an open conversation page, in order (role + text). */
-    abstract List<ClaudeTurn> readTurns(Page page);
+    abstract List<ClaudeTurn> readTurns(CdpPage page);
 
     /** A newest conversation that has been opened: its title and the loaded page. */
-    record OpenConversation(String title, String url, Page page) {}
+    record OpenConversation(String title, String url, CdpPage page) {}
 
     /**
      * Opens the newest conversation and returns its title + loaded page. The
-     * default navigates by URL from {@link #listChats(Page)}; sites whose sidebar
+     * default navigates by URL from {@link #listChats(CdpPage)}; sites whose sidebar
      * navigates via JS (no conversation URL to open) override this to click.
      */
     Optional<OpenConversation> openLatestConversation() {
@@ -99,62 +94,33 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
 
     /** Attaches to a running Chrome over CDP only; never launches a browser. */
     final boolean connectViaCdpOnly() {
-        if (playwright == null) {
-            playwright = Playwright.create();
-        }
-        if (browser != null && browser.isConnected() && connectedViaCdp) {
+        if (browser != null) {
             return true;
         }
-        try {
-            browser = playwright.chromium().connectOverCDP(cdpUrl);
-            connectedViaCdp = true;
-            return true;
-        } catch (Exception cdpUnreachable) {
-            connectedViaCdp = false;
-            return false;
-        }
+        browser = new CdpBrowserConnection(cdpUrl);
+        return true;
     }
 
     /** Finds an already-open page for the URL or opens a new one. Uses the CDP browser only. */
-    final Page openPage(String url) {
-        BrowserContext context = browser.contexts().isEmpty()
-                ? browser.newContext()
-                : browser.contexts().get(0);
-
-        // Reuse a tab only if it is already AT (or deeper than) the target url. The
-        // reverse match (target contains page url) is deliberately dropped: it made
-        // opening ".../c/<id>" wrongly reuse a "chatgpt.com/" home tab (a prefix)
-        // and never navigate to the conversation.
-        Optional<Page> existing = context.pages().stream()
-                .filter(page -> page.url().contains(url))
-                .findFirst();
-        if (existing.isPresent()) {
-            Page page = existing.get();
-            page.bringToFront();
+    final CdpPage openPage(String url) {
+        try {
+            CdpPage page = browser.openPage(url).orElseThrow();
+            openPages.add(page);
             return page;
+        } catch (Exception unavailable) {
+            throw new IllegalStateException("Could not open CDP page", unavailable);
         }
-
-        Page page = context.newPage();
-        page.navigate(url);
-        return page;
     }
 
     @Override
     public synchronized void close() {
-        if (browser != null) {
+        for (CdpPage page : openPages) {
             try {
-                browser.close();
+                page.close();
             } catch (Exception ignored) {
             }
-            browser = null;
         }
-        if (playwright != null) {
-            try {
-                playwright.close();
-            } catch (Exception ignored) {
-            }
-            playwright = null;
-        }
-        connectedViaCdp = false;
+        openPages.clear();
+        browser = null;
     }
 }
