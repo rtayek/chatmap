@@ -10,7 +10,6 @@ import java.util.Optional;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Project;
-import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.exporter.ChatExportModel;
@@ -39,9 +38,7 @@ public final class ChatMapController {
     private final ChatListState listState;
     private final Object stateLock = new Object();
 
-    private String currentQuery = "";
-    private Long currentProjectId;
-    private Long currentTagId;
+    private ChatFilterCriteria filterCriteria = ChatFilterCriteria.EMPTY;
 
     public ChatMapController(
             ImportService importService,
@@ -82,6 +79,12 @@ public final class ChatMapController {
                 services.liveChatFetchService(), services.archiveImportService());
     }
 
+    public ChatFilterCriteria filterCriteria() {
+        synchronized (stateLock) {
+            return filterCriteria;
+        }
+    }
+
     public ChatListState.Snapshot loadAllChats() throws SQLException {
         List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
@@ -91,10 +94,9 @@ public final class ChatMapController {
     }
 
     public ChatListState.Snapshot searchChats(String query) throws SQLException {
-        String trimmedQuery = query == null ? "" : query.trim();
         synchronized (stateLock) {
-            currentQuery = trimmedQuery;
-            if (currentQuery.isEmpty() && currentProjectId == null && currentTagId == null) {
+            filterCriteria = filterCriteria.withQuery(query);
+            if (filterCriteria.isEmpty()) {
                 return loadAllChatsInternal();
             }
             List<SearchResult> matches = currentResultsLocked();
@@ -191,7 +193,7 @@ public final class ChatMapController {
 
     public ChatListState.Snapshot filterByProject(long projectId) throws SQLException {
         synchronized (stateLock) {
-            currentProjectId = projectId;
+            filterCriteria = filterCriteria.withProjectId(projectId);
             return filteredSnapshotLocked();
         }
     }
@@ -216,7 +218,7 @@ public final class ChatMapController {
 
     public ChatListState.Snapshot filterByTag(long tagId) throws SQLException {
         synchronized (stateLock) {
-            currentTagId = tagId;
+            filterCriteria = filterCriteria.withTagId(tagId);
             return filteredSnapshotLocked();
         }
     }
@@ -233,9 +235,7 @@ public final class ChatMapController {
 
     /** Clears the active search query and project/tag filters. Caller must hold {@code stateLock}. */
     private void resetFiltersLocked() {
-        currentQuery = "";
-        currentProjectId = null;
-        currentTagId = null;
+        filterCriteria = ChatFilterCriteria.EMPTY;
     }
 
     private ChatListState.Snapshot filteredSnapshotLocked() throws SQLException {
@@ -246,7 +246,7 @@ public final class ChatMapController {
     private ChatListState.Snapshot refreshCurrent(String statusText, long selectedChatId) throws SQLException {
         synchronized (stateLock) {
             List<SearchResult> matches = currentResultsLocked();
-            if (currentQuery.isEmpty() && currentProjectId == null && currentTagId == null) {
+            if (filterCriteria.isEmpty()) {
                 listState.showAll(matches, statusText);
             } else {
                 listState.showSearchResults(matches, statusText);
@@ -257,8 +257,8 @@ public final class ChatMapController {
 
     private List<SearchResult> currentResultsLocked() throws SQLException {
         return searchService.searchResults(
-                currentQuery,
-                new SearchOptions(currentProjectId, currentTagId, null));
+                filterCriteria.query(),
+                filterCriteria.toSearchOptions());
     }
 
     private static String requireName(String name, String label) {
