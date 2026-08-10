@@ -44,7 +44,6 @@ sourceSets {
 
 dependencies {
     implementation("org.xerial:sqlite-jdbc:3.53.2.0")
-    runtimeOnly("org.slf4j:slf4j-nop:2.0.18")
     implementation("com.google.code.gson:gson:2.11.0")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")

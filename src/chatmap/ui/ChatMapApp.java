@@ -16,7 +16,6 @@ import chatmap.exporter.ChatExportModel;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
@@ -24,7 +23,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.ToolBar;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
@@ -240,19 +238,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void showConversationInventoryDialog(ConversationInventory inventory) {
-        TextArea text = new TextArea(ConversationInventoryFormatter.format(inventory));
-        text.setEditable(false);
-        text.setWrapText(false);
-        text.setPrefColumnCount(110);
-        text.setPrefRowCount(28);
-        text.setStyle("-fx-font-size: " + fontSizeState.current() + "pt;");
-
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("ChatMap");
-        alert.setHeaderText("All discoverable conversations");
-        alert.getDialogPane().setContent(text);
-        alert.setResizable(true);
-        alert.showAndWait();
+        ChatMapDialogs.showConversationInventory(inventory, fontSizeState.current());
         status.setText("Conversation inventory loaded.");
     }
 
@@ -431,11 +417,7 @@ public final class ChatMapApp extends Application {
     }
 
     private Optional<String> requestName(String title, String prompt) {
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle(title);
-        dialog.setHeaderText(null);
-        dialog.setContentText(prompt);
-        return dialog.showAndWait();
+        return ChatMapDialogs.requestName(title, prompt);
     }
 
     private void handleSelectedResult(SearchResult selectedResult) {
@@ -523,11 +505,7 @@ public final class ChatMapApp extends Application {
 
     private void reportError(Exception e) {
         status.setText("Error: " + e.getMessage());
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("ChatMap");
-        alert.setHeaderText("Operation failed");
-        alert.setContentText(e.getMessage());
-        alert.showAndWait();
+        ChatMapDialogs.showError("Operation failed", e.getMessage());
     }
 
     private void applyFontSize(int size) {
