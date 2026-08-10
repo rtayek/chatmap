@@ -7,7 +7,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.sql.Connection;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,7 +20,6 @@ import chatmap.domain.Project;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
 import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
 import chatmap.storage.ProjectRepository;
 
 /**
@@ -36,8 +34,10 @@ public final class ChatConsolidatorCli {
     );
 
     public static void main(String[] args) {
-        Path rootPath = args.length > 0 ? Paths.get(args[0]) : Paths.get("..");
-        Path outputPath = args.length > 1 ? Paths.get(args[1]) : Paths.get("consolidated_output");
+        chatmap.config.ChatMapPaths.ParsedArguments parsedArguments = chatmap.config.ChatMapPaths.parse(args);
+        List<String> remaining = parsedArguments.remainingArgs();
+        Path rootPath = !remaining.isEmpty() ? Paths.get(remaining.get(0)) : Paths.get("..");
+        Path outputPath = remaining.size() > 1 ? Paths.get(remaining.get(1)) : Paths.get("consolidated_output");
 
         System.out.println("==================================================");
         System.out.println("🚀 ChatMap Java Workspace Chat Consolidator");
@@ -46,10 +46,7 @@ public final class ChatConsolidatorCli {
         System.out.println("Output dir:    " + outputPath.toAbsolutePath().normalize());
         System.out.println();
 
-        try (Connection conn = Database.connectInMemory()) {
-            Database.initialize(conn);
-            CliBootstrap.CliContext context = CliBootstrap.createContext(conn, null);
-
+        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
             ChatRepository chats = context.services().chats();
             ProjectRepository projects = context.services().projects();
 
