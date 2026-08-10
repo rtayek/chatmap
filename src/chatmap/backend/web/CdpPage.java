@@ -27,13 +27,24 @@ final class CdpPage implements AutoCloseable {
     private static final Gson GSON = new Gson();
 
     private final CdpTransport transport;
+    private final Runnable onClose;
 
     CdpPage(String webSocketUrl) {
-        this(new CdpSocket(webSocketUrl));
+        this(webSocketUrl, () -> { });
+    }
+
+    /** {@code onClose} runs after the transport closes — e.g. to close a browser tab this page owns. */
+    CdpPage(String webSocketUrl, Runnable onClose) {
+        this(new CdpSocket(webSocketUrl), onClose);
     }
 
     CdpPage(CdpTransport transport) {
+        this(transport, () -> { });
+    }
+
+    CdpPage(CdpTransport transport, Runnable onClose) {
         this.transport = transport;
+        this.onClose = onClose;
     }
 
     void navigate(String url) {
@@ -91,6 +102,11 @@ final class CdpPage implements AutoCloseable {
     @Override
     public void close() {
         transport.close();
+        try {
+            onClose.run();
+        } catch (RuntimeException ignored) {
+            // Best-effort cleanup (e.g. closing a browser tab we created); never fail the caller over it.
+        }
     }
 
     private void waitForReadyState(Duration timeout) {

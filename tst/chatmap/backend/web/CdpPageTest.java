@@ -1,5 +1,6 @@
 package chatmap.backend.web;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,6 +82,27 @@ class CdpPageTest {
         new CdpPage(transport).close();
 
         assertTrue(transport.closed());
+    }
+
+    @Test
+    void closeRunsOnCloseAfterTheTransportCloses() {
+        FakeTransport transport = new FakeTransport();
+        boolean[] onCloseRanAfterTransportClosed = {false};
+
+        new CdpPage(transport, () -> onCloseRanAfterTransportClosed[0] = transport.closed()).close();
+
+        assertTrue(onCloseRanAfterTransportClosed[0]);
+    }
+
+    @Test
+    void closeSwallowsAnExceptionFromOnClose() {
+        FakeTransport transport = new FakeTransport();
+        CdpPage page = new CdpPage(transport, () -> {
+            throw new IllegalStateException("simulated close-hook failure");
+        });
+
+        assertDoesNotThrow(page::close);
+        assertTrue(transport.closed(), "the transport must still close even if the hook throws");
     }
 
     private static final class FakeTransport implements CdpTransport {
