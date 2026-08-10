@@ -49,7 +49,7 @@ public final class ClaudeCodeHistoryProvider extends LocalCliHistoryProvider {
                 title = SessionLines.string(o, "aiTitle");
             } else if ("custom-title".equals(type) && title == null) {
                 title = SessionLines.string(o, "customTitle");
-            } else if ("user".equals(type) || "assistant".equals(type)) {
+            } else if (chatmap.domain.Message.ROLE_USER.equals(type) || chatmap.domain.Message.ROLE_ASSISTANT.equals(type)) {
                 JsonObject message = o.has("message") && o.get("message").isJsonObject()
                         ? o.getAsJsonObject("message") : null;
                 if (message == null) {

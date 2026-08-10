@@ -48,8 +48,8 @@ public final class HandoffExporter {
         Markdown.metadata(out, "Updated", chat.updatedAt());
         out.append("Archived: ").append(chat.archived() ? "yes" : "no").append("\n");
         out.append("Tags: ").append(formatTags(entry.tags())).append("\n");
-        appendPreview(out, "First user", firstRole(entry.messages(), "user"));
-        appendPreview(out, "Last assistant", lastRole(entry.messages(), "assistant"));
+        appendPreview(out, "First user", firstRole(entry.messages(), chatmap.domain.Message.ROLE_USER));
+        appendPreview(out, "Last assistant", lastRole(entry.messages(), chatmap.domain.Message.ROLE_ASSISTANT));
     }
 
     private static void appendPreview(StringBuilder out, String label, Message message) {

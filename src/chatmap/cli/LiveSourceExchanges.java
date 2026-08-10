@@ -38,8 +38,8 @@ public final class LiveSourceExchanges {
         printField("title", chat.chat().title());
         printField("externalConversationId", chat.chat().externalConversationId());
         printField("sourceUri", chat.chat().sourceUri());
-        printBlock("last prompt", lastText(chat.messages(), "user"));
-        printBlock("last response", lastText(chat.messages(), "assistant"));
+        printBlock("last prompt", lastText(chat.messages(), chatmap.domain.Message.ROLE_USER));
+        printBlock("last response", lastText(chat.messages(), chatmap.domain.Message.ROLE_ASSISTANT));
     }
 
     private static String lastText(List<Message> messages, String role) {

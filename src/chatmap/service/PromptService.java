@@ -160,8 +160,8 @@ public final class PromptService {
         Source source = backend != null ? backend.source() : Source.plainText;
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
         Chat chat = new Chat(0L, null, source, title, now, now, now, false);
-        Message userMsg = new Message(0L, 0L, "user", prompt, 0, now, null);
-        Message assistantMsg = new Message(0L, 0L, "assistant", responseText, 1, now, null);
+        Message userMsg = new Message(0L, 0L, chatmap.domain.Message.ROLE_USER, prompt, 0, now, null);
+        Message assistantMsg = new Message(0L, 0L, chatmap.domain.Message.ROLE_ASSISTANT, responseText, 1, now, null);
 
         importService.persist(new ImportedChat(chat, List.of(userMsg, assistantMsg)));
     }

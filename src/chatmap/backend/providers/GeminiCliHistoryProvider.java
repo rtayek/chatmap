@@ -87,8 +87,8 @@ public final class GeminiCliHistoryProvider extends LocalCliHistoryProvider {
             return null;
         }
         return switch (type) {
-            case "user" -> "user";
-            case "gemini", "model", "assistant" -> "assistant";
+            case "user" -> chatmap.domain.Message.ROLE_USER;
+            case "gemini", "model", "assistant" -> chatmap.domain.Message.ROLE_ASSISTANT;
             default -> null;
         };
     }

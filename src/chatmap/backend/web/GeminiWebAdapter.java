@@ -141,7 +141,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
                 if (text == null || text.isBlank()) {
                     continue;
                 }
-                if (!"user".equals(role) && !"assistant".equals(role)) {
+                if (!chatmap.domain.Message.ROLE_USER.equals(role) && !chatmap.domain.Message.ROLE_ASSISTANT.equals(role)) {
                     continue;
                 }
                 turns.add(new ClaudeTurn(role, text.strip()));

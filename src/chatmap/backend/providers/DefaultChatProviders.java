@@ -40,6 +40,16 @@ public final class DefaultChatProviders {
     }
 
     public static List<ChatProvider> ordered() {
+        boolean preferLocal = Boolean.getBoolean("chatmap.providers.preferLocal");
+        if (preferLocal) {
+            return List.of(
+                    new ClaudeCodeHistoryProvider(),
+                    new CodexCliHistoryProvider(),
+                    new GeminiCliHistoryProvider(),
+                    new ClaudeWebChatProvider(),
+                    new ChatGptWebChatProvider(),
+                    new GeminiWebChatProvider());
+        }
         return List.of(
                 new ClaudeWebChatProvider(),
                 new ChatGptWebChatProvider(),

@@ -17,4 +17,6 @@ public record Message(
         int sequence,
         String timestamp,
         String rawJson) {
+    public static final String ROLE_USER = "user";
+    public static final String ROLE_ASSISTANT = "assistant";
 }

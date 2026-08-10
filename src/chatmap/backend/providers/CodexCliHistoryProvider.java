@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.google.gson.JsonObject;
 
+import chatmap.domain.Message;
 import chatmap.domain.Source;
 
 /**
@@ -44,15 +45,15 @@ public final class CodexCliHistoryProvider extends LocalCliHistoryProvider {
             }
             JsonObject payload = o.getAsJsonObject("payload");
             String payloadType = SessionLines.string(payload, "type");
+            String text = SessionLines.string(payload, "message");
             String role;
             if ("user_message".equals(payloadType)) {
-                role = "user";
+                role = Message.ROLE_USER;
             } else if ("agent_message".equals(payloadType)) {
-                role = "assistant";
+                role = Message.ROLE_ASSISTANT;
             } else {
                 continue;
             }
-            String text = SessionLines.string(payload, "message");
             if (text != null && !text.isBlank()) {
                 turns.add(new ClaudeTurn(role, text.strip()));
             }

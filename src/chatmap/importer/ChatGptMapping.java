@@ -45,7 +45,7 @@ final class ChatGptMapping {
     static String mapRole(JsonObject message) {
         JsonObject author = object(message.get("author"));
         String role = author == null ? null : string(author.get("role"));
-        if ("user".equals(role) || "assistant".equals(role) || "system".equals(role)) {
+        if (chatmap.domain.Message.ROLE_USER.equals(role) || chatmap.domain.Message.ROLE_ASSISTANT.equals(role) || "system".equals(role)) {
             return role;
         }
         return "unknown";

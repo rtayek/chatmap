@@ -99,9 +99,9 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
             return null;
         }
         return switch (authorRole.toLowerCase(java.util.Locale.ROOT)) {
-            case "user" -> "user";
-            case "assistant" -> "assistant";
-            default -> null; // system, tool, etc. are not conversation content
+            case "user" -> chatmap.domain.Message.ROLE_USER;
+            case "assistant" -> chatmap.domain.Message.ROLE_ASSISTANT;
+            default -> null; // Ignore system / tool roles
         };
     }
 }
