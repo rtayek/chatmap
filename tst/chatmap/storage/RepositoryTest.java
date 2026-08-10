@@ -208,6 +208,27 @@ class RepositoryTest {
     }
 
     @Test
+    void findByNameIsCaseInsensitiveIncludingNonAscii() throws Exception {
+        Project project = projects.insert(new Project(0, "München Notes", null,
+                "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
+
+        assertEquals(project, projects.findByName("münchen notes").orElseThrow());
+        assertEquals(project, projects.findByName("MÜNCHEN NOTES").orElseThrow());
+        assertTrue(projects.findByName("no such project").isEmpty());
+    }
+
+    @Test
+    void enforcesUniqueAsciiCaseInsensitiveProjectNames() throws Exception {
+        projects.insert(new Project(0, "Foo", null, "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
+
+        SQLException thrown = assertThrows(SQLException.class,
+                () -> projects.insert(new Project(0, "foo", null,
+                        "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z")));
+
+        assertTrue(ProjectRepository.isDuplicateNameViolation(thrown), thrown.getMessage());
+    }
+
+    @Test
     void enforcesForeignKeysAndCaseInsensitiveUniqueTags() throws Exception {
         assertThrows(SQLException.class, () -> messages.insert(new Message(0, 999, "user",
                 "orphan", 0, null, null)));

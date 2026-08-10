@@ -21,7 +21,37 @@ public final class ProjectService {
     }
 
     public Project create(Project project) throws SQLException {
-        return projects.insert(project);
+        try {
+            return projects.insert(project);
+        } catch (SQLException e) {
+            if (ProjectRepository.isDuplicateNameViolation(e)) {
+                throw new IllegalArgumentException(
+                        "A project named \"" + project.name() + "\" already exists.", e);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Finds a project by name (case-insensitive), or creates it. Never creates a
+     * second project with the same name: the {@code projectsNameIndex} unique
+     * index is the backstop against a concurrent caller racing the same name —
+     * if this caller's insert loses that race, it falls back to the winner's row
+     * instead of failing.
+     */
+    public Project findOrCreate(String name, String description, String timestamp) throws SQLException {
+        Optional<Project> existing = projects.findByName(name);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        try {
+            return projects.insert(new Project(0, name, description, timestamp, timestamp));
+        } catch (SQLException e) {
+            if (!ProjectRepository.isDuplicateNameViolation(e)) {
+                throw e;
+            }
+            return projects.findByName(name).orElseThrow(() -> e);
+        }
     }
 
     public Optional<Project> findById(long projectId) throws SQLException {

@@ -53,20 +53,34 @@ public final class ProjectRepository {
         }
     }
 
-    /** Case-insensitive lookup by name, for callers that must not create duplicate projects. */
+    /**
+     * Case-insensitive lookup by name, for callers that must not create duplicate
+     * projects. Compares in Java ({@link String#equalsIgnoreCase}) rather than SQL
+     * {@code COLLATE NOCASE}, which only folds ASCII letters — this also matches
+     * names differing only in non-ASCII case (e.g. "München" vs "MÜNCHEN"). The
+     * projects table is small (a personal project list), so a full scan is cheap;
+     * the {@code projectsNameIndex} unique index (ASCII-only, see
+     * {@link Database#applyMigrations}) is the concurrency backstop, not the
+     * source of truth for this comparison.
+     */
     public Optional<Project> findByName(String name) throws SQLException {
-        synchronized (conn) {
-            String sql = "SELECT id, name, description, createdAt, updatedAt FROM projects WHERE name = ? COLLATE NOCASE";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, name);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) {
-                        return Optional.empty();
-                    }
-                    return Optional.of(read(rs));
-                }
+        for (Project project : findAll()) {
+            if (project.name().equalsIgnoreCase(name)) {
+                return Optional.of(project);
             }
         }
+        return Optional.empty();
+    }
+
+    /**
+     * True if the exception is a violation of the {@code projectsNameIndex}
+     * unique-name constraint — i.e. a concurrent insert won a name that this
+     * caller was also trying to claim. Callers use this to fall back to
+     * {@link #findByName} instead of failing outright.
+     */
+    public static boolean isDuplicateNameViolation(SQLException e) {
+        return e instanceof org.sqlite.SQLiteException sqliteException
+                && sqliteException.getResultCode() == org.sqlite.SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE;
     }
 
     public List<Project> findAll() throws SQLException {

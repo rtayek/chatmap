@@ -7,13 +7,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -23,8 +21,8 @@ import chatmap.domain.Chat;
 import chatmap.domain.Project;
 import chatmap.service.ExportService;
 import chatmap.service.ImportService;
+import chatmap.service.ProjectService;
 import chatmap.storage.ChatRepository;
-import chatmap.storage.ProjectRepository;
 
 /**
  * Command-line tool for scanning workspace projects, importing all chat logs and transcripts,
@@ -60,7 +58,7 @@ public final class ChatConsolidatorCli {
 
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
             ChatRepository chats = context.services().chats();
-            ProjectRepository projects = context.services().projects();
+            ProjectService projectService = context.services().projectService();
 
             ImportService importService = context.services().importService();
             ExportService exportService = context.services().exportService();
@@ -81,26 +79,25 @@ public final class ChatConsolidatorCli {
 
                 System.out.printf("📦 Consolidating Project [%s] (%d files)...%n", projectName, files.size());
 
-                // One transaction per project: batches every file's import plus the
-                // project lookup/create and handoff read into a single commit instead
-                // of one commit per file.
-                String consolidatedMd = chats.transactions().inTransaction(() -> {
-                    Project project = findOrCreateProject(projects, projectName, timestamp);
+                // Each file's import commits independently (via ImportService's own
+                // transaction), so one bad file — or a later failure reading the
+                // handoff — never rolls back files that already imported successfully.
+                Project project = projectService.findOrCreate(
+                        projectName, "Consolidated chats for " + projectName, timestamp);
 
-                    for (Path file : files) {
-                        try {
-                            Chat imported = importService.importFile(file);
-                            chats.assignProject(imported.id(), project.id());
-                            System.out.println("   + Imported: " + file.getFileName());
-                        } catch (Exception e) {
-                            System.err.println("   ! Error importing " + file + ": " + e.getMessage());
-                        }
+                for (Path file : files) {
+                    try {
+                        Chat imported = importService.importFile(file);
+                        chats.assignProject(imported.id(), project.id());
+                        System.out.println("   + Imported: " + file.getFileName());
+                    } catch (Exception e) {
+                        System.err.println("   ! Error importing " + file + ": " + e.getMessage());
                     }
+                }
 
-                    return exportService.exportProjectHandoff(project.id(), timestamp)
-                            .orElseThrow(() -> new IllegalStateException(
-                                    "Failed to export handoff for project " + projectName));
-                });
+                String consolidatedMd = exportService.exportProjectHandoff(project.id(), timestamp)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Failed to export handoff for project " + projectName));
 
                 Path outFile = outputPath.resolve(projectName + "_CONSOLIDATED.md");
                 Files.writeString(outFile, consolidatedMd);
@@ -121,16 +118,6 @@ public final class ChatConsolidatorCli {
 
     private static void printUsage() {
         System.err.println("Usage: chatConsolidator [--home <directory>] [<root>] [<outputDir>]");
-    }
-
-    /** Finds the project by name, or creates it — never inserts a second project with the same name. */
-    private static Project findOrCreateProject(ProjectRepository projects, String name, String timestamp)
-            throws SQLException {
-        Optional<Project> existing = projects.findByName(name);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-        return projects.insert(new Project(0, name, "Consolidated chats for " + name, timestamp, timestamp));
     }
 
     static Map<String, List<Path>> scanWorkspace(Path root) throws IOException {

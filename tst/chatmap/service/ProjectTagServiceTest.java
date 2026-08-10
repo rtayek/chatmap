@@ -1,10 +1,19 @@
 package chatmap.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,6 +72,71 @@ class ProjectTagServiceTest {
         projectService.delete(created.id());
 
         assertTrue(projectService.findById(created.id()).isEmpty());
+    }
+
+    @Test
+    void createRejectsADuplicateNameInsteadOfSilentlyCreatingOne() throws Exception {
+        projectService.create(new Project(0, "Foo", null, "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> projectService.create(new Project(0, "Foo", null,
+                        "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z")));
+
+        assertTrue(thrown.getMessage().contains("Foo"));
+        assertEquals(1, projectService.listAll().size());
+    }
+
+    @Test
+    void findOrCreateReturnsTheExistingProjectInsteadOfDuplicating() throws Exception {
+        Project first = projectService.findOrCreate("Consolidator Project", "desc",
+                "2026-08-10T00:00:00Z");
+        Project second = projectService.findOrCreate("Consolidator Project", "desc",
+                "2026-08-10T00:01:00Z");
+
+        assertEquals(first.id(), second.id());
+        assertEquals(1, projectService.listAll().size());
+    }
+
+    @Test
+    void findOrCreateMatchesNonAsciiCaseVariantsInJava() throws Exception {
+        Project created = projectService.findOrCreate("München Notes", "desc", "2026-08-10T00:00:00Z");
+
+        Project found = projectService.findOrCreate("MÜNCHEN NOTES", "desc", "2026-08-10T00:01:00Z");
+
+        assertEquals(created.id(), found.id());
+        assertEquals(1, projectService.listAll().size());
+    }
+
+    @Test
+    void findOrCreateNeverProducesDuplicatesUnderConcurrentCallers() throws Exception {
+        int callers = 8;
+        ExecutorService pool = Executors.newFixedThreadPool(callers);
+        CountDownLatch ready = new CountDownLatch(callers);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Future<Project>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < callers; i++) {
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    go.await();
+                    return projectService.findOrCreate("Racing Project", "desc", "2026-08-10T00:00:00Z");
+                }));
+            }
+            assertTrue(ready.await(2, TimeUnit.SECONDS));
+            go.countDown();
+
+            Set<Long> ids = new HashSet<>();
+            for (Future<Project> future : futures) {
+                ids.add(future.get(5, TimeUnit.SECONDS).id());
+            }
+
+            assertEquals(1, ids.size(), "every caller must agree on the same project id");
+            assertEquals(1, projectService.listAll().stream()
+                    .filter(p -> p.name().equals("Racing Project"))
+                    .count());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test

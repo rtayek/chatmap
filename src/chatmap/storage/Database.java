@@ -4,13 +4,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -172,6 +176,54 @@ public final class Database {
         try (Statement st = conn.createStatement()) {
             st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
                     + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
+        }
+
+        // A unique index needs zero pre-existing duplicates to create successfully, so any
+        // project names that already collide (case-insensitively) on an existing database
+        // must be merged first. Idempotent: once merged, later runs find nothing to merge.
+        mergeDuplicateProjectNames(conn);
+        try (Statement st = conn.createStatement()) {
+            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsNameIndex "
+                    + "ON projects(name COLLATE NOCASE)");
+        }
+    }
+
+    /**
+     * Merges projects that share a name, case-insensitively, into the oldest row
+     * in each group: every chat pointing at a duplicate is repointed at the
+     * survivor, then the duplicate row is deleted. Grouping normalizes with
+     * {@code toUpperCase(Locale.ROOT)}, which folds a broader range of
+     * characters than the ASCII-only {@code COLLATE NOCASE} unique index this
+     * prepares the table for — so this also catches non-ASCII case collisions
+     * (e.g. "München" vs "MÜNCHEN") that the index alone cannot prevent.
+     */
+    private static void mergeDuplicateProjectNames(Connection conn) throws SQLException {
+        Map<String, List<Long>> idsByNormalizedName = new LinkedHashMap<>();
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("SELECT id, name FROM projects ORDER BY id")) {
+            while (rs.next()) {
+                String key = rs.getString("name").toUpperCase(Locale.ROOT);
+                idsByNormalizedName.computeIfAbsent(key, ignored -> new ArrayList<>()).add(rs.getLong("id"));
+            }
+        }
+
+        for (List<Long> ids : idsByNormalizedName.values()) {
+            if (ids.size() < 2) {
+                continue;
+            }
+            long survivorId = ids.get(0);
+            for (long duplicateId : ids.subList(1, ids.size())) {
+                try (PreparedStatement reassign =
+                        conn.prepareStatement("UPDATE chats SET projectId = ? WHERE projectId = ?")) {
+                    reassign.setLong(1, survivorId);
+                    reassign.setLong(2, duplicateId);
+                    reassign.executeUpdate();
+                }
+                try (PreparedStatement delete = conn.prepareStatement("DELETE FROM projects WHERE id = ?")) {
+                    delete.setLong(1, duplicateId);
+                    delete.executeUpdate();
+                }
+            }
         }
     }
 

@@ -6,11 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import chatmap.storage.Database;
+import chatmap.storage.ProjectRepository;
 
 class ChatConsolidatorCliTest {
 
@@ -40,6 +44,29 @@ class ChatConsolidatorCliTest {
         assertTrue(content.contains("sampleProject"));
         assertTrue(content.contains("Sample Project Discussion"));
         assertTrue(content.contains("How do we structure the consolidation module?"));
+    }
+
+    @Test
+    void rerunningTheConsolidatorNeverCreatesDuplicateProjects(@TempDir Path tempDir) throws Exception {
+        Path home = tempDir.resolve("home");
+        Path workspace = tempDir.resolve("workspace");
+        Path projectDir = workspace.resolve("repeatProject");
+        Files.createDirectories(projectDir);
+        Files.writeString(projectDir.resolve("chat.md"), "# Repeat\n\nUser: hi\n");
+
+        Path outputDir = tempDir.resolve("output");
+        String[] cliArgs = {"--home", home.toString(), workspace.toString(), outputDir.toString()};
+
+        ChatConsolidatorCli.main(cliArgs);
+        ChatConsolidatorCli.main(cliArgs);
+
+        try (Connection conn = new Database("jdbc:sqlite:" + home.resolve("chatmap.db")).openAndInitialize()) {
+            ProjectRepository projects = new ProjectRepository(conn);
+            long matching = projects.findAll().stream()
+                    .filter(p -> p.name().equals("repeatProject"))
+                    .count();
+            assertEquals(1, matching, "rerunning the consolidator must not duplicate the project");
+        }
     }
 
     @Test

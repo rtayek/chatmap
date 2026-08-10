@@ -2,19 +2,24 @@ package chatmap.storage;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
+import chatmap.domain.Project;
 import chatmap.domain.Source;
 
 class DatabaseMigrationTest {
@@ -41,6 +46,72 @@ class DatabaseMigrationTest {
 
             assertDoesNotThrow(() -> Database.initialize(conn), "migration must be idempotent");
             assertEquals(1, chats.findAll().size());
+        }
+    }
+
+    @Test
+    void initializeMergesPreExistingDuplicateProjectNamesBeforeAddingTheUniqueIndex() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+
+            // Pre-migration schema has no uniqueness constraint on projects.name, so a
+            // database from before this migration could already hold case-variant
+            // duplicates. Simulate that: two rows for "Foo", each owning a chat.
+            long survivorId = insertOldProject(conn, "Foo", "2026-08-10T00:00:00Z");
+            long duplicateId = insertOldProject(conn, "FOO", "2026-08-10T00:01:00Z");
+            Chat onSurvivor = insertOldChat(conn, survivorId, "Survivor's chat");
+            Chat onDuplicate = insertOldChat(conn, duplicateId, "Duplicate's chat");
+
+            Database.initialize(conn);
+
+            ProjectRepository projects = new ProjectRepository(conn);
+            List<Project> remaining = projects.findAll();
+            assertEquals(1, remaining.size(), "the duplicate-named project must be merged away");
+            assertEquals(survivorId, remaining.get(0).id(), "the older row survives");
+
+            ChatRepository chats = new ChatRepository(conn);
+            assertEquals(survivorId, chats.findById(onSurvivor.id()).orElseThrow().projectId());
+            assertEquals(survivorId, chats.findById(onDuplicate.id()).orElseThrow().projectId(),
+                    "the duplicate's chat must be repointed at the survivor, not orphaned or deleted");
+
+            SQLException thrown = assertThrows(SQLException.class,
+                    () -> projects.insert(new Project(0, "foo", null,
+                            "2026-08-10T00:02:00Z", "2026-08-10T00:02:00Z")));
+            assertTrue(ProjectRepository.isDuplicateNameViolation(thrown),
+                    "the unique index must be active after migration: " + thrown.getMessage());
+        }
+    }
+
+    private static long insertOldProject(Connection conn, String name, String timestamp) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO projects (name, description, createdAt, updatedAt) VALUES (?, NULL, ?, ?)",
+                Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, name);
+            ps.setString(2, timestamp);
+            ps.setString(3, timestamp);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
+        }
+    }
+
+    private static Chat insertOldChat(Connection conn, long projectId, String title) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO chats (projectId, source, title, importedAt, archived) VALUES (?, ?, ?, ?, 0)",
+                Statement.RETURN_GENERATED_KEYS)) {
+            ps.setLong(1, projectId);
+            ps.setString(2, Source.plainText.dbValue());
+            ps.setString(3, title);
+            ps.setString(4, "2026-08-10T00:00:00Z");
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                long id = keys.getLong(1);
+                return new Chat(id, projectId, Source.plainText, title, null, null,
+                        "2026-08-10T00:00:00Z", false);
+            }
         }
     }
 
