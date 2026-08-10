@@ -4,7 +4,16 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 
-/** Runs service-level units of work without taking ownership of caller transactions. */
+/**
+ * Runs service-level units of work without taking ownership of caller transactions.
+ *
+ * Concurrency policy: all storage access serializes on the shared Connection's
+ * monitor. Repositories acquire it per statement; this class holds it for the
+ * whole transaction so multi-statement writes are atomic with respect to
+ * readers on other threads. The monitor is reentrant, so repository calls
+ * inside the transaction work are fine. Callers above the storage layer must
+ * not take this lock themselves.
+ */
 public final class TransactionRunner {
 
     @FunctionalInterface
@@ -16,12 +25,13 @@ public final class TransactionRunner {
     private final Object lock;
 
     public TransactionRunner(Connection conn) {
-        this(conn, conn);
+        this.conn = java.util.Objects.requireNonNull(conn, "conn");
+        this.lock = conn;
     }
 
     public TransactionRunner(Connection conn, Object lock) {
         this.conn = java.util.Objects.requireNonNull(conn, "conn");
-        this.lock = lock != null ? lock : conn;
+        this.lock = lock == null ? conn : lock;
     }
 
     public <T> T inTransaction(Work<T> work) throws SQLException {

@@ -3,6 +3,7 @@ package chatmap.storage;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
 import java.util.List;
@@ -98,6 +99,23 @@ class MessageFtsTest {
             assertEquals(0, rs.getInt(1), "raw FTS index must contain zero entries after chat deletion");
         }
         assertFalse(chats.findById(chat.id()).isPresent());
+    }
+
+    @Test
+    void failedChatDeleteRollsBackMessageDelete() throws Exception {
+        Chat chat = newChat();
+        Message message = newMessage(chat.id(), 0, "rollback target");
+        try (var st = conn.createStatement()) {
+            st.execute("""
+                    CREATE TRIGGER failChatDelete BEFORE DELETE ON chats
+                    BEGIN SELECT RAISE(ABORT, 'chat delete failed'); END
+                    """);
+        }
+
+        assertThrows(java.sql.SQLException.class, () -> chats.delete(chat.id()));
+        assertTrue(chats.findById(chat.id()).isPresent());
+        assertTrue(messages.findByChat(chat.id()).contains(message));
+        assertFalse(messages.searchText("rollback").isEmpty());
     }
 
     @Test

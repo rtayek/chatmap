@@ -233,6 +233,7 @@ final class CdpPage implements AutoCloseable {
         private final AtomicLong nextId = new AtomicLong(1);
         private final Map<Long, java.util.concurrent.CompletableFuture<JsonObject>> pending =
                 new ConcurrentHashMap<>();
+        private final Object textLock = new Object();
         private final StringBuilder text = new StringBuilder();
         private final WebSocket webSocket;
 
@@ -284,17 +285,30 @@ final class CdpPage implements AutoCloseable {
 
         @Override
         public CompletionStage<?> onText(WebSocket socket, CharSequence data, boolean last) {
-            text.append(data);
-            if (last) {
-                JsonObject message = JsonParser.parseString(text.toString()).getAsJsonObject();
-                text.setLength(0);
-                JsonElement idElement = message.get("id");
-                if (idElement != null) {
-                    java.util.concurrent.CompletableFuture<JsonObject> future =
-                            pending.get(idElement.getAsLong());
-                    if (future != null) {
-                        future.complete(message);
+            String fullMessage = null;
+            synchronized (textLock) {
+                text.append(data);
+                if (last) {
+                    fullMessage = text.toString();
+                    text.setLength(0);
+                }
+            }
+            if (fullMessage != null && !fullMessage.isBlank()) {
+                try {
+                    JsonElement parsed = JsonParser.parseString(fullMessage);
+                    if (parsed.isJsonObject()) {
+                        JsonObject message = parsed.getAsJsonObject();
+                        JsonElement idElement = message.get("id");
+                        if (idElement != null && !idElement.isJsonNull()) {
+                            java.util.concurrent.CompletableFuture<JsonObject> future =
+                                    pending.get(idElement.getAsLong());
+                            if (future != null) {
+                                future.complete(message);
+                            }
+                        }
                     }
+                } catch (Exception parseException) {
+                    // Ignore unparseable notification frames
                 }
             }
             socket.request(1);
@@ -306,6 +320,15 @@ final class CdpPage implements AutoCloseable {
             List<java.util.concurrent.CompletableFuture<JsonObject>> futures =
                     new ArrayList<>(pending.values());
             futures.forEach(future -> future.completeExceptionally(error));
+        }
+
+        @Override
+        public CompletionStage<?> onClose(WebSocket socket, int statusCode, String reason) {
+            List<java.util.concurrent.CompletableFuture<JsonObject>> futures =
+                    new ArrayList<>(pending.values());
+            futures.forEach(future -> future.completeExceptionally(
+                    new IllegalStateException("CDP websocket closed: " + statusCode + " " + reason)));
+            return null;
         }
 
         @Override
