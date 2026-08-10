@@ -10,6 +10,8 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import chatmap.backend.ai.AiBackend;
+import chatmap.backend.ai.AiRequest;
+import chatmap.backend.ai.AiResponse;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -33,8 +35,6 @@ import chatmap.storage.TransactionRunner;
  * review workflow is deliberately not built yet.
  */
 public final class SummaryService {
-
-    private static final String GENERATED_BY = "claude";
 
     private final ChatRepository chats;
     private final MessageRepository messages;
@@ -75,7 +75,9 @@ public final class SummaryService {
         List<Message> chatMessages = messages.findByChat(chatId);
 
         String prompt = buildPrompt(chat, chatMessages);
-        String response = backend.ask(prompt);
+        AiResponse backendResponse = backend.ask(AiRequest.of(prompt));
+        String response = backendResponse.text();
+        String generatedBy = backendResponse.backendId().value();
 
         Parsed parsed = parse(response);
         String contentHash = chat.contentHash() == null
@@ -88,7 +90,7 @@ public final class SummaryService {
                         chat.sourceUpdatedAt(), chat.lastImportedAt());
             }
             ChatSummary stored = summaries.insert(
-                    new ChatSummary(0, chatId, parsed.summaryText(), GENERATED_BY,
+                    new ChatSummary(0, chatId, parsed.summaryText(), generatedBy,
                             Instant.now().toString(), contentHash));
 
             for (String tagName : parsed.tagNames()) {

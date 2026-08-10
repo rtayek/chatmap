@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import chatmap.backend.ai.AiResponse;
 import chatmap.backend.ai.BackendId;
 import chatmap.domain.Chat;
+import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.service.SummaryService.Parsed;
@@ -123,6 +124,18 @@ class SummaryServiceTest {
 
         assertTrue(summaries.findLatestStoredForChat(chat.id()).isEmpty());
         assertTrue(tags.findAll().isEmpty());
+    }
+
+    @Test
+    void storesTheBackendIdentityAsSummaryProvenance() throws Exception {
+        Chat chat = insertChatWithMessage();
+        SummaryService service = new SummaryService(chats, messages, summaries, tags,
+                request -> new AiResponse("SUMMARY: Stored summary.\nTAGS: storage",
+                        new BackendId("test-backend"), Duration.ZERO));
+
+        ChatSummary stored = service.summarize(chat.id());
+
+        assertEquals("test-backend", stored.generatedBy());
     }
 
     @Test
