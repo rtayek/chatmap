@@ -76,14 +76,14 @@ class CliHistoryProvidersTest {
                 "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":"
                         + "[{\"type\":\"tool_result\",\"content\":\"tool noise\"}]}}"));
 
-        ClaudeCodeHistoryProvider.Parsed parsed = ClaudeCodeHistoryProvider.parse(file);
+        var parsed = ClaudeCodeHistoryProvider.parse(file);
         assertEquals("My Session", parsed.title());
         assertEquals(List.of("user", "assistant"),
                 parsed.turns().stream().map(ClaudeTurn::role).toList());
         assertEquals("hello there", parsed.turns().get(0).text());
         assertEquals("hi back", parsed.turns().get(1).text(), "thinking block must be dropped");
 
-        ImportedChat chat = ClaudeCodeHistoryProvider.buildFrom(dir, file).orElseThrow();
+        ImportedChat chat = new ClaudeCodeHistoryProvider(dir).buildFrom(dir, file).orElseThrow();
         assertEquals("My Session", chat.chat().title());
         assertEquals(Source.claudeCode, chat.chat().source());
         assertEquals("session.jsonl", chat.chat().externalConversationId());
@@ -118,7 +118,7 @@ class CliHistoryProvidersTest {
     void claudeCodeEmptyWhenNoMessageTurns(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("empty.jsonl");
         Files.write(file, List.of("{\"type\":\"queue-operation\",\"content\":\"noise\"}"));
-        assertTrue(ClaudeCodeHistoryProvider.buildFrom(file).isEmpty());
+        assertTrue(new ClaudeCodeHistoryProvider(dir).buildFrom(file).isEmpty());
     }
 
     // --- Codex ---
@@ -171,7 +171,7 @@ class CliHistoryProvidersTest {
         Files.write(file, List.of(
                 "{\"$set\":{\"messages\":[{\"type\":\"user\",\"content\":"
                         + "[{\"text\":\"<session_context>\\nonly setup</session_context>\"}]}]}}"));
-        assertTrue(GeminiCliHistoryProvider.buildFrom(file).isEmpty());
+        assertTrue(new GeminiCliHistoryProvider(dir).buildFrom(file).isEmpty());
     }
 
     @Test
@@ -180,7 +180,7 @@ class CliHistoryProvidersTest {
         Files.write(file, List.of(
                 "{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":\"a\"}}",
                 "{\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"b\"}}"));
-        ImportedChat chat = CodexCliHistoryProvider.buildFrom(dir, file).orElseThrow();
+        ImportedChat chat = new CodexCliHistoryProvider(dir).buildFrom(dir, file).orElseThrow();
         List<Message> m = chat.messages();
         assertEquals(0, m.get(0).sequence());
         assertEquals(1, m.get(1).sequence());

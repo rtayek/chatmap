@@ -3,14 +3,11 @@ package chatmap.backend.providers;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
-import chatmap.importer.ImportedChat;
 
 /**
  * Reads the most recent Claude Code CLI session as a chat.
@@ -24,63 +21,19 @@ import chatmap.importer.ImportedChat;
  * transcript noise, not conversation. A title comes from an {@code ai-title} or
  * {@code custom-title} line when present.
  */
-public final class ClaudeCodeHistoryProvider implements ChatProvider {
-
-    record Parsed(String title, List<ClaudeTurn> turns) {}
-
-    private final Path root;
+public final class ClaudeCodeHistoryProvider extends LocalCliHistoryProvider {
 
     public ClaudeCodeHistoryProvider() {
         this(Path.of(System.getProperty("user.home"), ".claude", "projects"));
     }
 
     ClaudeCodeHistoryProvider(Path root) {
-        this.root = root;
+        super(root, Source.claudeCode, "Claude Code (CLI)", "Claude Code session");
     }
 
     @Override
-    public String name() {
-        return "Claude Code (CLI)";
-    }
-
-    @Override
-    public Optional<ImportedChat> latestChat() {
-        return LocalCliSessions.newestSessionFile(root).flatMap(file -> buildFrom(root, file));
-    }
-
-    @Override
-    public List<ConversationCandidate> listChats() throws Exception {
-        List<ConversationCandidate> candidates = new ArrayList<>();
-        for (Path file : LocalCliSessions.listSessionFiles(root)) {
-            candidates.add(candidate(file, fileTitle(file)));
-        }
-        return candidates;
-    }
-
-    @Override
-    public ImportedChat fetch(ConversationCandidate candidate) {
-        return buildFrom(root, root.resolve(candidate.externalConversationId()).normalize())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No importable Claude Code session: " + candidate.externalConversationId()));
-    }
-
-    /** Parses one session file into an ImportedChat, or empty when it holds no message turns. */
-    static Optional<ImportedChat> buildFrom(Path file) {
-        return buildFrom(file.getParent(), file);
-    }
-
-    static Optional<ImportedChat> buildFrom(Path root, Path file) {
-        Parsed parsed = parse(file);
-        if (parsed.turns().isEmpty()) {
-            return Optional.empty();
-        }
-        String title = parsed.title() != null && !parsed.title().isBlank()
-                ? parsed.title()
-                : fileTitle(file);
-        String modifiedAt = LocalCliSessions.modifiedAt(file);
-        return Optional.of(LocalCliSessions.toImportedChat(title, parsed.turns(), modifiedAt,
-                Source.claudeCode, ProviderIdentity.cliSessionId(root, file),
-                LocalCliSessions.sourceUri(file)));
+    Parsed parseSession(Path file) {
+        return parse(file);
     }
 
     static Parsed parse(Path file) {
@@ -139,16 +92,5 @@ public final class ClaudeCodeHistoryProvider implements ChatProvider {
             return sb.toString();
         }
         return "";
-    }
-
-    private static String fileTitle(Path file) {
-        Path fn = file.getFileName();
-        return (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
-    }
-
-    private ConversationCandidate candidate(Path file, String title) {
-        String modifiedAt = LocalCliSessions.modifiedAt(file);
-        return new ConversationCandidate(Source.claudeCode, ProviderIdentity.cliSessionId(root, file),
-                title, LocalCliSessions.sourceUri(file), modifiedAt);
     }
 }

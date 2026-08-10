@@ -3,15 +3,12 @@ package chatmap.backend.providers;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
-import chatmap.importer.ImportedChat;
 
 /**
  * Reads the most recent Gemini CLI session as a chat.
@@ -30,59 +27,19 @@ import chatmap.importer.ImportedChat;
  * {@code model} -> assistant) follows Gemini CLI's documented convention rather
  * than observed data; adjust if a real assistant turn shows a different type.
  */
-public final class GeminiCliHistoryProvider implements ChatProvider {
-
-    private final Path root;
+public final class GeminiCliHistoryProvider extends LocalCliHistoryProvider {
 
     public GeminiCliHistoryProvider() {
         this(Path.of(System.getProperty("user.home"), ".gemini", "tmp"));
     }
 
     GeminiCliHistoryProvider(Path root) {
-        this.root = root;
+        super(root, Source.geminiCli, "Gemini (CLI)", "Gemini CLI session");
     }
 
     @Override
-    public String name() {
-        return "Gemini (CLI)";
-    }
-
-    @Override
-    public Optional<ImportedChat> latestChat() {
-        return LocalCliSessions.newestSessionFile(root).flatMap(file -> buildFrom(root, file));
-    }
-
-    @Override
-    public List<ConversationCandidate> listChats() throws Exception {
-        List<ConversationCandidate> candidates = new ArrayList<>();
-        for (Path file : LocalCliSessions.listSessionFiles(root)) {
-            candidates.add(candidate(file));
-        }
-        return candidates;
-    }
-
-    @Override
-    public ImportedChat fetch(ConversationCandidate candidate) {
-        return buildFrom(root, root.resolve(candidate.externalConversationId()).normalize())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "No importable Gemini CLI session: " + candidate.externalConversationId()));
-    }
-
-    static Optional<ImportedChat> buildFrom(Path file) {
-        return buildFrom(file.getParent(), file);
-    }
-
-    static Optional<ImportedChat> buildFrom(Path root, Path file) {
-        List<ClaudeTurn> turns = parse(file);
-        if (turns.isEmpty()) {
-            return Optional.empty();
-        }
-        Path fn = file.getFileName();
-        String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
-        String modifiedAt = LocalCliSessions.modifiedAt(file);
-        return Optional.of(LocalCliSessions.toImportedChat(title, turns, modifiedAt,
-                Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
-                LocalCliSessions.sourceUri(file)));
+    Parsed parseSession(Path file) {
+        return new Parsed(null, parse(file));
     }
 
     static List<ClaudeTurn> parse(Path file) {
@@ -161,13 +118,5 @@ public final class GeminiCliHistoryProvider implements ChatProvider {
             return sb.toString();
         }
         return "";
-    }
-
-    private ConversationCandidate candidate(Path file) {
-        Path fn = file.getFileName();
-        String title = (fn != null) ? fn.toString().replaceFirst("\\.jsonl$", "") : "";
-        String modifiedAt = LocalCliSessions.modifiedAt(file);
-        return new ConversationCandidate(Source.geminiCli, ProviderIdentity.cliSessionId(root, file),
-                title, LocalCliSessions.sourceUri(file), modifiedAt);
     }
 }
