@@ -14,21 +14,33 @@ import chatmap.service.ServiceGraph;
 import chatmap.storage.Database;
 import chatmap.ui.ChatMapController;
 
-/** Owns application paths, database/service wiring, background work, and shutdown. */
+/**
+ * Owns application paths, database/service wiring, background work, and shutdown.
+ *
+ * Background work runs on two independent lanes so a slow AI-backend or live web/CDP
+ * fetch (can run for minutes) never queues behind, or blocks, a fast DB-only action
+ * (search, chat-list load, import) and vice versa. Both lanes are single-threaded:
+ * storage access already serializes structurally inside the repositories
+ * (synchronized(conn), see ChatRepository), so neither lane needs more than one
+ * thread for correctness -- this only removes the queueing they forced on each other
+ * by sharing one thread.
+ */
 public final class ChatMapRuntime implements AutoCloseable {
     private static final Duration shutdownTimeout = Duration.ofSeconds(5);
 
     private final ResolvedPaths paths;
     private final ServiceGraph services;
     private final ChatMapController controller;
-    private final SerializedTaskExecutor backgroundExecutor;
+    private final SerializedTaskExecutor dbExecutor;
+    private final SerializedTaskExecutor backendExecutor;
 
-    private ChatMapRuntime(ResolvedPaths paths, ServiceGraph services,
-            ChatMapController controller, SerializedTaskExecutor backgroundExecutor) {
+    private ChatMapRuntime(ResolvedPaths paths, ServiceGraph services, ChatMapController controller,
+            SerializedTaskExecutor dbExecutor, SerializedTaskExecutor backendExecutor) {
         this.paths = paths;
         this.services = services;
         this.controller = controller;
-        this.backgroundExecutor = backgroundExecutor;
+        this.dbExecutor = dbExecutor;
+        this.backendExecutor = backendExecutor;
     }
 
     public static ChatMapRuntime open(List<String> rawArguments) throws Exception {
@@ -43,8 +55,9 @@ public final class ChatMapRuntime implements AutoCloseable {
         var connection = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
         try {
             ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create());
-            SerializedTaskExecutor executor = new SerializedTaskExecutor("chatmap-background");
-            return new ChatMapRuntime(paths, services, new ChatMapController(services), executor);
+            SerializedTaskExecutor dbExecutor = new SerializedTaskExecutor("chatmap-db");
+            SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor("chatmap-ai-backend");
+            return new ChatMapRuntime(paths, services, new ChatMapController(services), dbExecutor, backendExecutor);
         } catch (Exception failure) {
             try {
                 connection.close();
@@ -63,18 +76,31 @@ public final class ChatMapRuntime implements AutoCloseable {
         return controller;
     }
 
+    /** Fast lane: DB-only work (search, list, import, project/tag operations). */
     public Future<?> submit(Runnable task) {
-        return backgroundExecutor.submit(task);
+        return dbExecutor.submit(task);
     }
 
+    /** Fast lane: DB-only work (search, list, import, project/tag operations). */
     public <T> Future<T> submit(Callable<T> task) {
-        return backgroundExecutor.submit(task);
+        return dbExecutor.submit(task);
+    }
+
+    /** Slow lane: AI backend calls (summarize) and live provider fetches (web/CDP). */
+    public Future<?> submitBackendWork(Runnable task) {
+        return backendExecutor.submit(task);
+    }
+
+    /** Slow lane: AI backend calls (summarize) and live provider fetches (web/CDP). */
+    public <T> Future<T> submitBackendWork(Callable<T> task) {
+        return backendExecutor.submit(task);
     }
 
     @Override
     public void close() throws Exception {
-        boolean workerStopped = backgroundExecutor.shutdownAndAwait(shutdownTimeout);
-        if (workerStopped) {
+        boolean dbStopped = dbExecutor.shutdownAndAwait(shutdownTimeout);
+        boolean backendStopped = backendExecutor.shutdownAndAwait(shutdownTimeout);
+        if (dbStopped && backendStopped) {
             services.close();
         } else {
             System.err.println("[ChatMap] Background work did not stop in time; "

@@ -229,12 +229,13 @@ public final class ChatMapApp extends Application {
     }
 
     private void getLatestChat() {
-        // Provider reads may block; run off the FX thread so the UI stays responsive.
-        runInBackground("Importing available chat...", getLatestChatButton, controller::fetchLatestChat);
+        // Provider reads may block (live web/CDP fetch); run on the backend lane.
+        runOnBackendLane("Importing available chat...", getLatestChatButton, controller::fetchLatestChat);
     }
 
     private void showConversationInventory() {
-        runInBackground("Discovering all discoverable conversations...", inventoryButton,
+        // Queries every provider, including the web ones (live CDP fetch); backend lane.
+        runOnBackendLane("Discovering all discoverable conversations...", inventoryButton,
                 controller::conversationInventory, this::showConversationInventoryDialog);
     }
 
@@ -261,8 +262,8 @@ public final class ChatMapApp extends Application {
             status.setText("Select a chat to summarize.");
             return;
         }
-        // Blocking claude CLI call; run off the FX thread.
-        runInBackground("Summarizing chat " + chatId + "...", summarizeButton,
+        // Blocking claude CLI call; run on the backend lane.
+        runOnBackendLane("Summarizing chat " + chatId + "...", summarizeButton,
                 () -> controller.summarizeAndTag(chatId));
     }
 
@@ -282,6 +283,22 @@ public final class ChatMapApp extends Application {
     }
 
     /**
+     * Same as {@link #runInBackground(String, Button, BackgroundCall)}, but for calls
+     * that reach an AI backend or a live web/CDP provider fetch (can run for minutes)
+     * rather than doing DB-only work. Runs on ChatMapRuntime's separate slow lane so
+     * it never makes a search or chat-list load wait behind it.
+     */
+    private void runOnBackendLane(String pendingStatus, Button triggerButton, BackgroundCall call) {
+        backgroundActions.runSnapshotOnBackendLane(pendingStatus, triggerButton, call::run, snapshot -> {
+            applyListState(snapshot);
+            updateSelectionActionStates();
+        }, exception -> {
+            updateSelectionActionStates();
+            reportError(exception);
+        });
+    }
+
+    /**
      * Runs a blocking controller call off the FX thread, then applies its result
      * back on the FX thread via {@code onSuccess} (or reports the error). A null
      * pendingStatus leaves the status line unchanged; a null triggerButton
@@ -291,6 +308,12 @@ public final class ChatMapApp extends Application {
     private <T> void runInBackground(String pendingStatus, Button triggerButton,
             Callable<T> call, Consumer<T> onSuccess) {
         backgroundActions.runValue(pendingStatus, triggerButton, call, onSuccess);
+    }
+
+    /** Backend-lane counterpart of {@link #runInBackground(String, Button, Callable, Consumer)}. */
+    private <T> void runOnBackendLane(String pendingStatus, Button triggerButton,
+            Callable<T> call, Consumer<T> onSuccess) {
+        backgroundActions.runValueOnBackendLane(pendingStatus, triggerButton, call, onSuccess);
     }
 
     private void searchChats() {
@@ -430,10 +453,9 @@ public final class ChatMapApp extends Application {
     private void showChatDetails(long chatId) {
         runInBackground(null, null,
                 () -> {
-                    // Record the selection and load details on the executor, never on the FX
-                    // thread: the controller lock can be held for minutes by a summarize
-                    // (claude CLI) or live fetch, so touching it on the FX thread would
-                    // freeze the UI. Here it just queues behind that work instead.
+                    // Record the selection and load details on the DB lane, never on the FX
+                    // thread. summarize (claude CLI) and live fetch run on the separate
+                    // backend lane, so this queues only behind other DB-only work, not them.
                     controller.selectChat(chatId);
                     ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
                     ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
