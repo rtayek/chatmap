@@ -3,6 +3,7 @@ package chatmap.app;
 import java.time.Duration;
 
 import chatmap.backend.ai.ClaudeCliBackend;
+import chatmap.backend.ai.DefaultAiBackends;
 import chatmap.backend.providers.DefaultChatProviders;
 import chatmap.service.ServiceGraph.Integrations;
 
@@ -15,6 +16,7 @@ public final class DefaultServiceIntegrations {
     public static Integrations create() {
         return new Integrations(
                 DefaultChatProviders.ordered(),
-                new ClaudeCliBackend(Duration.ofMinutes(3)));
+                new ClaudeCliBackend(Duration.ofMinutes(3)),
+                DefaultAiBackends.defaults());
     }
 }

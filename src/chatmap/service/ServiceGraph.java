@@ -3,6 +3,7 @@ package chatmap.service;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import chatmap.backend.ai.AiBackend;
@@ -41,20 +42,29 @@ public record ServiceGraph(
         ExportService exportService,
         SearchService searchService,
         ProjectService projectService,
-        TagService tagService) implements AutoCloseable {
+        TagService tagService,
+        PromptService promptService) implements AutoCloseable {
 
     /**
      * Optional outside-world capabilities. Core import/search/export can run with
      * {@link #none()}; UI and summarize entry points opt into concrete providers.
      */
-    public record Integrations(List<ChatProvider> chatProviders, AiBackend summaryBackend) {
+    public record Integrations(
+            List<ChatProvider> chatProviders,
+            AiBackend summaryBackend,
+            Map<String, AiBackend> promptBackends) {
         public Integrations {
             chatProviders = List.copyOf(Objects.requireNonNull(chatProviders, "chatProviders"));
             summaryBackend = Objects.requireNonNull(summaryBackend, "summaryBackend");
+            promptBackends = Map.copyOf(Objects.requireNonNull(promptBackends, "promptBackends"));
+        }
+
+        public Integrations(List<ChatProvider> chatProviders, AiBackend summaryBackend) {
+            this(chatProviders, summaryBackend, Map.of());
         }
 
         public static Integrations none() {
-            return new Integrations(List.of(), new UnavailableSummaryBackend());
+            return new Integrations(List.of(), new UnavailableSummaryBackend(), Map.of());
         }
     }
 
@@ -88,11 +98,15 @@ public record ServiceGraph(
         SearchService searchService = new SearchService(search);
         ProjectService projectService = new ProjectService(projects, chats);
         TagService tagService = new TagService(tags, chats);
+        PromptService promptService = new PromptService(
+                integrations.promptBackends(),
+                importService,
+                java.time.Clock.systemUTC());
 
         return new ServiceGraph(connection, databaseLock, chats, messages, projects, tags, summaries, search,
                 importService, archiveImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
-                exportService, searchService, projectService, tagService);
+                exportService, searchService, projectService, tagService, promptService);
     }
 
     /** Closes the underlying connection. */

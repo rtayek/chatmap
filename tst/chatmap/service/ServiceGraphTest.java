@@ -63,4 +63,12 @@ class ServiceGraphTest {
             assertEquals("Injected Chat", graph.chats().findById(resolution.chatId()).orElseThrow().title());
         }
     }
+
+    @Test
+    void promptServiceIsProvidedByServiceGraph() throws Exception {
+        try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
+                ServiceGraph graph = ServiceGraph.create(connection)) {
+            org.junit.jupiter.api.Assertions.assertNotNull(graph.promptService());
+        }
+    }
 }

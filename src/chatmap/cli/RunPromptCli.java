@@ -50,16 +50,19 @@ public final class RunPromptCli {
         }
 
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
-            PromptService promptService = new PromptService(
-                    backends,
-                    null,
-                    context.services().importService(),
-                    clock,
-                    context.paths().transcriptsDirectory());
+            PromptService promptService = context.services().promptService();
+            if (backends != null && !backends.isEmpty() && !backends.equals(DefaultAiBackends.defaults())) {
+                promptService = new PromptService(
+                        backends,
+                        null,
+                        context.services().importService(),
+                        clock,
+                        context.paths().transcriptsDirectory());
+            }
 
             if (!promptService.hasBackend(backendId)) {
                 throw new IllegalArgumentException("Unknown backend '" + backendId + "'. Available backends: "
-                        + promptService.backends().stream().map(b -> b.id()).toList());
+                        + promptService.backends().stream().map(chatmap.service.BackendDescriptor::id).toList());
             }
 
             return promptService.submit(backendId, prompt, sessionId);
