@@ -43,12 +43,15 @@ public final class ExportService {
         this.tags = Objects.requireNonNull(tags, "tags");
     }
 
+    /** Loads a chat and its messages as a single consistent snapshot. */
     public Optional<ChatExportModel> loadChat(long chatId) throws SQLException {
-        Optional<Chat> chat = chats.findById(chatId);
-        if (chat.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(new ChatExportModel(chat.get(), messages.findByChat(chatId)));
+        return chats.transactions().inTransaction(() -> {
+            Optional<Chat> chat = chats.findById(chatId);
+            if (chat.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new ChatExportModel(chat.get(), messages.findByChat(chatId)));
+        });
     }
 
     public Optional<String> exportChatMarkdown(long chatId) throws SQLException {
@@ -68,26 +71,35 @@ public final class ExportService {
         return true;
     }
 
+    /**
+     * Loads a project handoff — project, its chats, their messages, and their
+     * tags — as a single consistent snapshot. Without the transaction, a write
+     * landing between any of the underlying reads (e.g. a chat reassigned away
+     * from this project mid-export) could produce a torn handoff; design.md
+     * calls this export "deterministic," which only holds if it's atomic.
+     */
     public Optional<ProjectHandoffModel> loadProjectHandoff(long projectId, String exportedAt) throws SQLException {
-        Optional<Project> project = projects.findById(projectId);
-        if (project.isEmpty()) {
-            return Optional.empty();
-        }
+        return chats.transactions().inTransaction(() -> {
+            Optional<Project> project = projects.findById(projectId);
+            if (project.isEmpty()) {
+                return Optional.empty();
+            }
 
-        List<Chat> projectChats = chats.findByProject(projectId);
-        List<Long> chatIds = projectChats.stream().map(Chat::id).toList();
-        Map<Long, List<Message>> messagesByChat = messages.findByChatIds(chatIds);
-        Map<Long, List<Tag>> tagsByChat = tags.findByChatIds(chatIds);
+            List<Chat> projectChats = chats.findByProject(projectId);
+            List<Long> chatIds = projectChats.stream().map(Chat::id).toList();
+            Map<Long, List<Message>> messagesByChat = messages.findByChatIds(chatIds);
+            Map<Long, List<Tag>> tagsByChat = tags.findByChatIds(chatIds);
 
-        List<ProjectHandoffModel.ChatEntry> entries = new ArrayList<>();
-        for (Chat chat : projectChats) {
-            entries.add(new ProjectHandoffModel.ChatEntry(
-                    chat,
-                    messagesByChat.getOrDefault(chat.id(), List.of()),
-                    tagsByChat.getOrDefault(chat.id(), List.of())));
-        }
+            List<ProjectHandoffModel.ChatEntry> entries = new ArrayList<>();
+            for (Chat chat : projectChats) {
+                entries.add(new ProjectHandoffModel.ChatEntry(
+                        chat,
+                        messagesByChat.getOrDefault(chat.id(), List.of()),
+                        tagsByChat.getOrDefault(chat.id(), List.of())));
+            }
 
-        return Optional.of(new ProjectHandoffModel(project.get(), exportedAt, entries));
+            return Optional.of(new ProjectHandoffModel(project.get(), exportedAt, entries));
+        });
     }
 
     public Optional<String> exportProjectHandoff(long projectId, String exportedAt) throws SQLException {
