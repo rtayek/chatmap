@@ -23,18 +23,15 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToolBar;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 /** Minimal JavaFX list/detail UI for file import and selected-chat Markdown export. */
 public final class ChatMapApp extends Application {
-    private static final String COMPACT_BUTTON_STYLE = "-fx-padding: 3 7 3 7;";
 
     private ChatMapRuntime runtime;
     private ChatMapController controller;
@@ -70,14 +67,42 @@ public final class ChatMapApp extends Application {
                 (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
         detail = ChatMapViewBuilder.createDetailTextArea();
 
-        ToolBar toolbar = createToolbar();
-        HBox searchBar = createSearchBar();
-        HBox projectBar = createProjectBar();
-        HBox tagBar = createTagBar();
+        ChatMapViewBuilder.ToolbarWidgets toolbarWidgets = ChatMapViewBuilder.createToolbar(
+                fontSizeState.current(),
+                () -> importFile("Import text", "*.txt"),
+                () -> importFile("Import Markdown", "*.md", "*.markdown"),
+                () -> importFile("Import ChatGPT JSON", "*.json"),
+                this::importChatGptArchive,
+                this::exportSelectedChat,
+                this::getLatestChat,
+                this::showConversationInventory,
+                this::summarizeSelectedChat,
+                size -> applyFontSize(fontSizeState.set(size)),
+                this::reportError);
+        exportChatButton = toolbarWidgets.exportChatButton();
+        getLatestChatButton = toolbarWidgets.getLatestChatButton();
+        inventoryButton = toolbarWidgets.inventoryButton();
+        summarizeButton = toolbarWidgets.summarizeButton();
+        fontSizeChoice = toolbarWidgets.fontSizeChoice();
+
+        ChatMapViewBuilder.SearchBarWidgets searchBarWidgets = ChatMapViewBuilder.createSearchBar(
+                this::searchChats, this::clearSearchAndFilters, this::reportError);
+        searchField = searchBarWidgets.searchField();
+
+        ChatMapViewBuilder.ProjectBarWidgets projectBarWidgets = ChatMapViewBuilder.createProjectBar(
+                this::createProject, this::assignProject, this::clearProject, this::filterByProject,
+                this::reportError);
+        projectChoice = projectBarWidgets.projectChoice();
+
+        ChatMapViewBuilder.TagBarWidgets tagBarWidgets = ChatMapViewBuilder.createTagBar(
+                this::createTag, this::addTag, this::removeTag, this::filterByTag,
+                this::clearSearchAndFilters, this::reportError);
+        tagChoice = tagBarWidgets.tagChoice();
 
         SplitPane content = new SplitPane(chatList, detail);
         content.setDividerPositions(0.32);
-        root = ChatMapViewBuilder.assembleRootPane(toolbar, searchBar, projectBar, tagBar, content, status);
+        root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.toolBar(), searchBarWidgets.searchBar(),
+                projectBarWidgets.projectBar(), tagBarWidgets.tagBar(), content, status);
 
         refreshOrganizationChoices();
         runInBackground("Loading chats...", null, () -> controller.loadAllChats());
@@ -90,96 +115,11 @@ public final class ChatMapApp extends Application {
     }
 
 
-
-
-
-    private ToolBar createToolbar() {
-        exportChatButton = button("Export Chat Markdown", this::exportSelectedChat);
-        exportChatButton.setDisable(true);
-        getLatestChatButton = button("Import available chat", this::getLatestChat);
-        inventoryButton = button("Conversation Inventory", this::showConversationInventory);
-        summarizeButton = button("Summarize & tag", this::summarizeSelectedChat);
-        summarizeButton.setDisable(true);
-
-        fontSizeChoice = new ComboBox<>(FXCollections.observableArrayList(FontSizeState.SIZES));
-        fontSizeChoice.setValue(fontSizeState.current());
-        fontSizeChoice.setOnAction(actionEvent -> {
-            Integer selectedSize = fontSizeChoice.getValue();
-            if (selectedSize != null) {
-                applyFontSize(fontSizeState.set(selectedSize));
-            }
-        });
-
-        return new ToolBar(
-                button("Import Text", () -> importFile("Import text", "*.txt")),
-                button("Import Markdown", () -> importFile("Import Markdown", "*.md", "*.markdown")),
-                button("Import ChatGPT JSON", () -> importFile("Import ChatGPT JSON", "*.json")),
-                button("Import ChatGPT Archive", this::importChatGptArchive),
-                exportChatButton,
-                getLatestChatButton,
-                inventoryButton,
-                summarizeButton,
-                new Label("Font"),
-                fontSizeChoice);
-    }
-
-    private HBox createSearchBar() {
-        searchField = new TextField();
-        searchField.setPromptText("Search message text");
-        searchField.setOnAction(actionEvent -> {
-            actionEvent.consume();
-            runWithFeedback(this::searchChats);
-        });
-        return new HBox(8,
-                searchField,
-                button("Search", this::searchChats),
-                button("Clear", this::clearSearchAndFilters));
-    }
-
-    private HBox createProjectBar() {
-        projectChoice = new ComboBox<>();
-        projectChoice.setPromptText("Project");
-        projectChoice.setConverter(ChatMapViewBuilder.namedProjectConverter());
-        return new HBox(8,
-                new Label("Project"),
-                projectChoice,
-                button("New", this::createProject),
-                button("Assign", this::assignProject),
-                button("Clear Project", this::clearProject),
-                button("Filter", this::filterByProject));
-    }
-
-    private HBox createTagBar() {
-        tagChoice = new ComboBox<>();
-        tagChoice.setPromptText("Tag");
-        tagChoice.setConverter(ChatMapViewBuilder.namedTagConverter());
-        return new HBox(8,
-                new Label("Tag"),
-                tagChoice,
-                button("New", this::createTag),
-                button("Add", this::addTag),
-                button("Remove", this::removeTag),
-                button("Filter", this::filterByTag),
-                button("Clear Filters", this::clearSearchAndFilters));
-    }
-
-
-
     @Override
     public void stop() throws Exception {
         if (runtime != null) {
             runtime.close();
         }
-    }
-
-    private Button button(String text, ThrowingRunnable action) {
-        Button button = new Button(text);
-        button.setStyle(COMPACT_BUTTON_STYLE);
-        button.setOnAction(actionEvent -> {
-            actionEvent.consume();
-            runWithFeedback(action);
-        });
-        return button;
     }
 
     private void importFile(String title, String... patterns) {
@@ -455,8 +395,6 @@ public final class ChatMapApp extends Application {
         detail.setText(ChatDetailRenderer.render(model, summary));
     }
 
-
-
     private void applyListState(ChatListState.Snapshot snapshot) {
         applyingListState = true;
         try {
@@ -495,14 +433,6 @@ public final class ChatMapApp extends Application {
         }
     }
 
-    private void runWithFeedback(ThrowingRunnable action) {
-        try {
-            action.run();
-        } catch (Exception e) {
-            reportError(e);
-        }
-    }
-
     private void reportError(Exception e) {
         status.setText("Error: " + e.getMessage());
         ChatMapDialogs.showError("Operation failed", e.getMessage());
@@ -530,13 +460,6 @@ public final class ChatMapApp extends Application {
                 () -> applyFontSize(fontSizeState.reset()));
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.NUMPAD0, KeyCombination.CONTROL_DOWN),
                 () -> applyFontSize(fontSizeState.reset()));
-    }
-
-
-
-    @FunctionalInterface
-    private interface ThrowingRunnable {
-        void run() throws Exception;
     }
 
     @FunctionalInterface
