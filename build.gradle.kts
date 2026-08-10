@@ -165,6 +165,10 @@ eclipse {
                         // Point each library entry at the copied jar in lib/ (project-relative).
                         lib.path = "lib/" + File(lib.path).name
                         lib.sourcePath = null
+                        val scope = lib.entryAttributes["gradle_used_by_scope"]?.toString()
+                        if (scope.isNullOrEmpty()) {
+                            lib.entryAttributes["gradle_used_by_scope"] = "test"
+                        }
                     }
             }
         }

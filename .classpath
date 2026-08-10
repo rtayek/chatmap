@@ -87,7 +87,7 @@
 	</classpathentry>
 	<classpathentry kind="lib" path="lib/apiguardian-api-1.1.2.jar">
 		<attributes>
-			<attribute name="gradle_used_by_scope" value=""/>
+			<attribute name="gradle_used_by_scope" value="test"/>
 			<attribute name="test" value="true"/>
 		</attributes>
 	</classpathentry>

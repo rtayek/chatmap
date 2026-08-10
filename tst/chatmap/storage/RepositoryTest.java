@@ -250,9 +250,11 @@ class RepositoryTest {
         Object lock = new Object();
         TransactionRunner runner = new TransactionRunner(conn, lock);
         boolean[] ran = new boolean[1];
+        java.util.concurrent.CountDownLatch started = new java.util.concurrent.CountDownLatch(1);
 
         synchronized (lock) {
-            java.util.concurrent.CompletableFuture<Void> future = java.util.concurrent.CompletableFuture.runAsync(() -> {
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                started.countDown();
                 try {
                     runner.inTransaction(() -> {
                         ran[0] = true;
@@ -263,7 +265,7 @@ class RepositoryTest {
                 }
             });
 
-            Thread.sleep(50);
+            assertTrue(started.await(2, java.util.concurrent.TimeUnit.SECONDS));
             assertFalse(ran[0], "Transaction should be blocked while lock is held by caller");
         }
 
