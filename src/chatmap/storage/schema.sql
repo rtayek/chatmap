@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS chats (
     sourceUri   TEXT,
     contentHash TEXT,
     sourceUpdatedAt TEXT,
-    lastImportedAt TEXT
+    lastImportedAt TEXT,
+    originatedBy TEXT NOT NULL DEFAULT 'IMPORTED'
 );
 
 CREATE INDEX IF NOT EXISTS chatsProjectIndex ON chats(projectId);

@@ -10,12 +10,12 @@ import chatmap.domain.Source;
 final class ChatRowMapper {
     static final String SELECT_COLUMNS =
             "SELECT id, projectId, source, title, createdAt, updatedAt, importedAt, archived, "
-            + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt ";
+            + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy ";
 
     static final String SELECT_C_COLUMNS =
             "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, "
             + "c.importedAt, c.archived, c.externalConversationId, c.sourceUri, "
-            + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt ";
+            + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt, c.originatedBy ";
 
     private ChatRowMapper() {
     }
@@ -41,6 +41,7 @@ final class ChatRowMapper {
                         rs.getString("sourceUri"),
                         rs.getString("contentHash"),
                         rs.getString("sourceUpdatedAt"),
-                        rs.getString("lastImportedAt")));
+                        rs.getString("lastImportedAt")),
+                rs.getString("originatedBy"));
     }
 }

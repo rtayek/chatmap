@@ -47,8 +47,8 @@ public final class ChatRepository {
     public Chat insert(Chat chat) throws SQLException {
         synchronized (conn) {
             String sql = "INSERT INTO chats (projectId, source, title, createdAt, updatedAt, importedAt, archived, "
-                    + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 setNullableLong(ps, 1, chat.projectId());
                 ps.setString(2, chat.source().dbValue());
@@ -62,6 +62,7 @@ public final class ChatRepository {
                 ps.setString(10, chat.contentHash());
                 ps.setString(11, chat.sourceUpdatedAt());
                 ps.setString(12, chat.lastImportedAt());
+                ps.setString(13, chat.originatedBy());
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     keys.next();
@@ -293,7 +294,7 @@ public final class ChatRepository {
         synchronized (conn) {
             String sql = "UPDATE chats SET source = ?, title = ?, createdAt = ?, updatedAt = ?, "
                     + "externalConversationId = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, "
-                    + "lastImportedAt = ? WHERE id = ?";
+                    + "lastImportedAt = ?, originatedBy = ? WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, source.dbValue());
                 ps.setString(2, title);
@@ -304,7 +305,8 @@ public final class ChatRepository {
                 ps.setString(7, contentHash);
                 ps.setString(8, sourceUpdatedAt);
                 ps.setString(9, lastImportedAt);
-                ps.setLong(10, id);
+                ps.setString(10, "IMPORTED"); // updateFromSource is for imports
+                ps.setLong(11, id);
                 ps.executeUpdate();
             }
             return findById(id).orElseThrow();

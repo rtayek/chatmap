@@ -16,12 +16,24 @@ public record Chat(
         String updatedAt,
         String importedAt,
         boolean archived,
-        ImportMetadata importMetadata) {
+        ImportMetadata importMetadata,
+        String originatedBy) {
+
+    public Chat(long id, Long projectId, Source source, String title, String createdAt,
+            String updatedAt, String importedAt, boolean archived, ImportMetadata importMetadata) {
+        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived, importMetadata, "IMPORTED");
+    }
 
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
-                ImportMetadata.none(updatedAt, importedAt));
+                ImportMetadata.none(updatedAt, importedAt), "IMPORTED");
+    }
+
+    public Chat(long id, Long projectId, Source source, String title, String createdAt,
+            String updatedAt, String importedAt, boolean archived, String originatedBy) {
+        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
+                ImportMetadata.none(updatedAt, importedAt), originatedBy);
     }
 
     public String externalConversationId() {
@@ -69,6 +81,7 @@ public record Chat(
         private String contentHash;
         private String sourceUpdatedAt;
         private String lastImportedAt;
+        private String originatedBy;
 
         private Builder(Chat chat) {
             this.id = chat.id;
@@ -84,6 +97,7 @@ public record Chat(
             this.contentHash = chat.importMetadata.transcriptHash();
             this.sourceUpdatedAt = chat.importMetadata.sourceUpdatedAt();
             this.lastImportedAt = chat.importMetadata.lastImportedAt();
+            this.originatedBy = chat.originatedBy;
         }
 
         public Builder id(long id) {
@@ -136,10 +150,15 @@ public record Chat(
             return this;
         }
 
+        public Builder originatedBy(String originatedBy) {
+            this.originatedBy = originatedBy;
+            return this;
+        }
+
         public Chat build() {
             return new Chat(id, projectId, source, title, createdAt, updatedAt, importedAt,
                     archived, new ImportMetadata(externalConversationId, sourceUri,
-                            contentHash, sourceUpdatedAt, lastImportedAt));
+                            contentHash, sourceUpdatedAt, lastImportedAt), originatedBy);
         }
     }
 }

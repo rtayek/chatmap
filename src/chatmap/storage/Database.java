@@ -171,6 +171,7 @@ public final class Database {
         addColumnIfMissing(conn, "chats", "contentHash", "TEXT");
         addColumnIfMissing(conn, "chats", "sourceUpdatedAt", "TEXT");
         addColumnIfMissing(conn, "chats", "lastImportedAt", "TEXT");
+        addColumnIfMissing(conn, "chats", "originatedBy", "TEXT NOT NULL DEFAULT 'IMPORTED'");
         addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
 
         try (Statement st = conn.createStatement()) {
