@@ -53,6 +53,22 @@ public final class ProjectRepository {
         }
     }
 
+    /** Case-insensitive lookup by name, for callers that must not create duplicate projects. */
+    public Optional<Project> findByName(String name) throws SQLException {
+        synchronized (conn) {
+            String sql = "SELECT id, name, description, createdAt, updatedAt FROM projects WHERE name = ? COLLATE NOCASE";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, name);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(read(rs));
+                }
+            }
+        }
+    }
+
     public List<Project> findAll() throws SQLException {
         synchronized (conn) {
             String sql = "SELECT id, name, description, createdAt, updatedAt "
