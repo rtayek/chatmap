@@ -13,26 +13,34 @@ public final class TransactionRunner {
     }
 
     private final Connection conn;
+    private final Object lock;
 
     public TransactionRunner(Connection conn) {
-        this.conn = conn;
+        this(conn, conn);
+    }
+
+    public TransactionRunner(Connection conn, Object lock) {
+        this.conn = java.util.Objects.requireNonNull(conn, "conn");
+        this.lock = lock != null ? lock : conn;
     }
 
     public <T> T inTransaction(Work<T> work) throws SQLException {
-        if (!conn.getAutoCommit()) {
-            return inCallerTransaction(work);
-        }
+        synchronized (lock) {
+            if (!conn.getAutoCommit()) {
+                return inCallerTransaction(work);
+            }
 
-        conn.setAutoCommit(false);
-        try {
-            T result = work.run();
-            conn.commit();
-            return result;
-        } catch (SQLException | RuntimeException e) {
-            conn.rollback();
-            throw e;
-        } finally {
-            conn.setAutoCommit(true);
+            conn.setAutoCommit(false);
+            try {
+                T result = work.run();
+                conn.commit();
+                return result;
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            } finally {
+                conn.setAutoCommit(true);
+            }
         }
     }
 

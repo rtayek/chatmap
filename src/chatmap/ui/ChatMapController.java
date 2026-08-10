@@ -40,6 +40,7 @@ public final class ChatMapController {
     private final ConversationInventoryService conversationInventoryService;
     private final ChatListState listState;
     private final Object stateLock = new Object();
+    private final Object databaseLock;
 
     private ChatFilterCriteria filterCriteria = ChatFilterCriteria.EMPTY;
 
@@ -52,7 +53,7 @@ public final class ChatMapController {
             SummaryService summaryService,
             LiveChatFetchService liveChatFetchService) {
         this(importService, exportService, searchService, projectService, tagService,
-                summaryService, liveChatFetchService, null, null);
+                summaryService, liveChatFetchService, null, null, new Object());
     }
 
     public ChatMapController(
@@ -65,7 +66,7 @@ public final class ChatMapController {
             LiveChatFetchService liveChatFetchService,
             ChatGptArchiveImportService archiveImportService) {
         this(importService, exportService, searchService, projectService, tagService,
-                summaryService, liveChatFetchService, archiveImportService, null);
+                summaryService, liveChatFetchService, archiveImportService, null, new Object());
     }
 
     public ChatMapController(
@@ -78,6 +79,15 @@ public final class ChatMapController {
             LiveChatFetchService liveChatFetchService,
             ChatGptArchiveImportService archiveImportService,
             ConversationInventoryService conversationInventoryService) {
+        this(importService, exportService, searchService, projectService, tagService, summaryService,
+                liveChatFetchService, archiveImportService, conversationInventoryService, new Object());
+    }
+
+    private ChatMapController(
+            ImportService importService, ExportService exportService, SearchService searchService,
+            ProjectService projectService, TagService tagService, SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService, ChatGptArchiveImportService archiveImportService,
+            ConversationInventoryService conversationInventoryService, Object databaseLock) {
         this.importService = importService;
         this.exportService = exportService;
         this.searchService = searchService;
@@ -87,6 +97,7 @@ public final class ChatMapController {
         this.liveChatFetchService = liveChatFetchService;
         this.archiveImportService = archiveImportService;
         this.conversationInventoryService = conversationInventoryService;
+        this.databaseLock = databaseLock;
         listState = new ChatListState();
     }
 
@@ -95,7 +106,7 @@ public final class ChatMapController {
         this(services.importService(), services.exportService(), services.searchService(),
                 services.projectService(), services.tagService(), services.summaryService(),
                 services.liveChatFetchService(), services.archiveImportService(),
-                services.conversationInventoryService());
+                services.conversationInventoryService(), services.databaseLock());
     }
 
     public ChatFilterCriteria filterCriteria() {
@@ -105,43 +116,47 @@ public final class ChatMapController {
     }
 
     public ChatListState.Snapshot loadAllChats() throws SQLException {
-        List<SearchResult> results = searchService.searchResults("");
+        synchronized (databaseLock) {
+            List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
             resetFiltersLocked();
             return listState.showAll(results, "Loaded " + results.size() + " chats.");
+            }
         }
     }
 
     public ChatListState.Snapshot searchChats(String query) throws SQLException {
-        synchronized (stateLock) {
+        synchronized (databaseLock) { synchronized (stateLock) {
             filterCriteria = filterCriteria.withQuery(query);
             if (filterCriteria.isEmpty()) {
                 return loadAllChatsInternal();
             }
             List<SearchResult> matches = currentResultsLocked();
             return listState.showSearchResults(matches, formatMatchStatus(matches.size()));
-        }
+        } }
     }
 
     public ChatListState.Snapshot importFile(Path file) throws IOException, SQLException {
-        Chat imported = importService.importFile(file);
+        synchronized (databaseLock) { Chat imported = importService.importFile(file);
         List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
             resetFiltersLocked();
             listState.showAll(results, "Imported " + imported.title());
             return listState.select(imported.id());
-        }
+        } }
     }
 
     public ChatListState.Snapshot importChatGptArchive(Path zipFile) throws Exception {
-        if (archiveImportService == null) {
-            throw new IllegalStateException("ChatGPT archive import is not configured.");
-        }
-        BulkImportResult result = archiveImportService.importArchive(zipFile);
-        List<SearchResult> results = searchService.searchResults("");
-        synchronized (stateLock) {
-            resetFiltersLocked();
-            return listState.showAll(results, result.summary());
+        synchronized (databaseLock) {
+            if (archiveImportService == null) {
+                throw new IllegalStateException("ChatGPT archive import is not configured.");
+            }
+            BulkImportResult result = archiveImportService.importArchive(zipFile);
+            List<SearchResult> results = searchService.searchResults("");
+            synchronized (stateLock) {
+                resetFiltersLocked();
+                return listState.showAll(results, result.summary());
+            }
         }
     }
 
@@ -149,7 +164,7 @@ public final class ChatMapController {
         if (conversationInventoryService == null) {
             throw new IllegalStateException("Conversation inventory is not configured.");
         }
-        return conversationInventoryService.inventory();
+        synchronized (databaseLock) { return conversationInventoryService.inventory(); }
     }
 
     public ChatListState.Snapshot selectChat(long chatId) {
@@ -162,91 +177,92 @@ public final class ChatMapController {
      * Fetches the latest live chat (importing it) and selects it, using the same
      * fallback order as the CLI: live provider, else the most recent stored chat.
      * Blocking (HTTP with retry/backoff) — callers should run it off the UI thread.
-     * Long-running provider checks run lock-free to keep UI read operations responsive.
+     * Long-running provider checks run before the database lock is acquired to keep UI reads responsive.
      */
     public ChatListState.Snapshot fetchLatestChat() throws Exception {
         LiveChatFetchService.Resolution resolution = liveChatFetchService.resolve(null);
-        List<SearchResult> results = searchService.searchResults("");
+        synchronized (databaseLock) { List<SearchResult> results = searchService.searchResults("");
         synchronized (stateLock) {
             resetFiltersLocked();
             listState.showAll(results, "Using " + resolution.how());
             return listState.select(resolution.chatId());
-        }
+        } }
     }
 
     /**
      * Summarizes and tags the given chat, then re-selects it so the new tags (and
      * summary, via {@link #latestSummary}) are reflected. Blocking (calls the
      * claude CLI) — callers should run it off the UI thread.
-     * Long-running CLI process execution runs lock-free to keep UI read operations responsive.
+     * The database lock covers the complete operation so the shared JDBC connection cannot be
+     * used concurrently; the UI invokes this method on the background executor.
      */
     public ChatListState.Snapshot summarizeAndTag(long chatId) throws Exception {
-        summaryService.summarize(chatId);
-        return refreshCurrent("Summarized and tagged chat " + chatId, chatId);
+        synchronized (databaseLock) { summaryService.summarize(chatId);
+            return refreshCurrent("Summarized and tagged chat " + chatId, chatId); }
     }
 
     public Optional<ChatExportModel> loadChatDetails(long chatId) throws SQLException {
-        return exportService.loadChat(chatId);
+        synchronized (databaseLock) { return exportService.loadChat(chatId); }
     }
 
     public Optional<ChatSummary> latestSummary(long chatId) throws SQLException {
-        return summaryService.latestSummary(chatId);
+        synchronized (databaseLock) { return summaryService.latestSummary(chatId); }
     }
 
     public boolean exportChatMarkdown(long chatId, Path outputPath) throws SQLException, IOException {
-        return exportService.writeChatMarkdown(chatId, outputPath);
+        synchronized (databaseLock) { return exportService.writeChatMarkdown(chatId, outputPath); }
     }
 
     public List<Project> listProjects() throws SQLException {
-        return projectService.listAll();
+        synchronized (databaseLock) { return projectService.listAll(); }
     }
 
     public Project createProject(String name) throws SQLException {
         String projectName = requireName(name, "Project name");
         String now = Instant.now().toString();
-        return projectService.create(new Project(0, projectName, null, now, now));
+        synchronized (databaseLock) { return projectService.create(new Project(0, projectName, null, now, now)); }
     }
 
     public ChatListState.Snapshot assignProject(long chatId, long projectId) throws SQLException {
-        projectService.assignChat(chatId, projectId);
-        return refreshCurrent("Project assigned", chatId);
+        synchronized (databaseLock) { projectService.assignChat(chatId, projectId);
+            return refreshCurrent("Project assigned", chatId); }
     }
 
     public ChatListState.Snapshot clearProject(long chatId) throws SQLException {
-        projectService.removeChat(chatId);
-        return refreshCurrent("Project cleared", chatId);
+        synchronized (databaseLock) { projectService.removeChat(chatId);
+            return refreshCurrent("Project cleared", chatId); }
     }
 
     public ChatListState.Snapshot filterByProject(long projectId) throws SQLException {
-        synchronized (stateLock) {
+        synchronized (databaseLock) { synchronized (stateLock) {
             filterCriteria = filterCriteria.withProjectId(projectId);
             return filteredSnapshotLocked();
-        }
+        } }
     }
 
     public List<Tag> listTags() throws SQLException {
-        return tagService.listAll();
+        synchronized (databaseLock) { return tagService.listAll(); }
     }
 
     public Tag createTag(String name) throws SQLException {
-        return tagService.create(new Tag(0, requireName(name, "Tag name")));
+        synchronized (databaseLock) { return tagService.create(new Tag(0, requireName(name, "Tag name"))); }
     }
 
     public ChatListState.Snapshot addTag(long chatId, long tagId) throws SQLException {
-        tagService.addToChat(chatId, tagId);
-        return refreshCurrent("Tag added", chatId);
+        synchronized (databaseLock) { tagService.addToChat(chatId, tagId);
+            return refreshCurrent("Tag added", chatId); }
     }
 
     public ChatListState.Snapshot removeTag(long chatId, long tagId) throws SQLException {
-        tagService.removeFromChat(chatId, tagId);
-        return refreshCurrent("Tag removed", chatId);
+        synchronized (databaseLock) { tagService.removeFromChat(chatId, tagId);
+            return refreshCurrent("Tag removed", chatId); }
     }
 
     public ChatListState.Snapshot filterByTag(long tagId) throws SQLException {
-        synchronized (stateLock) {
+        synchronized (databaseLock) { synchronized (stateLock) {
             filterCriteria = filterCriteria.withTagId(tagId);
             return filteredSnapshotLocked();
-        }
+        } }
     }
 
     public ChatListState.Snapshot clearFilters() throws SQLException {

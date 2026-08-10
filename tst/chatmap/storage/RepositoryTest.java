@@ -244,4 +244,34 @@ class RepositoryTest {
         assertTrue(summaries.findLatestForChat(chat.id()).isEmpty());
         assertEquals(summary, summaries.findLatestStoredForChat(chat.id()).orElseThrow());
     }
+
+    @Test
+    void transactionRunnerSynchronizesConcurrentlyOnLock() throws Exception {
+        Object lock = new Object();
+        TransactionRunner runner = new TransactionRunner(conn, lock);
+        boolean[] ran = new boolean[1];
+
+        synchronized (lock) {
+            java.util.concurrent.CompletableFuture<Void> future = java.util.concurrent.CompletableFuture.runAsync(() -> {
+                try {
+                    runner.inTransaction(() -> {
+                        ran[0] = true;
+                        return null;
+                    });
+                } catch (SQLException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            Thread.sleep(50);
+            assertFalse(ran[0], "Transaction should be blocked while lock is held by caller");
+        }
+
+        runner.inTransaction(() -> {
+            chats.insert(new Chat(0, null, Source.plainText, "ThreadSafe", null, null, "2026-08-09T00:00:00Z", false));
+            return null;
+        });
+
+        assertEquals(1, chats.findAll().size());
+    }
 }

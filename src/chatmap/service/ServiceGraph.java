@@ -17,6 +17,7 @@ import chatmap.storage.ProjectRepository;
 import chatmap.storage.SearchRepository;
 import chatmap.storage.SummaryRepository;
 import chatmap.storage.TagRepository;
+import chatmap.storage.TransactionRunner;
 
 /**
  * The single wiring of repositories and services over one SQLite connection.
@@ -25,6 +26,7 @@ import chatmap.storage.TagRepository;
  */
 public record ServiceGraph(
         Connection connection,
+        Object databaseLock,
         ChatRepository chats,
         MessageRepository messages,
         ProjectRepository projects,
@@ -70,22 +72,24 @@ public record ServiceGraph(
         TagRepository tags = new TagRepository(connection);
         SummaryRepository summaries = new SummaryRepository(connection);
         SearchRepository search = new SearchRepository(connection);
+        Object databaseLock = new Object();
 
-        ImportService importService = new ImportService(chats, messages);
+        TransactionRunner transactionRunner = new TransactionRunner(connection, databaseLock);
+        ImportService importService = new ImportService(chats, messages, transactionRunner);
         ChatGptArchiveImportService archiveImportService =
                 new ChatGptArchiveImportService(importService);
         ConversationInventoryService conversationInventoryService =
                 new ConversationInventoryService(integrations.chatProviders(), chats);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
-                integrations.summaryBackend());
+                integrations.summaryBackend(), transactionRunner);
         LiveChatFetchService liveChatFetchService =
-                new LiveChatFetchService(integrations.chatProviders(), importService, chats);
+                new LiveChatFetchService(integrations.chatProviders(), importService, chats, databaseLock);
         ExportService exportService = new ExportService(chats, messages, projects, tags);
         SearchService searchService = new SearchService(search);
         ProjectService projectService = new ProjectService(projects, chats);
         TagService tagService = new TagService(tags, chats);
 
-        return new ServiceGraph(connection, chats, messages, projects, tags, summaries, search,
+        return new ServiceGraph(connection, databaseLock, chats, messages, projects, tags, summaries, search,
                 importService, archiveImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
                 exportService, searchService, projectService, tagService);

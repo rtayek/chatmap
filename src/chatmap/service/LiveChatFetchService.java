@@ -41,12 +41,19 @@ public final class LiveChatFetchService {
     private final List<ChatProvider> providers;
     private final ImportService importService;
     private final ChatRepository chats;
+    private final Object databaseLock;
 
     public LiveChatFetchService(List<ChatProvider> providers, ImportService importService,
             ChatRepository chats) {
+        this(providers, importService, chats, new Object());
+    }
+
+    public LiveChatFetchService(List<ChatProvider> providers, ImportService importService,
+            ChatRepository chats, Object databaseLock) {
         this.providers = List.copyOf(providers);
         this.importService = importService;
         this.chats = chats;
+        this.databaseLock = databaseLock;
     }
 
     public Resolution resolve(Long requestedChatId) throws SQLException, NoChatAvailableException {
@@ -58,7 +65,10 @@ public final class LiveChatFetchService {
             try {
                 Optional<ImportedChat> live = provider.latestChat();
                 if (live.isPresent()) {
-                    Chat stored = importService.persist(live.get()).chat();
+                    Chat stored;
+                    synchronized (databaseLock) {
+                        stored = importService.persist(live.get()).chat();
+                    }
                     return new Resolution(stored.id(),
                             "last live chat from " + provider.name() + " (\"" + stored.title() + "\")");
                 }
@@ -82,6 +92,8 @@ public final class LiveChatFetchService {
      * Delegates to {@link ChatRepository#findMostRecent()} for an O(1) query.
      */
     public Optional<Chat> mostRecentChat() throws SQLException {
-        return chats.findMostRecent();
+        synchronized (databaseLock) {
+            return chats.findMostRecent();
+        }
     }
 }
