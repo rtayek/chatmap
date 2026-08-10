@@ -6,9 +6,7 @@ import java.util.Optional;
 
 import chatmap.backend.providers.ChatProvider;
 import chatmap.backend.providers.DefaultChatProviders;
-import chatmap.backend.web.ChatGptWebChatProvider;
-import chatmap.backend.web.ClaudeWebChatProvider;
-import chatmap.backend.web.GeminiWebChatProvider;
+import chatmap.backend.web.CdpWebChatProvider;
 import chatmap.domain.Message;
 import chatmap.importer.ImportedChat;
 
@@ -56,16 +54,9 @@ public final class LiveSourceExchanges {
     }
 
     private static Optional<String> unavailableReason(ChatProvider provider) {
-        if (provider instanceof ClaudeWebChatProvider claude) {
-            return claude.lastUnavailableReason();
-        }
-        if (provider instanceof ChatGptWebChatProvider chatGpt) {
-            return chatGpt.lastUnavailableReason();
-        }
-        if (provider instanceof GeminiWebChatProvider gemini) {
-            return gemini.lastUnavailableReason();
-        }
-        return Optional.empty();
+        return provider instanceof CdpWebChatProvider cdp
+                ? cdp.lastUnavailableReason()
+                : Optional.empty();
     }
 
     private static void printField(String label, String value) {

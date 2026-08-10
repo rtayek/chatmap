@@ -13,7 +13,7 @@ public final class ChatGptWebChatProvider extends CdpWebChatProvider {
     static final String FALLBACK_TITLE = "ChatGPT (web) live chat";
 
     public ChatGptWebChatProvider() {
-        this(ClaudeWebChatProvider.DEFAULT_CDP_URL);
+        this(CdpWebChatProvider.DEFAULT_CDP_URL);
     }
 
     public ChatGptWebChatProvider(String cdpUrl) {

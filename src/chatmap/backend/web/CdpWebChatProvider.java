@@ -17,6 +17,8 @@ import chatmap.importer.ImportedChat;
  */
 public abstract class CdpWebChatProvider implements ChatProvider {
     
+    public static final String DEFAULT_CDP_URL = "http://127.0.0.1:9222";
+
     private final String name;
     private final String fallbackTitle;
     private final Source source;

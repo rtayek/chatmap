@@ -13,7 +13,7 @@ public final class GeminiWebChatProvider extends CdpWebChatProvider {
     static final String FALLBACK_TITLE = "Gemini (web) live chat";
 
     public GeminiWebChatProvider() {
-        this(ClaudeWebChatProvider.DEFAULT_CDP_URL);
+        this(CdpWebChatProvider.DEFAULT_CDP_URL);
     }
 
     public GeminiWebChatProvider(String cdpUrl) {

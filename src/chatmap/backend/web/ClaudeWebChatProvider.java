@@ -11,7 +11,6 @@ import chatmap.domain.Source;
  */
 public final class ClaudeWebChatProvider extends CdpWebChatProvider {
 
-    public static final String DEFAULT_CDP_URL = "http://127.0.0.1:9222";
     static final String FALLBACK_TITLE = "Claude (web) live chat";
 
     public ClaudeWebChatProvider() {
