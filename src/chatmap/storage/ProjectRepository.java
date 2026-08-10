@@ -21,63 +21,73 @@ public final class ProjectRepository {
     }
 
     public Project insert(Project project) throws SQLException {
-        String sql = "INSERT INTO projects (name, description, createdAt, updatedAt) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, project.name());
-            ps.setString(2, project.description());
-            ps.setString(3, project.createdAt());
-            ps.setString(4, project.updatedAt());
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                keys.next();
-                return new Project(keys.getLong(1), project.name(), project.description(),
-                        project.createdAt(), project.updatedAt());
+        synchronized (conn) {
+            String sql = "INSERT INTO projects (name, description, createdAt, updatedAt) VALUES (?, ?, ?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, project.name());
+                ps.setString(2, project.description());
+                ps.setString(3, project.createdAt());
+                ps.setString(4, project.updatedAt());
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    keys.next();
+                    return new Project(keys.getLong(1), project.name(), project.description(),
+                            project.createdAt(), project.updatedAt());
+                }
             }
         }
     }
 
     public Optional<Project> findById(long id) throws SQLException {
-        String sql = "SELECT id, name, description, createdAt, updatedAt FROM projects WHERE id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    return Optional.empty();
+        synchronized (conn) {
+            String sql = "SELECT id, name, description, createdAt, updatedAt FROM projects WHERE id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(read(rs));
                 }
-                return Optional.of(read(rs));
             }
         }
     }
 
     public List<Project> findAll() throws SQLException {
-        String sql = "SELECT id, name, description, createdAt, updatedAt "
-                + "FROM projects ORDER BY name COLLATE NOCASE, id";
-        try (PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
-            List<Project> results = new ArrayList<>();
-            while (rs.next()) {
-                results.add(read(rs));
+        synchronized (conn) {
+            String sql = "SELECT id, name, description, createdAt, updatedAt "
+                    + "FROM projects ORDER BY name COLLATE NOCASE, id";
+            try (PreparedStatement ps = conn.prepareStatement(sql);
+                    ResultSet rs = ps.executeQuery()) {
+                List<Project> results = new ArrayList<>();
+                while (rs.next()) {
+                    results.add(read(rs));
+                }
+                return results;
             }
-            return results;
         }
     }
 
     public void update(Project project) throws SQLException {
-        String sql = "UPDATE projects SET name = ?, description = ?, createdAt = ?, updatedAt = ? WHERE id = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, project.name());
-            ps.setString(2, project.description());
-            ps.setString(3, project.createdAt());
-            ps.setString(4, project.updatedAt());
-            ps.setLong(5, project.id());
-            ps.executeUpdate();
+        synchronized (conn) {
+            String sql = "UPDATE projects SET name = ?, description = ?, createdAt = ?, updatedAt = ? WHERE id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, project.name());
+                ps.setString(2, project.description());
+                ps.setString(3, project.createdAt());
+                ps.setString(4, project.updatedAt());
+                ps.setLong(5, project.id());
+                ps.executeUpdate();
+            }
         }
     }
 
     public void delete(long id) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM projects WHERE id = ?")) {
-            ps.setLong(1, id);
-            ps.executeUpdate();
+        synchronized (conn) {
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM projects WHERE id = ?")) {
+                ps.setLong(1, id);
+                ps.executeUpdate();
+            }
         }
     }
 

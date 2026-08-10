@@ -45,16 +45,11 @@ public final class SummaryService {
 
     public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
             TagRepository tags, AiBackend backend) {
-        this(chats, messages, summaries, tags, backend, new TransactionRunner(chats.connection()));
+        this(chats, messages, summaries, tags, backend, chats.transactions());
     }
 
     public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
             TagRepository tags, AiBackend backend, TransactionRunner transactions) {
-        if (chats.connection() != messages.connection()
-                || chats.connection() != summaries.connection()
-                || chats.connection() != tags.connection()) {
-            throw new IllegalArgumentException("Summary repositories must share one transaction connection.");
-        }
         this.chats = chats;
         this.messages = messages;
         this.summaries = summaries;

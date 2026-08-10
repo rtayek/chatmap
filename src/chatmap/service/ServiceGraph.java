@@ -27,7 +27,6 @@ import chatmap.storage.TransactionRunner;
  */
 public record ServiceGraph(
         Connection connection,
-        Object databaseLock,
         ChatRepository chats,
         MessageRepository messages,
         ProjectRepository projects,
@@ -82,9 +81,7 @@ public record ServiceGraph(
         TagRepository tags = new TagRepository(connection);
         SummaryRepository summaries = new SummaryRepository(connection);
         SearchRepository search = new SearchRepository(connection);
-        Object databaseLock = new Object();
-
-        TransactionRunner transactionRunner = new TransactionRunner(connection, databaseLock);
+        TransactionRunner transactionRunner = new TransactionRunner(connection);
         ImportService importService = new ImportService(chats, messages, transactionRunner);
         ChatGptArchiveImportService archiveImportService =
                 new ChatGptArchiveImportService(importService);
@@ -93,7 +90,7 @@ public record ServiceGraph(
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
                 integrations.summaryBackend(), transactionRunner);
         LiveChatFetchService liveChatFetchService =
-                new LiveChatFetchService(integrations.chatProviders(), importService, chats, databaseLock);
+                new LiveChatFetchService(integrations.chatProviders(), importService, chats);
         ExportService exportService = new ExportService(chats, messages, projects, tags);
         SearchService searchService = new SearchService(search);
         ProjectService projectService = new ProjectService(projects, chats);
@@ -103,7 +100,7 @@ public record ServiceGraph(
                 importService,
                 java.time.Clock.systemUTC());
 
-        return new ServiceGraph(connection, databaseLock, chats, messages, projects, tags, summaries, search,
+        return new ServiceGraph(connection, chats, messages, projects, tags, summaries, search,
                 importService, archiveImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
                 exportService, searchService, projectService, tagService, promptService);

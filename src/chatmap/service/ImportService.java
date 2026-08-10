@@ -36,13 +36,10 @@ public final class ImportService {
     private final TransactionRunner transactions;
 
     public ImportService(ChatRepository chats, MessageRepository messages) {
-        this(chats, messages, new TransactionRunner(chats.connection()));
+        this(chats, messages, chats.transactions());
     }
 
     public ImportService(ChatRepository chats, MessageRepository messages, TransactionRunner transactions) {
-        if (chats.connection() != messages.connection()) {
-            throw new IllegalArgumentException("Import repositories must share one transaction connection.");
-        }
         this.chats = chats;
         this.messages = messages;
         this.transactions = transactions;

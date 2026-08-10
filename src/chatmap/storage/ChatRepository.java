@@ -34,8 +34,13 @@ public final class ChatRepository {
         this.transactions = transactions;
     }
 
-    public Connection connection() {
-        return conn;
+    /**
+     * The runner serializing transactions on this repository's connection.
+     * Services built over this repository share it so their transactional
+     * writes and the repositories' per-statement locking use one monitor.
+     */
+    public TransactionRunner transactions() {
+        return transactions;
     }
 
     /** Inserts a chat; the id field of the argument is ignored. Returns the stored chat with its new id. */

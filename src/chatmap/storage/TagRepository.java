@@ -22,127 +22,143 @@ public final class TagRepository {
         this.conn = conn;
     }
 
-    public Connection connection() {
-        return conn;
-    }
-
     public Tag insert(Tag tag) throws SQLException {
-        String sql = "INSERT INTO tags (name) VALUES (?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, tag.name());
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                keys.next();
-                return new Tag(keys.getLong(1), tag.name());
+        synchronized (conn) {
+            String sql = "INSERT INTO tags (name) VALUES (?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, tag.name());
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    keys.next();
+                    return new Tag(keys.getLong(1), tag.name());
+                }
             }
         }
     }
 
     public Optional<Tag> findById(long id) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM tags WHERE id = ?")) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    return Optional.empty();
+        synchronized (conn) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM tags WHERE id = ?")) {
+                ps.setLong(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(read(rs));
                 }
-                return Optional.of(read(rs));
             }
         }
     }
 
     public Optional<Tag> findByName(String name) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM tags WHERE name = ? COLLATE NOCASE")) {
-            ps.setString(1, name);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    return Optional.empty();
+        synchronized (conn) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM tags WHERE name = ? COLLATE NOCASE")) {
+                ps.setString(1, name);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(read(rs));
                 }
-                return Optional.of(read(rs));
             }
         }
     }
 
     public List<Tag> findAll() throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, name FROM tags ORDER BY name COLLATE NOCASE, id");
-                ResultSet rs = ps.executeQuery()) {
-            List<Tag> results = new ArrayList<>();
-            while (rs.next()) {
-                results.add(read(rs));
+        synchronized (conn) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT id, name FROM tags ORDER BY name COLLATE NOCASE, id");
+                    ResultSet rs = ps.executeQuery()) {
+                List<Tag> results = new ArrayList<>();
+                while (rs.next()) {
+                    results.add(read(rs));
+                }
+                return results;
             }
-            return results;
         }
     }
 
     public void update(Tag tag) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("UPDATE tags SET name = ? WHERE id = ?")) {
-            ps.setString(1, tag.name());
-            ps.setLong(2, tag.id());
-            ps.executeUpdate();
+        synchronized (conn) {
+            try (PreparedStatement ps = conn.prepareStatement("UPDATE tags SET name = ? WHERE id = ?")) {
+                ps.setString(1, tag.name());
+                ps.setLong(2, tag.id());
+                ps.executeUpdate();
+            }
         }
     }
 
     public void delete(long id) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM tags WHERE id = ?")) {
-            ps.setLong(1, id);
-            ps.executeUpdate();
+        synchronized (conn) {
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM tags WHERE id = ?")) {
+                ps.setLong(1, id);
+                ps.executeUpdate();
+            }
         }
     }
 
     public void assignToChat(long chatId, long tagId) throws SQLException {
-        String sql = "INSERT OR IGNORE INTO chatTags (chatId, tagId) VALUES (?, ?)";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, chatId);
-            ps.setLong(2, tagId);
-            ps.executeUpdate();
+        synchronized (conn) {
+            String sql = "INSERT OR IGNORE INTO chatTags (chatId, tagId) VALUES (?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, chatId);
+                ps.setLong(2, tagId);
+                ps.executeUpdate();
+            }
         }
     }
 
     public void removeFromChat(long chatId, long tagId) throws SQLException {
-        String sql = "DELETE FROM chatTags WHERE chatId = ? AND tagId = ?";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, chatId);
-            ps.setLong(2, tagId);
-            ps.executeUpdate();
+        synchronized (conn) {
+            String sql = "DELETE FROM chatTags WHERE chatId = ? AND tagId = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, chatId);
+                ps.setLong(2, tagId);
+                ps.executeUpdate();
+            }
         }
     }
 
     public List<Tag> findByChat(long chatId) throws SQLException {
-        String sql = "SELECT t.id, t.name FROM tags t "
-                + "JOIN chatTags ct ON ct.tagId = t.id "
-                + "WHERE ct.chatId = ? ORDER BY t.name COLLATE NOCASE";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, chatId);
-            try (ResultSet rs = ps.executeQuery()) {
-                List<Tag> tags = new ArrayList<>();
-                while (rs.next()) {
-                    tags.add(read(rs));
+        synchronized (conn) {
+            String sql = "SELECT t.id, t.name FROM tags t "
+                    + "JOIN chatTags ct ON ct.tagId = t.id "
+                    + "WHERE ct.chatId = ? ORDER BY t.name COLLATE NOCASE";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, chatId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    List<Tag> tags = new ArrayList<>();
+                    while (rs.next()) {
+                        tags.add(read(rs));
+                    }
+                    return tags;
                 }
-                return tags;
             }
         }
     }
 
     /** Tags for each requested chat, ordered by tag name case-insensitively. */
     public Map<Long, List<Tag>> findByChatIds(List<Long> chatIds) throws SQLException {
-        Map<Long, List<Tag>> byChat = emptyListsByChatId(chatIds);
-        if (byChat.isEmpty()) {
-            return byChat;
-        }
-        String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
-                + "JOIN chatTags ct ON ct.tagId = t.id "
-                + "WHERE ct.chatId IN (" + placeholders(byChat.size()) + ") "
-                + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            int index = 1;
-            for (Long chatId : byChat.keySet()) {
-                ps.setLong(index++, chatId);
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    byChat.get(rs.getLong("chatId")).add(read(rs));
-                }
+        synchronized (conn) {
+            Map<Long, List<Tag>> byChat = emptyListsByChatId(chatIds);
+            if (byChat.isEmpty()) {
                 return byChat;
+            }
+            String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
+                    + "JOIN chatTags ct ON ct.tagId = t.id "
+                    + "WHERE ct.chatId IN (" + placeholders(byChat.size()) + ") "
+                    + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                int index = 1;
+                for (Long chatId : byChat.keySet()) {
+                    ps.setLong(index++, chatId);
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        byChat.get(rs.getLong("chatId")).add(read(rs));
+                    }
+                    return byChat;
+                }
             }
         }
     }

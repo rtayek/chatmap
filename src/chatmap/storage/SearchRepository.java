@@ -24,136 +24,154 @@ public final class SearchRepository {
     }
 
     public List<Chat> searchChatsByMessageText(String ftsQuery) throws SQLException {
-        return searchChatsByMessageText(ftsQuery, SearchOptions.none());
+        synchronized (conn) {
+            return searchChatsByMessageText(ftsQuery, SearchOptions.none());
+        }
     }
 
     public List<Chat> searchChatsByMessageText(String ftsQuery, SearchOptions options) throws SQLException {
-        return searchResultsByMessageText(ftsQuery, options).stream()
-                .map(SearchResult::chat)
-                .toList();
+        synchronized (conn) {
+            return searchResultsByMessageText(ftsQuery, options).stream()
+                    .map(SearchResult::chat)
+                    .toList();
+        }
     }
 
     public List<SearchResult> listAllResults() throws SQLException {
-        return listResults(SearchOptions.none());
+        synchronized (conn) {
+            return listResults(SearchOptions.none());
+        }
     }
 
     public List<SearchResult> listResults(SearchOptions options) throws SQLException {
-        SearchOptions filters = options == null ? SearchOptions.none() : options;
-        StringBuilder sql = new StringBuilder(
-                ChatRowMapper.SELECT_C_COLUMNS
-                + ", p.name AS projectName "
-                + "FROM chats c "
-                + "LEFT JOIN projects p ON p.id = c.projectId ");
-        if (filters.tagId() != null) {
-            sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
-        }
-        sql.append("WHERE 1 = 1 ");
-        appendFilterConditions(sql, filters);
-        sql.append("ORDER BY c.importedAt, c.id");
+        synchronized (conn) {
+            SearchOptions filters = options == null ? SearchOptions.none() : options;
+            StringBuilder sql = new StringBuilder(
+                    ChatRowMapper.SELECT_C_COLUMNS
+                    + ", p.name AS projectName "
+                    + "FROM chats c "
+                    + "LEFT JOIN projects p ON p.id = c.projectId ");
+            if (filters.tagId() != null) {
+                sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
+            }
+            sql.append("WHERE 1 = 1 ");
+            appendFilterConditions(sql, filters);
+            sql.append("ORDER BY c.importedAt, c.id");
 
-        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            bindFilterParameters(ps, 1, filters);
-            try (ResultSet rs = ps.executeQuery()) {
-                List<ResultRow> rows = new ArrayList<>();
-                while (rs.next()) {
-                    Chat chat = ChatRowMapper.read(rs);
-                    rows.add(new ResultRow(chat, rs.getString("projectName"), null));
+            try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+                bindFilterParameters(ps, 1, filters);
+                try (ResultSet rs = ps.executeQuery()) {
+                    List<ResultRow> rows = new ArrayList<>();
+                    while (rs.next()) {
+                        Chat chat = ChatRowMapper.read(rs);
+                        rows.add(new ResultRow(chat, rs.getString("projectName"), null));
+                    }
+                    return withTags(rows);
                 }
-                return withTags(rows);
             }
         }
     }
 
     public List<SearchResult> searchResultsByMessageText(String ftsQuery) throws SQLException {
-        return searchResultsByMessageText(ftsQuery, SearchOptions.none());
+        synchronized (conn) {
+            return searchResultsByMessageText(ftsQuery, SearchOptions.none());
+        }
     }
 
     public List<SearchResult> searchResultsByMessageText(String ftsQuery, SearchOptions options) throws SQLException {
-        if (ftsQuery == null || ftsQuery.isBlank()) {
-            return List.of();
-        }
-        SearchOptions filters = options == null ? SearchOptions.none() : options;
-        StringBuilder sql = new StringBuilder(ChatRowMapper.SELECT_C_COLUMNS
-                + ", p.name AS projectName, "
-                + "snippet(messageFts, 0, '[', ']', '...', 12) AS snippet, "
-                + "bm25(messageFts) AS relevance "
-                + "FROM messageFts "
-                + "JOIN messages m ON m.id = messageFts.rowid "
-                + "JOIN chats c ON c.id = m.chatId ");
-        sql.append("LEFT JOIN projects p ON p.id = c.projectId ");
-        if (filters.tagId() != null) {
-            sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
-        }
-        sql.append("WHERE messageFts MATCH ? ");
-        appendFilterConditions(sql, filters);
-        sql.append("ORDER BY relevance, c.importedAt, c.id, m.sequence, m.id");
+        synchronized (conn) {
+            if (ftsQuery == null || ftsQuery.isBlank()) {
+                return List.of();
+            }
+            SearchOptions filters = options == null ? SearchOptions.none() : options;
+            StringBuilder sql = new StringBuilder(ChatRowMapper.SELECT_C_COLUMNS
+                    + ", p.name AS projectName, "
+                    + "snippet(messageFts, 0, '[', ']', '...', 12) AS snippet, "
+                    + "bm25(messageFts) AS relevance "
+                    + "FROM messageFts "
+                    + "JOIN messages m ON m.id = messageFts.rowid "
+                    + "JOIN chats c ON c.id = m.chatId ");
+            sql.append("LEFT JOIN projects p ON p.id = c.projectId ");
+            if (filters.tagId() != null) {
+                sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
+            }
+            sql.append("WHERE messageFts MATCH ? ");
+            appendFilterConditions(sql, filters);
+            sql.append("ORDER BY relevance, c.importedAt, c.id, m.sequence, m.id");
 
-        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
-            ps.setString(1, ftsQuery);
-            bindFilterParameters(ps, 2, filters);
-            try (ResultSet rs = ps.executeQuery()) {
-                Map<Long, ResultRow> rows = new LinkedHashMap<>();
-                while (rs.next()) {
-                    Chat chat = ChatRowMapper.read(rs);
-                    rows.putIfAbsent(chat.id(), new ResultRow(
-                            chat,
-                            rs.getString("projectName"),
-                            rs.getString("snippet")));
+            try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+                ps.setString(1, ftsQuery);
+                bindFilterParameters(ps, 2, filters);
+                try (ResultSet rs = ps.executeQuery()) {
+                    Map<Long, ResultRow> rows = new LinkedHashMap<>();
+                    while (rs.next()) {
+                        Chat chat = ChatRowMapper.read(rs);
+                        rows.putIfAbsent(chat.id(), new ResultRow(
+                                chat,
+                                rs.getString("projectName"),
+                                rs.getString("snippet")));
+                    }
+                    return withTags(new ArrayList<>(rows.values()));
                 }
-                return withTags(new ArrayList<>(rows.values()));
             }
         }
     }
 
     private List<SearchResult> withTags(List<ResultRow> rows) throws SQLException {
-        if (rows.isEmpty()) {
-            return List.of();
-        }
+        synchronized (conn) {
+            if (rows.isEmpty()) {
+                return List.of();
+            }
 
-        Map<Long, List<Tag>> tagsByChat = findTagsByChatIds(rows.stream()
-                .map(row -> row.chat().id())
-                .toList());
-        List<SearchResult> results = new ArrayList<>();
-        for (ResultRow row : rows) {
-            results.add(new SearchResult(
-                    row.chat(),
-                    row.projectName(),
-                    tagsByChat.getOrDefault(row.chat().id(), List.of()),
-                    row.snippet()));
+            Map<Long, List<Tag>> tagsByChat = findTagsByChatIds(rows.stream()
+                    .map(row -> row.chat().id())
+                    .toList());
+            List<SearchResult> results = new ArrayList<>();
+            for (ResultRow row : rows) {
+                results.add(new SearchResult(
+                        row.chat(),
+                        row.projectName(),
+                        tagsByChat.getOrDefault(row.chat().id(), List.of()),
+                        row.snippet()));
+            }
+            return results;
         }
-        return results;
     }
 
     private static final int BATCH_SIZE = 500;
 
     private Map<Long, List<Tag>> findTagsByChatIds(List<Long> chatIds) throws SQLException {
-        if (chatIds.isEmpty()) {
-            return Map.of();
-        }
+        synchronized (conn) {
+            if (chatIds.isEmpty()) {
+                return Map.of();
+            }
 
-        Map<Long, List<Tag>> tagsByChat = new LinkedHashMap<>();
-        for (int i = 0; i < chatIds.size(); i += BATCH_SIZE) {
-            List<Long> batch = chatIds.subList(i, Math.min(chatIds.size(), i + BATCH_SIZE));
-            fetchTagsBatch(batch, tagsByChat);
+            Map<Long, List<Tag>> tagsByChat = new LinkedHashMap<>();
+            for (int i = 0; i < chatIds.size(); i += BATCH_SIZE) {
+                List<Long> batch = chatIds.subList(i, Math.min(chatIds.size(), i + BATCH_SIZE));
+                fetchTagsBatch(batch, tagsByChat);
+            }
+            return tagsByChat;
         }
-        return tagsByChat;
     }
 
     private void fetchTagsBatch(List<Long> batch, Map<Long, List<Tag>> tagsByChat) throws SQLException {
-        String placeholders = String.join(",", java.util.Collections.nCopies(batch.size(), "?"));
-        String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
-                + "JOIN chatTags ct ON ct.tagId = t.id "
-                + "WHERE ct.chatId IN (" + placeholders + ") "
-                + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
-        try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            for (int i = 0; i < batch.size(); i++) {
-                ps.setLong(i + 1, batch.get(i));
-            }
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    long chatId = rs.getLong("chatId");
-                    tagsByChat.computeIfAbsent(chatId, ignored -> new ArrayList<>())
-                            .add(new Tag(rs.getLong("id"), rs.getString("name")));
+        synchronized (conn) {
+            String placeholders = String.join(",", java.util.Collections.nCopies(batch.size(), "?"));
+            String sql = "SELECT ct.chatId, t.id, t.name FROM tags t "
+                    + "JOIN chatTags ct ON ct.tagId = t.id "
+                    + "WHERE ct.chatId IN (" + placeholders + ") "
+                    + "ORDER BY ct.chatId, t.name COLLATE NOCASE, t.id";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                for (int i = 0; i < batch.size(); i++) {
+                    ps.setLong(i + 1, batch.get(i));
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        long chatId = rs.getLong("chatId");
+                        tagsByChat.computeIfAbsent(chatId, ignored -> new ArrayList<>())
+                                .add(new Tag(rs.getLong("id"), rs.getString("name")));
+                    }
                 }
             }
         }
