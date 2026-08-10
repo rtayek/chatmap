@@ -337,3 +337,19 @@ Everything else exists to support that goal.
 # One Sentence Summary
 
 ChatMap exists to transform transient conversations into durable, connected, reviewable knowledge while preserving the provenance of every idea.
+
+---
+
+# Principle 16
+
+## Remain Open to External Architectures
+
+ChatMap and MyClaw should remain open to incorporating useful ideas, components,
+or architectural patterns from related agent projects.
+
+If another project better satisfies the long-term goals, the system may move
+toward adopting or integrating that project rather than continuing to develop
+every capability itself.
+
+This principle keeps the direction flexible without committing the project to
+any particular external implementation, rewrite, or platform.
