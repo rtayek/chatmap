@@ -21,7 +21,7 @@ final class ClaudeWebChatProviderTest {
 
     @Test
     void buildsImportedChatFromTurnsPreservingRolesAndOrder() {
-        ImportedChat chat = ClaudeWebChatProvider.toImportedChat(
+        ImportedChat chat = new ClaudeWebChatProvider().toImportedChat(
                 "My session",
                 List.of(new ClaudeTurn("user", "How do I center a div?"),
                         new ClaudeTurn("assistant", "Use flexbox.")),
@@ -43,7 +43,7 @@ final class ClaudeWebChatProviderTest {
 
     @Test
     void extractsExternalIdentityFromClaudeUrl() {
-        ImportedChat chat = ClaudeWebChatProvider.toImportedChat(
+        ImportedChat chat = new ClaudeWebChatProvider().toImportedChat(
                 "My session",
                 "https://claude.ai/chat/123e4567-e89b-12d3-a456-426614174000",
                 List.of(new ClaudeTurn("user", "hi")),
@@ -55,7 +55,7 @@ final class ClaudeWebChatProviderTest {
 
     @Test
     void blankTitleFallsBackToDefault() {
-        ImportedChat chat = ClaudeWebChatProvider.toImportedChat(
+        ImportedChat chat = new ClaudeWebChatProvider().toImportedChat(
                 "  ", List.of(new ClaudeTurn("user", "hi")), "2026-08-04T00:00:00Z");
 
         assertEquals("Claude (web) live chat", chat.chat().title());
@@ -63,7 +63,7 @@ final class ClaudeWebChatProviderTest {
 
     @Test
     void unknownRolesArePreservedNotDropped() {
-        ImportedChat chat = ClaudeWebChatProvider.toImportedChat(
+        ImportedChat chat = new ClaudeWebChatProvider().toImportedChat(
                 "t", List.of(new ClaudeTurn("unknown", "tool output")), "2026-08-04T00:00:00Z");
 
         assertEquals(1, chat.messages().size());
@@ -72,7 +72,7 @@ final class ClaudeWebChatProviderTest {
 
     @Test
     void emptyTurnsProduceNoMessages() {
-        ImportedChat chat = ClaudeWebChatProvider.toImportedChat("t", List.of(), "2026-08-04T00:00:00Z");
+        ImportedChat chat = new ClaudeWebChatProvider().toImportedChat("t", List.of(), "2026-08-04T00:00:00Z");
         assertTrue(chat.messages().isEmpty());
     }
 }

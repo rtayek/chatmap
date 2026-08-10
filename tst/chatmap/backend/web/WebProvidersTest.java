@@ -69,7 +69,7 @@ class WebProvidersTest {
 
     @Test
     void chatGptProviderBuildsChatWithSequentialMessages() {
-        ImportedChat chat = ChatGptWebChatProvider.toImportedChat(
+        ImportedChat chat = new ChatGptWebChatProvider().toImportedChat(
                 "GPT session",
                 "https://chatgpt.com/c/chat-123",
                 List.of(new ClaudeTurn("user", "q"), new ClaudeTurn("assistant", "a")),
@@ -89,7 +89,7 @@ class WebProvidersTest {
                 new CdpTranscriptAdapter.ChatWebSummary("Duplicate", "https://chatgpt.com/c/abc?model=x"),
                 new CdpTranscriptAdapter.ChatWebSummary("Second", "https://chatgpt.com/c/def"));
 
-        var candidates = ChatGptWebChatProvider.candidates(summaries);
+        var candidates = new ChatGptWebChatProvider().candidates(summaries);
 
         assertEquals(List.of("abc", "def"),
                 candidates.stream().map(chatmap.domain.ConversationCandidate::externalConversationId).toList());
@@ -117,7 +117,7 @@ class WebProvidersTest {
 
     @Test
     void geminiProviderUsesFallbackTitle() {
-        ImportedChat chat = GeminiWebChatProvider.toImportedChat(
+        ImportedChat chat = new GeminiWebChatProvider().toImportedChat(
                 null, List.of(new ClaudeTurn("assistant", "x")), "2026-08-04T00:00:00Z");
         assertEquals("Gemini (web) live chat", chat.chat().title());
         assertEquals(Source.geminiWeb, chat.chat().source());
@@ -130,7 +130,7 @@ class WebProvidersTest {
                 new CdpTranscriptAdapter.ChatWebSummary("Temporary", "gemini-sidebar-index:0"),
                 new CdpTranscriptAdapter.ChatWebSummary("Durable", "https://gemini.google.com/app/abc"));
 
-        var candidates = GeminiWebChatProvider.candidates(summaries);
+        var candidates = new GeminiWebChatProvider().candidates(summaries);
 
         assertEquals(null, candidates.get(0).externalConversationId());
         assertEquals("abc", candidates.get(1).externalConversationId());
