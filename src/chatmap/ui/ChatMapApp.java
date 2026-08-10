@@ -5,12 +5,10 @@ import java.util.Optional;
 
 import chatmap.app.ChatMapRuntime;
 import chatmap.domain.Chat;
-import chatmap.domain.ChatSummary;
 import chatmap.domain.ConversationInventory;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
-import chatmap.exporter.ChatExportModel;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
@@ -38,7 +36,6 @@ public final class ChatMapApp extends Application {
     private TextField searchField;
     private ComboBox<Project> projectChoice;
     private ComboBox<Tag> tagChoice;
-    private Button exportChatButton;
     private Button getLatestChatButton;
     private Button inventoryButton;
     private Button summarizeButton;
@@ -46,8 +43,8 @@ public final class ChatMapApp extends Application {
     private FontSizeState fontSizeState;
     private BorderPane root;
     private Label status;
-    private boolean applyingListState;
     private BackgroundActionRunner backgroundActions;
+    private ChatMapSelectionCoordinator selection;
 
     public static void main(String[] args) {
         launch(args);
@@ -62,7 +59,7 @@ public final class ChatMapApp extends Application {
         status = new Label("Ready");
         backgroundActions = new BackgroundActionRunner(runtime, status, this::reportError);
         chatList = ChatMapViewBuilder.createChatListView(
-                (observable, previousResult, selectedResult) -> handleSelectedResult(selectedResult));
+                (observable, previousResult, selectedResult) -> selection.handleSelectedResult(selectedResult));
         detail = ChatMapViewBuilder.createDetailTextArea();
 
         ChatMapViewBuilder.ToolbarWidgets toolbarWidgets = ChatMapViewBuilder.createToolbar(
@@ -77,11 +74,13 @@ public final class ChatMapApp extends Application {
                 this::summarizeSelectedChat,
                 size -> applyFontSize(fontSizeState.set(size)),
                 this::reportError);
-        exportChatButton = toolbarWidgets.exportChatButton();
         getLatestChatButton = toolbarWidgets.getLatestChatButton();
         inventoryButton = toolbarWidgets.inventoryButton();
         summarizeButton = toolbarWidgets.summarizeButton();
         fontSizeChoice = toolbarWidgets.fontSizeChoice();
+
+        selection = new ChatMapSelectionCoordinator(controller, backgroundActions, chatList, detail, status,
+                toolbarWidgets.exportChatButton(), summarizeButton);
 
         ChatMapViewBuilder.SearchBarWidgets searchBarWidgets = ChatMapViewBuilder.createSearchBar(
                 this::searchChats, this::clearSearchAndFilters, this::reportError);
@@ -111,7 +110,6 @@ public final class ChatMapApp extends Application {
         stage.setScene(scene);
         stage.show();
     }
-
 
     @Override
     public void stop() throws Exception {
@@ -181,7 +179,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void summarizeSelectedChat() {
-        Long chatId = selectedChatId();
+        Long chatId = selection.selectedChatId();
         if (chatId == null) {
             status.setText("Select a chat to summarize.");
             return;
@@ -198,10 +196,10 @@ public final class ChatMapApp extends Application {
      */
     private void runInBackground(String pendingStatus, Button triggerButton, BackgroundCall call) {
         backgroundActions.runSnapshot(pendingStatus, triggerButton, call::run, snapshot -> {
-            applyListState(snapshot);
-            updateSelectionActionStates();
+            selection.applyListState(snapshot);
+            selection.updateSelectionActionStates();
         }, exception -> {
-            updateSelectionActionStates();
+            selection.updateSelectionActionStates();
             reportError(exception);
         });
     }
@@ -214,10 +212,10 @@ public final class ChatMapApp extends Application {
      */
     private void runOnBackendLane(String pendingStatus, Button triggerButton, BackgroundCall call) {
         backgroundActions.runSnapshotOnBackendLane(pendingStatus, triggerButton, call::run, snapshot -> {
-            applyListState(snapshot);
-            updateSelectionActionStates();
+            selection.applyListState(snapshot);
+            selection.updateSelectionActionStates();
         }, exception -> {
-            updateSelectionActionStates();
+            selection.updateSelectionActionStates();
             reportError(exception);
         });
     }
@@ -252,7 +250,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void assignProject() {
-        Long chatId = selectedChatId();
+        Long chatId = selection.selectedChatId();
         Project project = projectChoice.getValue();
         if (chatId == null || project == null) {
             status.setText("Select a chat and project.");
@@ -262,7 +260,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void clearProject() {
-        Long chatId = selectedChatId();
+        Long chatId = selection.selectedChatId();
         if (chatId == null) {
             status.setText("Select a chat.");
             return;
@@ -294,7 +292,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void addTag() {
-        Long chatId = selectedChatId();
+        Long chatId = selection.selectedChatId();
         Tag tag = tagChoice.getValue();
         if (chatId == null || tag == null) {
             status.setText("Select a chat and tag.");
@@ -304,7 +302,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void removeTag() {
-        Long chatId = selectedChatId();
+        Long chatId = selection.selectedChatId();
         Tag tag = tagChoice.getValue();
         if (chatId == null || tag == null) {
             status.setText("Select a chat and tag.");
@@ -331,86 +329,8 @@ public final class ChatMapApp extends Application {
                 });
     }
 
-    private Long selectedChatId() {
-        SearchResult selected = chatList.getSelectionModel().getSelectedItem();
-        return selected == null ? null : selected.chatId();
-    }
-
     private Optional<String> requestName(String title, String prompt) {
         return ChatMapDialogs.requestName(title, prompt);
-    }
-
-    private void handleSelectedResult(SearchResult selectedResult) {
-        if (applyingListState) {
-            return;
-        }
-        updateSelectionActionStates();
-        if (selectedResult == null) {
-            detail.clear();
-            return;
-        }
-        showChatDetails(selectedResult.chatId());
-    }
-
-    private void showChatDetails(long chatId) {
-        backgroundActions.runValue(null, null,
-                () -> {
-                    // Record the selection and load details on the DB lane, never on the FX
-                    // thread. summarize (claude CLI) and live fetch run on the separate
-                    // backend lane, so this queues only behind other DB-only work, not them.
-                    controller.selectChat(chatId);
-                    ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
-                    ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
-                    return new ChatDetail(model, summary);
-                },
-                loaded -> renderChatDetail(loaded.model(), loaded.summary()));
-    }
-
-    private void renderChatDetail(ChatExportModel model, ChatSummary summary) {
-        if (model == null) {
-            detail.clear();
-            status.setText("Selected chat no longer exists.");
-            return;
-        }
-        detail.setText(ChatDetailRenderer.render(model, summary));
-    }
-
-    private void applyListState(ChatListState.Snapshot snapshot) {
-        applyingListState = true;
-        try {
-            chatList.getSelectionModel().clearSelection();
-            chatList.setItems(FXCollections.observableArrayList(snapshot.currentItems()));
-        } finally {
-            applyingListState = false;
-        }
-        status.setText(snapshot.statusText());
-        if (snapshot.selectedChatId() == null) {
-            detail.clear();
-            updateSelectionActionStates();
-        } else if (!selectChat(snapshot.selectedChatId())) {
-            detail.clear();
-            updateSelectionActionStates();
-        }
-    }
-
-    private boolean selectChat(long chatId) {
-        for (SearchResult result : chatList.getItems()) {
-            if (result.chatId() == chatId) {
-                chatList.getSelectionModel().select(result);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private void updateSelectionActionStates() {
-        boolean noSelection = chatList.getSelectionModel().getSelectedItem() == null;
-        if (exportChatButton != null) {
-            exportChatButton.setDisable(noSelection);
-        }
-        if (summarizeButton != null) {
-            summarizeButton.setDisable(noSelection);
-        }
     }
 
     private void reportError(Exception e) {
@@ -449,9 +369,5 @@ public final class ChatMapApp extends Application {
 
     /** Carrier for the two lists loaded together by {@link #refreshOrganizationChoices()}. */
     private record OrganizationChoices(List<Project> projects, List<Tag> tags) {
-    }
-
-    /** Carrier for a chat's export model plus its latest summary, loaded off the FX thread. */
-    private record ChatDetail(ChatExportModel model, ChatSummary summary) {
     }
 }
