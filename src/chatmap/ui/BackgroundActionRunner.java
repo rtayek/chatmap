@@ -14,6 +14,8 @@ final class BackgroundActionRunner {
     private final Label status;
     private final Consumer<Exception> errorReporter;
 
+    private static final System.Logger LOGGER = System.getLogger(BackgroundActionRunner.class.getName());
+
     BackgroundActionRunner(ChatMapRuntime runtime, Label status, Consumer<Exception> errorReporter) {
         this.runtime = runtime;
         this.status = status;
@@ -28,6 +30,7 @@ final class BackgroundActionRunner {
                 ChatListState.Snapshot snapshot = call.run();
                 Platform.runLater(() -> onSuccess.accept(snapshot));
             } catch (Exception exception) {
+                LOGGER.log(System.Logger.Level.WARNING, "Background snapshot action failed", exception);
                 Platform.runLater(() -> onFailure.accept(exception));
             }
         });
@@ -41,6 +44,7 @@ final class BackgroundActionRunner {
                 T result = call.call();
                 Platform.runLater(() -> onSuccess.accept(result));
             } catch (Exception exception) {
+                LOGGER.log(System.Logger.Level.WARNING, "Background value action failed", exception);
                 Platform.runLater(() -> errorReporter.accept(exception));
             }
         });
