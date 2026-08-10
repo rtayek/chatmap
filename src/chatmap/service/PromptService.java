@@ -15,7 +15,6 @@ import java.util.Objects;
 import java.util.TreeMap;
 
 import chatmap.backend.ai.AiBackend;
-import chatmap.backend.ai.AiBackendException;
 import chatmap.backend.ai.AiRequest;
 import chatmap.backend.ai.AiResponse;
 import chatmap.backend.ai.CommandBackedAiBackend;
@@ -105,19 +104,26 @@ public final class PromptService {
         return List.copyOf(sessions);
     }
 
-    public PromptResult submit(String backendName, String prompt) {
+    public PromptResult submit(String backendName, String prompt) throws SQLException {
         return submit(backendName, prompt, PromptProfile.GENERAL, null);
     }
 
-    public PromptResult submit(String backendName, String prompt, PromptProfile profile) {
+    public PromptResult submit(String backendName, String prompt, PromptProfile profile) throws SQLException {
         return submit(backendName, prompt, profile, null);
     }
 
-    public PromptResult submit(String backendName, String prompt, String sessionId) {
+    public PromptResult submit(String backendName, String prompt, String sessionId) throws SQLException {
         return submit(backendName, prompt, PromptProfile.GENERAL, sessionId);
     }
 
-    public PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId) {
+    /**
+     * Runs the prompt and records the exchange. The database record is
+     * authoritative: a failed write fails the whole run. The Markdown
+     * transcript is best-effort debug output; when it cannot be written the
+     * result carries a null transcript path.
+     */
+    public PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId)
+            throws SQLException {
         AiBackend backend = backends.get(backendName);
         if (backend == null) {
             throw new IllegalArgumentException("Unknown backend: " + backendName);
@@ -128,44 +134,36 @@ public final class PromptService {
                 : AiRequest.withProfile(prompt, profile);
         Instant started = clock.instant();
 
-        try {
-            String responseText;
-            String backendId;
-            if (backend instanceof CommandBackedAiBackend commandBackedBackend) {
-                CommandBackedRun run = commandBackedBackend.askWithResult(request);
-                responseText = run.response().text();
-                backendId = run.response().backendId().value();
-            } else {
-                AiResponse response = backend.ask(request);
-                responseText = response.text();
-                backendId = response.backendId().value();
-            }
-
-            Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
-            if (importService != null) {
-                recordInDatabase(backend, backendId, prompt, responseText, started);
-            }
-
-            return new PromptResult(backendId, responseText, transcriptPath);
-        } catch (AiBackendException exception) {
-            throw exception;
+        String responseText;
+        String backendId;
+        if (backend instanceof CommandBackedAiBackend commandBackedBackend) {
+            CommandBackedRun run = commandBackedBackend.askWithResult(request);
+            responseText = run.response().text();
+            backendId = run.response().backendId().value();
+        } else {
+            AiResponse response = backend.ask(request);
+            responseText = response.text();
+            backendId = response.backendId().value();
         }
+
+        if (importService != null) {
+            recordInDatabase(backend, prompt, responseText, started);
+        }
+        Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
+
+        return new PromptResult(backendId, responseText, transcriptPath);
     }
 
-    private void recordInDatabase(AiBackend backend, String backendId, String prompt, String responseText, Instant started) {
-        try {
-            String now = started.toString();
-            Source source = backend != null ? backend.source() : Source.plainText;
-            String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
-            Chat chat = new Chat(0L, null, source, title, now, now, now, false);
-            Message userMsg = new Message(0L, 0L, "user", prompt, 0, now, null);
-            Message assistantMsg = new Message(0L, 0L, "assistant", responseText, 1, now, null);
+    private void recordInDatabase(AiBackend backend, String prompt, String responseText, Instant started)
+            throws SQLException {
+        String now = started.toString();
+        Source source = backend != null ? backend.source() : Source.plainText;
+        String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
+        Chat chat = new Chat(0L, null, source, title, now, now, now, false);
+        Message userMsg = new Message(0L, 0L, "user", prompt, 0, now, null);
+        Message assistantMsg = new Message(0L, 0L, "assistant", responseText, 1, now, null);
 
-            importService.persist(new ImportedChat(chat, List.of(userMsg, assistantMsg)));
-        } catch (SQLException e) {
-            // Don't fail the prompt run over a recording failure, but don't hide it either.
-            System.err.println("[ChatMap] Failed to record prompt in database: " + e.getMessage());
-        }
+        importService.persist(new ImportedChat(chat, List.of(userMsg, assistantMsg)));
     }
 
     private Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {
@@ -179,8 +177,9 @@ public final class PromptService {
             Files.writeString(file, content, StandardCharsets.UTF_8);
             return file;
         } catch (IOException e) {
+            // Best-effort debug output; the database record above is the one that matters.
             System.err.println("[ChatMap] Failed to write prompt transcript: " + e.getMessage());
-            return Path.of("transcript.md");
+            return null;
         }
     }
 

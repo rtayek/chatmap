@@ -18,7 +18,7 @@ public final class RunPromptCli {
         try {
             PromptResult result = execute(args, DefaultAiBackends.defaults(), Clock.systemUTC());
             System.out.println("Backend: " + result.backendLabel());
-            System.out.println("Transcript: " + result.transcriptPath());
+            result.transcript().ifPresent(path -> System.out.println("Transcript: " + path));
             System.out.println("----------------------------------------");
             System.out.println(result.response());
         } catch (IllegalArgumentException e) {

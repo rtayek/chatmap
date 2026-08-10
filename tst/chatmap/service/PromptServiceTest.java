@@ -99,6 +99,49 @@ final class PromptServiceTest {
         }
     }
 
+    @Test
+    void submitFailsWhenDatabaseWriteFails() throws Exception {
+        java.sql.Connection conn = new chatmap.storage.Database("jdbc:sqlite::memory:").openAndInitialize();
+        ImportService importService = new ImportService(
+                new chatmap.storage.ChatRepository(conn),
+                new chatmap.storage.MessageRepository(conn));
+        conn.close();
+
+        CapturingBackend backend = new CapturingBackend(
+                new CommandBackedRun(
+                        new AiResponse("OK", new BackendId("Fake CLI"), Duration.ofMillis(1)),
+                        new CommandResult(0, "OK", "", Duration.ofMillis(1), false),
+                        List.of("fake", "run")
+                )
+        );
+        Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
+        PromptService service = new PromptService(Map.of("fake", backend), null, importService, clock, tempDir);
+
+        org.junit.jupiter.api.Assertions.assertThrows(java.sql.SQLException.class,
+                () -> service.submit("fake", "Say exactly: OK"));
+    }
+
+    @Test
+    void submitSurvivesTranscriptWriteFailure() throws Exception {
+        CapturingBackend backend = new CapturingBackend(
+                new CommandBackedRun(
+                        new AiResponse("OK", new BackendId("Fake CLI"), Duration.ofMillis(1)),
+                        new CommandResult(0, "OK", "", Duration.ofMillis(1), false),
+                        List.of("fake", "run")
+                )
+        );
+        Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
+        // A regular file where the transcript directory should be makes createDirectories fail.
+        Path notADirectory = tempDir.resolve("blocked");
+        Files.writeString(notADirectory, "occupied");
+        PromptService service = new PromptService(Map.of("fake", backend), null, null, clock, notADirectory);
+
+        PromptResult result = service.submit("fake", "Say exactly: OK");
+
+        assertEquals("OK", result.response());
+        assertTrue(result.transcript().isEmpty());
+    }
+
     private static final class CapturingBackend implements CommandBackedAiBackend {
         private final CommandBackedRun run;
         private final Source source;
