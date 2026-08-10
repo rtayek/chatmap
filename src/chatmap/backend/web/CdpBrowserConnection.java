@@ -16,23 +16,23 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-final class CdpBrowserConnection {
+public final class CdpBrowserConnection {
 
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(4);
 
     private final String cdpUrl;
     private final HttpClient httpClient;
 
-    CdpBrowserConnection(String cdpUrl) {
+    public CdpBrowserConnection(String cdpUrl) {
         this(cdpUrl, HttpClient.newHttpClient());
     }
 
-    CdpBrowserConnection(String cdpUrl, HttpClient httpClient) {
+    public CdpBrowserConnection(String cdpUrl, HttpClient httpClient) {
         this.cdpUrl = stripTrailingSlash(cdpUrl);
         this.httpClient = httpClient;
     }
 
-    Optional<CdpPage> openPage(String url) throws IOException, InterruptedException {
+    public Optional<CdpPage> openPage(String url) throws IOException, InterruptedException {
         Optional<Target> existing = listPageTargets().stream()
                 .filter(target -> target.url().contains(url))
                 .findFirst();
