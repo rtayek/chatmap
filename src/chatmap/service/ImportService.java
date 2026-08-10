@@ -83,14 +83,15 @@ public final class ImportService {
             return persistWithExternalIdentity(incoming, imported.messages());
         }
 
-        if (incoming.source().isProvider()) {
-            var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), transcriptHash);
-            if (exactDuplicate.isPresent()) {
-                Chat existing = exactDuplicate.get();
-                Chat updated = chats.updateImportMetadata(existing.id(), incoming.title(), incoming.sourceUri(),
-                        transcriptHash, incoming.sourceUpdatedAt(), incoming.lastImportedAt());
-                return new PersistResult(updated, Outcome.unchanged);
-            }
+        // No external identity to dedup by (true for every plainText/markdown import, and
+        // for any provider fetch that didn't supply one) — content hash is the only
+        // remaining way to recognize "this is the same conversation again."
+        var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), transcriptHash);
+        if (exactDuplicate.isPresent()) {
+            Chat existing = exactDuplicate.get();
+            Chat updated = chats.updateImportMetadata(existing.id(), incoming.title(), incoming.sourceUri(),
+                    transcriptHash, incoming.sourceUpdatedAt(), incoming.lastImportedAt());
+            return new PersistResult(updated, Outcome.unchanged);
         }
 
         Chat storedChat = chats.insert(incoming);

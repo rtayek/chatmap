@@ -84,6 +84,30 @@ class ImportServiceTest {
     }
 
     @Test
+    void reimportingIdenticalPlainTextFileDoesNotDuplicate() throws Exception {
+        Path file = tempDir.resolve("notes.txt");
+        Files.writeString(file, "Plain text import body");
+
+        Chat first = importService.importFile(file);
+        Chat second = importService.importFile(file);
+
+        assertEquals(first.id(), second.id());
+        assertEquals(1, chats.findAll().size());
+    }
+
+    @Test
+    void reimportingIdenticalMarkdownFileDoesNotDuplicate() throws Exception {
+        Path file = tempDir.resolve("notes.md");
+        Files.writeString(file, "# Markdown Title\n\nMarkdown body");
+
+        Chat first = importService.importFile(file);
+        Chat second = importService.importFile(file);
+
+        assertEquals(first.id(), second.id());
+        assertEquals(1, chats.findAll().size());
+    }
+
+    @Test
     void providerImportStoresSourceAndExternalIdentity() throws Exception {
         PersistResult result = importService.persist(providerChat(
                 Source.chatGptWeb, "abc123", "https://chatgpt.com/c/abc123",
