@@ -15,6 +15,7 @@ import java.util.Optional;
 import chatmap.domain.Chat;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
+import chatmap.util.Locks;
 
 /**
  * CRUD for chats. Holds a Connection supplied by the caller; does not own it.
@@ -43,9 +44,13 @@ public final class ChatRepository {
         return transactions;
     }
 
+    private <T, E extends Exception> T locked(Locks.Work<T, E> work) throws E {
+        return Locks.locked(conn, work);
+    }
+
     /** Inserts a chat; the id field of the argument is ignored. Returns the stored chat with its new id. */
     public Chat insert(Chat chat) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = "INSERT INTO chats (projectId, source, title, createdAt, updatedAt, importedAt, archived, "
                     + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy) "
                     + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -70,11 +75,11 @@ public final class ChatRepository {
                     return chat.toBuilder().id(id).build();
                 }
             }
-        }
+        });
     }
 
     public Optional<Chat> findById(long id) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = ChatRowMapper.selectColumns()
                     + "FROM chats WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -86,23 +91,23 @@ public final class ChatRepository {
                     return Optional.of(ChatRowMapper.read(rs));
                 }
             }
-        }
+        });
     }
 
     public List<Chat> findAll() throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = ChatRowMapper.selectColumns()
                     + "FROM chats ORDER BY importedAt, id";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                     ResultSet rs = ps.executeQuery()) {
                 return readAll(rs);
             }
-        }
+        });
     }
 
     /** The most recently imported non-archived chat. Archiving a chat removes it from this fallback. */
     public Optional<Chat> findMostRecent() throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = ChatRowMapper.selectColumns()
                     + "FROM chats WHERE archived = 0 ORDER BY importedAt DESC, id DESC LIMIT 1";
             try (PreparedStatement ps = conn.prepareStatement(sql);
@@ -112,7 +117,7 @@ public final class ChatRepository {
                 }
                 return Optional.of(ChatRowMapper.read(rs));
             }
-        }
+        });
     }
 
     /** Deletes the chat and its child messages so message FTS triggers fire, maintaining search index integrity. */
@@ -131,27 +136,29 @@ public final class ChatRepository {
     }
 
     public void setArchived(long id, boolean archived) throws SQLException {
-        synchronized (conn) {
+        locked(() -> {
             try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET archived = ? WHERE id = ?")) {
                 ps.setInt(1, archived ? 1 : 0);
                 ps.setLong(2, id);
                 ps.executeUpdate();
             }
-        }
+            return null;
+        });
     }
 
     public void assignProject(long id, Long projectId) throws SQLException {
-        synchronized (conn) {
+        locked(() -> {
             try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET projectId = ? WHERE id = ?")) {
                 setNullableLong(ps, 1, projectId);
                 ps.setLong(2, id);
                 ps.executeUpdate();
             }
-        }
+            return null;
+        });
     }
 
     public List<Chat> findByProject(long projectId) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = ChatRowMapper.selectColumns()
                     + "FROM chats WHERE projectId = ? ORDER BY importedAt, id";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -160,11 +167,11 @@ public final class ChatRepository {
                     return readAll(rs);
                 }
             }
-        }
+        });
     }
 
     public List<Chat> findByTag(long tagId) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = ChatRowMapper.SELECT_C_COLUMNS
                     + "FROM chats c "
                     + "JOIN chatTags ct ON ct.chatId = c.id "
@@ -176,22 +183,23 @@ public final class ChatRepository {
                     return readAll(rs);
                 }
             }
-        }
+        });
     }
 
     public void updateTitle(long id, String title) throws SQLException {
-        synchronized (conn) {
+        locked(() -> {
             try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET title = ? WHERE id = ?")) {
                 ps.setString(1, title);
                 ps.setLong(2, id);
                 ps.executeUpdate();
             }
-        }
+            return null;
+        });
     }
 
     public Optional<Chat> findByExternalIdentity(Source source, String externalConversationId)
             throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             if (externalConversationId == null || externalConversationId.isBlank()) {
                 return Optional.empty();
             }
@@ -206,12 +214,12 @@ public final class ChatRepository {
                     return Optional.of(ChatRowMapper.read(rs));
                 }
             }
-        }
+        });
     }
 
     public Map<String, Long> findImportedIdsByExternalIdentity(
             Collection<ConversationCandidate> candidates) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             Map<String, Long> importedIds = new HashMap<>();
             if (candidates.isEmpty()) {
                 return importedIds;
@@ -240,7 +248,7 @@ public final class ChatRepository {
                 }
             }
             return matches;
-        }
+        });
     }
 
     public static String identityKey(Source source, String externalConversationId) {
@@ -249,7 +257,7 @@ public final class ChatRepository {
 
     public Optional<Chat> findBySourceAndContentHash(Source source, String contentHash)
             throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             if (contentHash == null || contentHash.isBlank()) {
                 return Optional.empty();
             }
@@ -266,12 +274,12 @@ public final class ChatRepository {
                     return Optional.of(ChatRowMapper.read(rs));
                 }
             }
-        }
+        });
     }
 
     public Chat updateImportMetadata(long id, String title, String sourceUri, String contentHash,
             String sourceUpdatedAt, String lastImportedAt) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = "UPDATE chats SET title = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, "
                     + "lastImportedAt = ?, updatedAt = ? WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -285,13 +293,13 @@ public final class ChatRepository {
                 ps.executeUpdate();
             }
             return findById(id).orElseThrow();
-        }
+        });
     }
 
     public Chat updateFromSource(long id, Source source, String title, String createdAt, String updatedAt,
             String externalConversationId, String sourceUri, String contentHash,
             String sourceUpdatedAt, String lastImportedAt) throws SQLException {
-        synchronized (conn) {
+        return locked(() -> {
             String sql = "UPDATE chats SET source = ?, title = ?, createdAt = ?, updatedAt = ?, "
                     + "externalConversationId = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, "
                     + "lastImportedAt = ?, originatedBy = ? WHERE id = ?";
@@ -310,7 +318,7 @@ public final class ChatRepository {
                 ps.executeUpdate();
             }
             return findById(id).orElseThrow();
-        }
+        });
     }
 
     private static List<Chat> readAll(ResultSet rs) throws SQLException {
