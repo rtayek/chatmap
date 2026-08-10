@@ -278,11 +278,18 @@ class ChatMapControllerTest {
             }
 
             @Override
-            public java.util.Optional<chatmap.importer.ImportedChat> latestChat() throws Exception {
+            public java.util.Optional<chatmap.importer.ImportedChat> latestChat()
+                    throws chatmap.backend.providers.ChatProviderException {
                 slowProviderStarted.countDown();
-                boolean completed = slowProviderCanFinish.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                boolean completed;
+                try {
+                    completed = slowProviderCanFinish.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new chatmap.backend.providers.ChatProviderException("Interrupted", interrupted);
+                }
                 if (!completed) {
-                    throw new java.util.concurrent.TimeoutException("Slow provider await timed out");
+                    throw new chatmap.backend.providers.ChatProviderException("Slow provider await timed out");
                 }
                 return java.util.Optional.empty();
             }

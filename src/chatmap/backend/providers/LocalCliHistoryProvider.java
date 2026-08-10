@@ -1,5 +1,6 @@
 package chatmap.backend.providers;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,10 +51,14 @@ abstract class LocalCliHistoryProvider implements ChatProvider {
     }
 
     @Override
-    public final List<ConversationCandidate> listChats() throws Exception {
+    public final List<ConversationCandidate> listChats() throws ChatProviderException {
         List<ConversationCandidate> candidates = new ArrayList<>();
-        for (Path file : LocalCliSessions.listSessionFiles(root)) {
-            candidates.add(candidate(file));
+        try {
+            for (Path file : LocalCliSessions.listSessionFiles(root)) {
+                candidates.add(candidate(file));
+            }
+        } catch (IOException unreadable) {
+            throw new ChatProviderException(sessionNoun + "s under " + root + " could not be listed", unreadable);
         }
         return candidates;
     }

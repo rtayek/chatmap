@@ -90,7 +90,9 @@ class HttpChatProviderTest {
     @Test
     void throwsWhenUnreachableAndNoLauncher() throws Exception {
         int deadPort = freePort(); // nothing is listening here
-        assertThrows(Exception.class, () -> provider(deadPort, null).latestChat());
+        ChatProviderException failure = assertThrows(ChatProviderException.class,
+                () -> provider(deadPort, null).latestChat());
+        assertTrue(failure.getCause() instanceof java.io.IOException);
     }
 
     @Test
@@ -127,7 +129,7 @@ class HttpChatProviderTest {
         AtomicInteger launches = new AtomicInteger();
         HttpChatProvider.ServerLauncher noOpLauncher = launches::incrementAndGet; // never actually serves
 
-        assertThrows(Exception.class, () -> provider(deadPort, noOpLauncher).latestChat());
+        assertThrows(ChatProviderException.class, () -> provider(deadPort, noOpLauncher).latestChat());
         assertEquals(1, launches.get(), "launch should be attempted once");
     }
 

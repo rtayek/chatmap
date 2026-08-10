@@ -24,16 +24,17 @@ public interface ChatProvider {
      * The provider's most recent ("last live") conversation, normalized for
      * import, or empty when the provider has no conversations to offer.
      *
-     * @throws Exception when the provider cannot be reached or its response
-     *         cannot be parsed; callers treat this as "unavailable" and move on.
+     * @throws ChatProviderException when the provider cannot be reached or its
+     *         response cannot be parsed; callers treat this as "unavailable"
+     *         and move on.
      */
-    Optional<ImportedChat> latestChat() throws Exception;
+    Optional<ImportedChat> latestChat() throws ChatProviderException;
 
     /**
      * Metadata-only conversation discovery. Implementations should avoid reading
      * full transcripts here; failures are isolated by the inventory service.
      */
-    default List<ConversationCandidate> listChats() throws Exception {
+    default List<ConversationCandidate> listChats() throws ChatProviderException {
         return latestChat()
                 .map(chat -> List.of(new ConversationCandidate(
                         chat.chat().source(),
@@ -45,7 +46,7 @@ public interface ChatProvider {
     }
 
     /** Fetches one discovered conversation as an importable transcript. */
-    default ImportedChat fetch(ConversationCandidate candidate) throws Exception {
+    default ImportedChat fetch(ConversationCandidate candidate) throws ChatProviderException {
         return latestChat().orElseThrow(() ->
                 new IllegalArgumentException("Provider has no fetchable chat for " + candidate));
     }

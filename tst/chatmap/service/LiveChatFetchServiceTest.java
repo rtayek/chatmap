@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import chatmap.backend.providers.ChatProvider;
+import chatmap.backend.providers.ChatProviderException;
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
@@ -143,8 +144,8 @@ class LiveChatFetchServiceTest {
         Chat stored = insertChat("Stored", "2026-08-01T00:00:00Z");
         ChatProvider failing = new ChatProvider() {
             @Override public String name() { return "Flaky"; }
-            @Override public Optional<ImportedChat> latestChat() throws Exception {
-                throw new java.io.IOException("network down");
+            @Override public Optional<ImportedChat> latestChat() throws ChatProviderException {
+                throw new ChatProviderException("network down");
             }
         };
 

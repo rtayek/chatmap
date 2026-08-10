@@ -163,21 +163,28 @@ public final class HttpChatProvider implements ChatProvider {
     }
 
     @Override
-    public Optional<ImportedChat> latestChat() throws Exception {
-        Optional<HttpResponse<String>> firstResponse = tryFetch();
-        if (firstResponse.isPresent()) {
-            return handle(firstResponse.get()); // server already up
-        }
+    public Optional<ImportedChat> latestChat() throws ChatProviderException {
+        try {
+            Optional<HttpResponse<String>> firstResponse = tryFetch();
+            if (firstResponse.isPresent()) {
+                return handle(firstResponse.get()); // server already up
+            }
 
-        // Nothing listening. Without a launch command this is just "unavailable".
-        if (launcher == null) {
-            throw new IOException(name + " endpoint " + endpoint + " is not reachable");
-        }
+            // Nothing listening. Without a launch command this is just "unavailable".
+            if (launcher == null) {
+                throw new IOException(name + " endpoint " + endpoint + " is not reachable");
+            }
 
-        System.err.println("Provider endpoint " + endpoint
-                + " not answering; launching local server and retrying...");
-        launcher.launch();
-        return handle(fetchWithBackoff());
+            System.err.println("Provider endpoint " + endpoint
+                    + " not answering; launching local server and retrying...");
+            launcher.launch();
+            return handle(fetchWithBackoff());
+        } catch (IOException failure) {
+            throw new ChatProviderException(name + " is unavailable", failure);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new ChatProviderException(name + " was interrupted", interrupted);
+        }
     }
 
     /** A single request attempt; empty when the endpoint is unreachable (nothing listening). */
