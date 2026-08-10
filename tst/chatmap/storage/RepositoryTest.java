@@ -101,6 +101,25 @@ class RepositoryTest {
     }
 
     @Test
+    void findMostRecentSkipsArchivedChats() throws Exception {
+        Chat older = chats.insert(new Chat(0, null, Source.plainText, "Older",
+                null, null, "2026-07-06T00:00:00Z", false));
+        Chat newer = chats.insert(new Chat(0, null, Source.plainText, "Newer",
+                null, null, "2026-07-06T01:00:00Z", false));
+
+        assertEquals(newer.id(), chats.findMostRecent().orElseThrow().id());
+
+        chats.setArchived(newer.id(), true);
+
+        assertEquals(older.id(), chats.findMostRecent().orElseThrow().id(),
+                "an archived chat must not be selected as the fallback 'latest chat'");
+
+        chats.setArchived(older.id(), true);
+
+        assertTrue(chats.findMostRecent().isEmpty(), "no non-archived chat left");
+    }
+
+    @Test
     void createsUpdatesDeletesAndSearchesMessages() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Searchable",
                 null, null, "2026-07-06T00:00:00Z", false));

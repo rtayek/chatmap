@@ -99,10 +99,11 @@ public final class ChatRepository {
         }
     }
 
+    /** The most recently imported non-archived chat. Archiving a chat removes it from this fallback. */
     public Optional<Chat> findMostRecent() throws SQLException {
         synchronized (conn) {
             String sql = ChatRowMapper.selectColumns()
-                    + "FROM chats ORDER BY importedAt DESC, id DESC LIMIT 1";
+                    + "FROM chats WHERE archived = 0 ORDER BY importedAt DESC, id DESC LIMIT 1";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                     ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
