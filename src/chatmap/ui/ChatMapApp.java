@@ -2,8 +2,6 @@ package chatmap.ui;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Callable;
-import java.util.function.Consumer;
 
 import chatmap.app.ChatMapRuntime;
 import chatmap.domain.Chat;
@@ -148,7 +146,7 @@ public final class ChatMapApp extends Application {
         if (file == null) {
             return;
         }
-        runInBackground("Exporting chat...", null,
+        backgroundActions.runValue("Exporting chat...", null,
                 () -> controller.exportChatMarkdown(selected.id(), file.toPath()),
                 exported -> status.setText(
                         exported ? "Exported " + selected.title() : "Selected chat no longer exists."));
@@ -173,7 +171,7 @@ public final class ChatMapApp extends Application {
 
     private void showConversationInventory() {
         // Queries every provider, including the web ones (live CDP fetch); backend lane.
-        runOnBackendLane("Discovering all discoverable conversations...", inventoryButton,
+        backgroundActions.runValueOnBackendLane("Discovering all discoverable conversations...", inventoryButton,
                 controller::conversationInventory, this::showConversationInventoryDialog);
     }
 
@@ -224,24 +222,6 @@ public final class ChatMapApp extends Application {
         });
     }
 
-    /**
-     * Runs a blocking controller call off the FX thread, then applies its result
-     * back on the FX thread via {@code onSuccess} (or reports the error). A null
-     * pendingStatus leaves the status line unchanged; a null triggerButton
-     * disables nothing. This is the non-snapshot counterpart of the overload
-     * above, for calls that produce their own result rather than a list snapshot.
-     */
-    private <T> void runInBackground(String pendingStatus, Button triggerButton,
-            Callable<T> call, Consumer<T> onSuccess) {
-        backgroundActions.runValue(pendingStatus, triggerButton, call, onSuccess);
-    }
-
-    /** Backend-lane counterpart of {@link #runInBackground(String, Button, Callable, Consumer)}. */
-    private <T> void runOnBackendLane(String pendingStatus, Button triggerButton,
-            Callable<T> call, Consumer<T> onSuccess) {
-        backgroundActions.runValueOnBackendLane(pendingStatus, triggerButton, call, onSuccess);
-    }
-
     private void searchChats() {
         String query = searchField.getText();
         runInBackground("Searching...", null, () -> controller.searchChats(query));
@@ -262,7 +242,7 @@ public final class ChatMapApp extends Application {
         if (name.isEmpty()) {
             return;
         }
-        runInBackground(null, null,
+        backgroundActions.runValue(null, null,
                 () -> controller.createProject(name.get()),
                 created -> {
                     refreshOrganizationChoices();
@@ -304,7 +284,7 @@ public final class ChatMapApp extends Application {
         if (name.isEmpty()) {
             return;
         }
-        runInBackground(null, null,
+        backgroundActions.runValue(null, null,
                 () -> controller.createTag(name.get()),
                 created -> {
                     refreshOrganizationChoices();
@@ -343,7 +323,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void refreshOrganizationChoices() {
-        runInBackground(null, null,
+        backgroundActions.runValue(null, null,
                 () -> new OrganizationChoices(controller.listProjects(), controller.listTags()),
                 choices -> {
                     projectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
@@ -373,7 +353,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void showChatDetails(long chatId) {
-        runInBackground(null, null,
+        backgroundActions.runValue(null, null,
                 () -> {
                     // Record the selection and load details on the DB lane, never on the FX
                     // thread. summarize (claude CLI) and live fetch run on the separate
