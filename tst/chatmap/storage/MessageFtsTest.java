@@ -92,6 +92,11 @@ class MessageFtsTest {
 
         assertTrue(messages.findByChat(chat.id()).isEmpty(), "messages must cascade-delete");
         assertTrue(messages.searchText("cascade").isEmpty(), "FTS index must follow the cascade");
+        try (var st = conn.createStatement();
+                var rs = st.executeQuery("SELECT count(*) FROM messageFts WHERE messageFts MATCH 'cascade'")) {
+            assertTrue(rs.next());
+            assertEquals(0, rs.getInt(1), "raw FTS index must contain zero entries after chat deletion");
+        }
         assertFalse(chats.findById(chat.id()).isPresent());
     }
 

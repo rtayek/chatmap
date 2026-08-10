@@ -94,11 +94,15 @@ public final class ChatRepository {
         }
     }
 
-    /** Deletes the chat; messages cascade via FK, and the FTS index follows via triggers. */
+    /** Deletes the chat and its child messages so message FTS triggers fire, maintaining search index integrity. */
     public void delete(long id) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM chats WHERE id = ?")) {
-            ps.setLong(1, id);
-            ps.executeUpdate();
+        try (PreparedStatement psMsg = conn.prepareStatement("DELETE FROM messages WHERE chatId = ?");
+                PreparedStatement psChat = conn.prepareStatement("DELETE FROM chats WHERE id = ?")) {
+            psMsg.setLong(1, id);
+            psMsg.executeUpdate();
+
+            psChat.setLong(1, id);
+            psChat.executeUpdate();
         }
     }
 
