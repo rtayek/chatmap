@@ -88,7 +88,7 @@ final class PromptServiceTest {
             List<chatmap.domain.Chat> storedChats = chats.findAll();
             assertEquals(1, storedChats.size());
             assertEquals("Test prompt", storedChats.get(0).title());
-            assertEquals(chatmap.domain.Source.claudeCode, storedChats.get(0).source());
+            assertEquals(chatmap.domain.Source.claudeCliPrompt, storedChats.get(0).source());
 
             List<chatmap.domain.Message> storedMessages = messages.findByChat(storedChats.get(0).id());
             assertEquals(2, storedMessages.size());
@@ -148,7 +148,7 @@ final class PromptServiceTest {
         AiRequest request;
 
         CapturingBackend(CommandBackedRun run) {
-            this(run, Source.claudeCode);
+            this(run, Source.claudeCliPrompt);
         }
 
         CapturingBackend(CommandBackedRun run, Source source) {

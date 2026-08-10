@@ -8,6 +8,8 @@ import chatmap.backend.command.CommandRequest;
 
 import chatmap.backend.command.CommandExecutor;
 
+import chatmap.domain.Source;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
@@ -31,6 +33,11 @@ public final class OllamaCliBackend implements CommandBackedAiBackend {
     @Override
     public AiResponse ask(AiRequest request) {
         return askWithResult(request).response();
+    }
+
+    @Override
+    public Source source() {
+        return Source.ollamaPrompt;
     }
 
     @Override

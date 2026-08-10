@@ -30,10 +30,6 @@ public class StandardCliBackend implements CommandBackedAiBackend {
     private final Duration timeout;
     private final Source source;
 
-    public StandardCliBackend(BackendId backendId, String binaryName, CommandExecutor commandExecutor, Duration timeout) {
-        this(backendId, binaryName, commandExecutor, timeout, defaultSourceForBinary(binaryName));
-    }
-
     public StandardCliBackend(
             BackendId backendId,
             String binaryName,
@@ -63,20 +59,6 @@ public class StandardCliBackend implements CommandBackedAiBackend {
     @Override
     public AiResponse ask(AiRequest request) {
         return askWithResult(request).response();
-    }
-
-    private static Source defaultSourceForBinary(String binaryName) {
-        String lower = binaryName.toLowerCase(java.util.Locale.ROOT);
-        if (lower.contains("claude")) {
-            return Source.claudeCode;
-        }
-        if (lower.contains("codex")) {
-            return Source.codexCli;
-        }
-        if (lower.contains("gemini")) {
-            return Source.geminiCli;
-        }
-        return Source.plainText;
     }
 
     @Override

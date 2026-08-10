@@ -11,7 +11,10 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 
+import chatmap.domain.Source;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class OtherCliBackendsTest {
@@ -28,6 +31,10 @@ final class OtherCliBackendsTest {
         assertEquals("Codex CLI", response.backendId().value());
         assertEquals(List.of("codex", "-p"), executor.request.command());
         assertEquals("Explain recursion", executor.request.standardInput());
+        // codexCli is CodexCliHistoryProvider's value for real imported sessions;
+        // this backend's Q&A recordings must not share it (see Source's class doc).
+        assertEquals(Source.codexCliPrompt, backend.source());
+        assertNotEquals(Source.codexCli, backend.source());
     }
 
     @Test
@@ -52,6 +59,7 @@ final class OtherCliBackendsTest {
         assertEquals("Antigravity CLI", response.backendId().value());
         assertEquals(List.of("agy", "-p"), executor.request.command());
         assertEquals("Hello Antigravity", executor.request.standardInput());
+        assertEquals(Source.agyCliPrompt, backend.source());
     }
 
     @Test
@@ -76,6 +84,9 @@ final class OtherCliBackendsTest {
         assertEquals("Ollama llama3", response.backendId().value());
         assertEquals(List.of("ollama", "run", "llama3"), executor.request.command());
         assertEquals("What is Java?", executor.request.standardInput());
+        // No importer produces plainText from an AI backend; Ollama previously fell through
+        // to AiBackend's default source() (plainText), colliding with real .txt file imports.
+        assertEquals(Source.ollamaPrompt, backend.source());
     }
 
     @Test

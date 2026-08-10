@@ -4,6 +4,8 @@ import chatmap.backend.command.CommandRunner;
 
 import chatmap.backend.command.CommandExecutor;
 
+import chatmap.domain.Source;
+
 import java.time.Duration;
 
 public final class ClaudeCliBackend extends StandardCliBackend {
@@ -18,6 +20,6 @@ public final class ClaudeCliBackend extends StandardCliBackend {
     }
 
     public ClaudeCliBackend(CommandExecutor commandExecutor, Duration timeout) {
-        super(BACKEND_ID, "claude", commandExecutor, timeout);
+        super(BACKEND_ID, "claude", commandExecutor, timeout, Source.claudeCliPrompt);
     }
 }

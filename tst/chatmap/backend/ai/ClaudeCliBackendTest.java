@@ -11,13 +11,24 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.List;
 
+import chatmap.domain.Source;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class ClaudeCliBackendTest {
     private final CapturingExecutor executor = new CapturingExecutor();
     private final ClaudeCliBackend backend = new ClaudeCliBackend(executor, Duration.ofSeconds(5));
+
+    @Test
+    void sourceIsDistinctFromImportedClaudeCodeTranscripts() {
+        // claudeCode is ClaudeCodeHistoryProvider's value for real imported sessions;
+        // this backend's Q&A recordings must not share it (see Source's class doc).
+        assertEquals(Source.claudeCliPrompt, backend.source());
+        assertNotEquals(Source.claudeCode, backend.source());
+    }
 
     @Test
     void successfulOutputBecomesAiResponseText() {

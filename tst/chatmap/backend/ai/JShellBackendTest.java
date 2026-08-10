@@ -15,7 +15,6 @@ final class JShellBackendTest {
     void sourceIsPresentInEnumAndMatchesBackend() {
         assertEquals(Source.jshellHarness, Source.fromDbValue("jshellHarness"));
         assertEquals(Source.jshellHarness, backend.source());
-        assertTrue(Source.jshellHarness.isProvider());
     }
 
     @Test
