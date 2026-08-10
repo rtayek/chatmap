@@ -307,7 +307,7 @@ final class CdpPage implements AutoCloseable {
                             }
                         }
                     }
-                } catch (Exception parseException) {
+                } catch (Exception ignored) {
                     // Ignore unparseable notification frames
                 }
             }
