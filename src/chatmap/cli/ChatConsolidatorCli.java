@@ -111,7 +111,6 @@ public final class ChatConsolidatorCli {
 
         } catch (Exception e) {
             System.err.println("❌ Fatal Error: " + e.getMessage());
-            e.printStackTrace();
             System.exit(1);
         }
     }
