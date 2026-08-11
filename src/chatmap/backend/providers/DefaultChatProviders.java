@@ -14,25 +14,28 @@ import java.util.List;
  *
  * {@code LiveChatFetchService} tries providers in order and takes the first that
  * yields a chat, so order is priority. Six sources: three vendors (Claude,
- * ChatGPT, Gemini) each in two access modes (web over CDP, local CLI history).
- * The chosen order — web providers first, then CLI histories:
+ * ChatGPT, Gemini) each in two access modes (local CLI history, web over CDP).
+ * The chosen order — CLI histories first, then web providers:
  *
  * <ol>
- *   <li>{@link ClaudeWebChatProvider} — live claude.ai; first because it is the
- *       "latest live chat" this feature was built around, and it is the verified
- *       web reader.</li>
- *   <li>{@link ChatGptWebChatProvider} — live chatgpt.com.</li>
- *   <li>{@link GeminiWebChatProvider} — live gemini.google.com.</li>
  *   <li>{@link ClaudeCodeHistoryProvider} — this project's own CLI tool, the most
  *       likely local session to want.</li>
  *   <li>{@link CodexCliHistoryProvider}</li>
  *   <li>{@link GeminiCliHistoryProvider}</li>
+ *   <li>{@link ClaudeWebChatProvider} — live claude.ai.</li>
+ *   <li>{@link ChatGptWebChatProvider} — live chatgpt.com.</li>
+ *   <li>{@link GeminiWebChatProvider} — live gemini.google.com.</li>
  * </ol>
  *
- * The web providers share one CDP Chrome (the first launches it; the rest attach),
- * and each returns empty quickly when its site is not reachable/logged in. The
- * three CLI-history providers only read files already on disk, so they cost
- * nothing when their tool was never used.
+ * CLI-history providers read files already on disk (deterministic, no network,
+ * no dependency on a vendor's unversioned web UI), so they run first and cost
+ * nothing when their tool was never used. The web providers share one CDP
+ * Chrome (the first launches it; the rest attach), and each returns empty
+ * quickly when its site is not reachable/logged in.
+ *
+ * This is a plain list, not gated behind a flag, so a specific ordering or
+ * subset can be tried by editing it directly (comment a provider out) rather
+ * than needing an environment variable to change behavior.
  */
 public final class DefaultChatProviders {
 
@@ -40,22 +43,12 @@ public final class DefaultChatProviders {
     }
 
     public static List<ChatProvider> ordered() {
-        boolean preferLocal = Boolean.getBoolean("chatmap.providers.preferLocal");
-        if (preferLocal) {
-            return List.of(
-                    new ClaudeCodeHistoryProvider(),
-                    new CodexCliHistoryProvider(),
-                    new GeminiCliHistoryProvider(),
-                    new ClaudeWebChatProvider(),
-                    new ChatGptWebChatProvider(),
-                    new GeminiWebChatProvider());
-        }
         return List.of(
-                new ClaudeWebChatProvider(),
-                new ChatGptWebChatProvider(),
-                new GeminiWebChatProvider(),
                 new ClaudeCodeHistoryProvider(),
                 new CodexCliHistoryProvider(),
-                new GeminiCliHistoryProvider());
+                new GeminiCliHistoryProvider(),
+                new ClaudeWebChatProvider(),
+                new ChatGptWebChatProvider(),
+                new GeminiWebChatProvider());
     }
 }

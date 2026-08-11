@@ -136,13 +136,13 @@ class WebProvidersTest {
         assertEquals("abc", candidates.get(1).externalConversationId());
     }
 
-    // --- ordering: all six providers, web first ---
+    // --- ordering: all six providers, local CLI history first ---
 
     @Test
-    void defaultOrderListsAllSixWebFirst() {
+    void defaultOrderListsAllSixLocalFirst() {
         List<String> names = DefaultChatProviders.ordered().stream().map(ChatProvider::name).toList();
         assertEquals(List.of(
-                "Claude (web)", "ChatGPT (web)", "Gemini (web)",
-                "Claude Code (CLI)", "Codex (CLI)", "Gemini (CLI)"), names);
+                "Claude Code (CLI)", "Codex (CLI)", "Gemini (CLI)",
+                "Claude (web)", "ChatGPT (web)", "Gemini (web)"), names);
     }
 }
