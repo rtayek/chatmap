@@ -21,6 +21,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
+import chatmap.domain.Tag;
 
 class DatabaseMigrationTest {
 
@@ -79,6 +80,108 @@ class DatabaseMigrationTest {
                             "2026-08-10T00:02:00Z", "2026-08-10T00:02:00Z")));
             assertTrue(ProjectRepository.isDuplicateNameViolation(thrown),
                     "the unique index must be active after migration: " + thrown.getMessage());
+        }
+    }
+
+    @Test
+    void initializeMergesPreExistingDuplicateContentHashChatsBeforeAddingTheUniqueIndex() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            try (Statement st = conn.createStatement()) {
+                st.execute("PRAGMA foreign_keys = ON");
+            }
+            // Simulates a database that already ran an earlier version of this migration
+            // (contentHash column present) but predates chatsContentHashIndex, so it could
+            // already hold duplicates -- most plausibly from before plainText/markdown
+            // dedup existed at all (see ImportService). Only the duplicate is organized,
+            // to verify that organization is carried onto the survivor, not lost.
+            Database.applySchema(conn);
+            long projectId = insertOldProject(conn, "Some Project", "2026-08-10T00:00:00Z");
+            long tagId = insertTag(conn, "important");
+            long survivorId = insertChatWithContentHash(conn, "plainText", "hash-1", "Survivor",
+                    "2026-08-10T00:00:00Z");
+            long duplicateId = insertChatWithContentHash(conn, "plainText", "hash-1", "Duplicate",
+                    "2026-08-10T00:01:00Z");
+            assignProject(conn, duplicateId, projectId);
+            assignTag(conn, duplicateId, tagId);
+            insertSummary(conn, duplicateId, "a summary", "claude", "2026-08-10T00:02:00Z");
+
+            Database.applyMigrations(conn);
+
+            ChatRepository chats = new ChatRepository(conn);
+            List<Chat> remaining = chats.findAll();
+            assertEquals(1, remaining.size(), "the duplicate-content chat must be merged away");
+            assertEquals(survivorId, remaining.get(0).id(), "the older row survives");
+            assertEquals(projectId, remaining.get(0).projectId(), "duplicate's project assignment carried over");
+
+            TagRepository tags = new TagRepository(conn);
+            assertEquals(List.of("important"), tags.findByChat(survivorId).stream().map(Tag::name).toList(),
+                    "duplicate's tag carried over");
+
+            SummaryRepository summaries = new SummaryRepository(conn);
+            assertEquals(1, summaries.findAllForChat(survivorId).size(), "duplicate's summary reassigned, not lost");
+
+            SQLException thrown = assertThrows(SQLException.class, () -> chats.insert(
+                    new Chat(0, null, Source.plainText, "New dup", null, null, "2026-08-10T00:03:00Z", false,
+                            new ImportMetadata(null, null, "hash-1", null, null))));
+            assertTrue(ChatRepository.isUniqueConstraintViolation(thrown),
+                    "the unique index must be active after migration: " + thrown.getMessage());
+        }
+    }
+
+    private static long insertTag(Connection conn, String name) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO tags (name) VALUES (?)", Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, name);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
+        }
+    }
+
+    private static long insertChatWithContentHash(Connection conn, String source, String contentHash,
+            String title, String timestamp) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO chats (source, title, importedAt, archived, contentHash) VALUES (?, ?, ?, 0, ?)",
+                Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, source);
+            ps.setString(2, title);
+            ps.setString(3, timestamp);
+            ps.setString(4, contentHash);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
+        }
+    }
+
+    private static void assignProject(Connection conn, long chatId, long projectId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET projectId = ? WHERE id = ?")) {
+            ps.setLong(1, projectId);
+            ps.setLong(2, chatId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void assignTag(Connection conn, long chatId, long tagId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("INSERT INTO chatTags (chatId, tagId) VALUES (?, ?)")) {
+            ps.setLong(1, chatId);
+            ps.setLong(2, tagId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void insertSummary(Connection conn, long chatId, String summary, String generatedBy,
+            String generatedAt) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO chatSummaries (chatId, summary, generatedBy, generatedAt) VALUES (?, ?, ?, ?)")) {
+            ps.setLong(1, chatId);
+            ps.setString(2, summary);
+            ps.setString(3, generatedBy);
+            ps.setString(4, generatedAt);
+            ps.executeUpdate();
         }
     }
 

@@ -195,6 +195,24 @@ class ImportServiceTest {
     }
 
     @Test
+    void identityBasedAndContentHashOnlyChatsMayShareContentWithoutColliding() throws Exception {
+        // Same source, one with a durable id and one without (Gemini web sometimes can't
+        // derive one, see geminiWebWithoutDurableIdUsesHashOnlyForExactDuplicates) --
+        // chatsContentHashIndex must not treat these as duplicates just because they
+        // share text; it's scoped to externalConversationId IS NULL, matching
+        // findBySourceAndContentHash's own scoping.
+        PersistResult identified = importService.persist(providerChat(Source.geminiWeb, "ext-1",
+                "https://gemini.google.com/app/ext-1", "Identified", List.of("same text")));
+        PersistResult identityless = importService.persist(providerChat(Source.geminiWeb, null,
+                "https://gemini.google.com/app", "No id", List.of("same text")));
+
+        assertEquals(Outcome.inserted, identified.outcome());
+        assertEquals(Outcome.inserted, identityless.outcome());
+        assertNotEquals(identified.chat().id(), identityless.chat().id());
+        assertEquals(2, chats.findAll().size());
+    }
+
+    @Test
     void geminiWebWithoutDurableIdUsesHashOnlyForExactDuplicates() throws Exception {
         ImportedChat first = providerChat(Source.geminiWeb, null, "https://gemini.google.com/app",
                 "Gemini", List.of("same"));

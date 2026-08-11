@@ -179,6 +179,25 @@ public final class Database {
                     + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
         }
 
+        // Same reasoning as chatsExternalIdentityIndex, for the other dedup path:
+        // ImportService.findBySourceAndContentHash was, until now, an application-level
+        // check with no database backstop, so a database from before this migration could
+        // already hold duplicate (source, contentHash) rows -- most plausibly from before
+        // plainText/markdown dedup existed at all. Merge those first (see
+        // mergeDuplicateContentHashChats) so the index can be created.
+        //
+        // Scoped to externalConversationId IS NULL, matching findBySourceAndContentHash's
+        // own scoping: content-hash dedup only applies within the identity-less pool
+        // (plainText/markdown/no-identity provider fetches). An externally-identified
+        // chat coincidentally sharing a content hash with an unrelated identity-less
+        // import is not a duplicate and must not collide with it here.
+        mergeDuplicateContentHashChats(conn);
+        try (Statement st = conn.createStatement()) {
+            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsContentHashIndex "
+                    + "ON chats(source, contentHash) "
+                    + "WHERE contentHash IS NOT NULL AND externalConversationId IS NULL");
+        }
+
         // A unique index needs zero pre-existing duplicates to create successfully, so any
         // project names that already collide (case-insensitively) on an existing database
         // must be merged first. Idempotent: once merged, later runs find nothing to merge.
@@ -225,6 +244,76 @@ public final class Database {
                     delete.executeUpdate();
                 }
             }
+        }
+    }
+
+    /**
+     * Merges chats that share a (source, contentHash) pair into the oldest row in
+     * each group (same tie-break as {@code ChatRepository.findBySourceAndContentHash}'s
+     * {@code ORDER BY importedAt, id}), so a pre-existing database can still adopt the
+     * unique index this prepares the table for. A duplicate's project assignment (if
+     * the survivor has none) and tags are carried onto the survivor, and any generated
+     * summaries are reassigned to it, before the duplicate row is deleted -- its
+     * messages and chatTags rows are identical content by definition (same hash) and
+     * are removed via ON DELETE CASCADE. Rows with a NULL contentHash, or a non-NULL
+     * externalConversationId, are never considered duplicates of each other (matching
+     * the index's own WHERE clause).
+     */
+    private static void mergeDuplicateContentHashChats(Connection conn) throws SQLException {
+        Map<String, List<Long>> idsByKey = new LinkedHashMap<>();
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("SELECT id, source, contentHash FROM chats "
+                        + "WHERE contentHash IS NOT NULL AND externalConversationId IS NULL "
+                        + "ORDER BY importedAt, id")) {
+            while (rs.next()) {
+                String key = rs.getString("source") + "" + rs.getString("contentHash");
+                idsByKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(rs.getLong("id"));
+            }
+        }
+
+        for (List<Long> ids : idsByKey.values()) {
+            if (ids.size() < 2) {
+                continue;
+            }
+            long survivorId = ids.get(0);
+            for (long duplicateId : ids.subList(1, ids.size())) {
+                adoptProjectIfMissing(conn, survivorId, duplicateId);
+                mergeChatTags(conn, survivorId, duplicateId);
+                reassignChatSummaries(conn, survivorId, duplicateId);
+                try (PreparedStatement delete = conn.prepareStatement("DELETE FROM chats WHERE id = ?")) {
+                    delete.setLong(1, duplicateId);
+                    delete.executeUpdate();
+                }
+            }
+        }
+    }
+
+    private static void adoptProjectIfMissing(Connection conn, long survivorId, long duplicateId)
+            throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE chats SET projectId = (SELECT projectId FROM chats WHERE id = ?) "
+                        + "WHERE id = ? AND projectId IS NULL")) {
+            ps.setLong(1, duplicateId);
+            ps.setLong(2, survivorId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void mergeChatTags(Connection conn, long survivorId, long duplicateId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT OR IGNORE INTO chatTags (chatId, tagId) SELECT ?, tagId FROM chatTags WHERE chatId = ?")) {
+            ps.setLong(1, survivorId);
+            ps.setLong(2, duplicateId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void reassignChatSummaries(Connection conn, long survivorId, long duplicateId)
+            throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE chatSummaries SET chatId = ? WHERE chatId = ?")) {
+            ps.setLong(1, survivorId);
+            ps.setLong(2, duplicateId);
+            ps.executeUpdate();
         }
     }
 

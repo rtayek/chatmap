@@ -255,6 +255,20 @@ public final class ChatRepository {
         return source.dbValue() + "\u001f" + externalConversationId;
     }
 
+    /**
+     * True if the exception is a violation of one of chats' unique indexes
+     * ({@code chatsExternalIdentityIndex} or {@code chatsContentHashIndex}, see
+     * {@link Database#applyMigrations}) — i.e. a concurrent writer (e.g. another
+     * process sharing the same database file) won a race to insert the same
+     * identity or content this caller was also trying to insert. Callers fall
+     * back to a lookup instead of failing outright, the same pattern
+     * {@link ProjectRepository#isDuplicateNameViolation} uses.
+     */
+    public static boolean isUniqueConstraintViolation(SQLException e) {
+        return e instanceof org.sqlite.SQLiteException sqliteException
+                && sqliteException.getResultCode() == org.sqlite.SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE;
+    }
+
     public Optional<Chat> findBySourceAndContentHash(Source source, String contentHash)
             throws SQLException {
         return locked(() -> {

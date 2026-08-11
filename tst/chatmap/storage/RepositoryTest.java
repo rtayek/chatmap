@@ -248,6 +248,18 @@ class RepositoryTest {
     }
 
     @Test
+    void enforcesUniqueContentHashPerSourceForIdentityLessChats() throws Exception {
+        chats.insert(new Chat(0, null, Source.plainText, "First", null, null,
+                "2026-08-10T00:00:00Z", false, new ImportMetadata(null, null, "hash-1", null, null)));
+
+        SQLException thrown = assertThrows(SQLException.class, () -> chats.insert(
+                new Chat(0, null, Source.plainText, "Second", null, null,
+                        "2026-08-10T00:01:00Z", false, new ImportMetadata(null, null, "hash-1", null, null))));
+
+        assertTrue(ChatRepository.isUniqueConstraintViolation(thrown), thrown.getMessage());
+    }
+
+    @Test
     void enforcesForeignKeysAndCaseInsensitiveUniqueTags() throws Exception {
         assertThrows(SQLException.class, () -> messages.insert(new Message(0, 999, "user",
                 "orphan", 0, null, null)));

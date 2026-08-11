@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -88,24 +89,50 @@ public final class ImportService {
         // remaining way to recognize "this is the same conversation again."
         var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), transcriptHash);
         if (exactDuplicate.isPresent()) {
-            Chat existing = exactDuplicate.get();
-            Chat updated = chats.updateImportMetadata(existing.id(), incoming.title(), incoming.sourceUri(),
-                    transcriptHash, incoming.sourceUpdatedAt(), incoming.lastImportedAt());
-            return new PersistResult(updated, Outcome.unchanged);
+            return unchangedResult(exactDuplicate.get(), incoming, transcriptHash);
         }
 
-        Chat storedChat = chats.insert(incoming);
-        insertMessages(storedChat.id(), imported.messages());
-        return new PersistResult(storedChat, Outcome.inserted);
+        try {
+            Chat storedChat = chats.insert(incoming);
+            insertMessages(storedChat.id(), imported.messages());
+            return new PersistResult(storedChat, Outcome.inserted);
+        } catch (SQLException e) {
+            if (!ChatRepository.isUniqueConstraintViolation(e)) {
+                throw e;
+            }
+            // chatsContentHashIndex backstop: another writer (e.g. ChatConsolidatorCli
+            // running alongside the GUI, a separate process with its own serialized
+            // executor) inserted the same (source, contentHash) between our check above
+            // and this insert. Treat it the same as if we'd found it there.
+            Chat winner = chats.findBySourceAndContentHash(incoming.source(), transcriptHash).orElseThrow(() -> e);
+            return unchangedResult(winner, incoming, transcriptHash);
+        }
+    }
+
+    private PersistResult unchangedResult(Chat existing, Chat incoming, String transcriptHash) throws SQLException {
+        Chat updated = chats.updateImportMetadata(existing.id(), incoming.title(), incoming.sourceUri(),
+                transcriptHash, incoming.sourceUpdatedAt(), incoming.lastImportedAt());
+        return new PersistResult(updated, Outcome.unchanged);
     }
 
     private PersistResult persistWithExternalIdentity(Chat incoming, List<Message> incomingMessages)
             throws SQLException {
         var existing = chats.findByExternalIdentity(incoming.source(), incoming.externalConversationId());
         if (existing.isEmpty()) {
-            Chat storedChat = chats.insert(incoming);
-            insertMessages(storedChat.id(), incomingMessages);
-            return new PersistResult(storedChat, Outcome.inserted);
+            try {
+                Chat storedChat = chats.insert(incoming);
+                insertMessages(storedChat.id(), incomingMessages);
+                return new PersistResult(storedChat, Outcome.inserted);
+            } catch (SQLException e) {
+                if (!ChatRepository.isUniqueConstraintViolation(e)) {
+                    throw e;
+                }
+                // chatsExternalIdentityIndex backstop: another writer won this identity
+                // between our check above and this insert. Fall back to it, same as the
+                // "already exists" branch below.
+                existing = Optional.of(chats.findByExternalIdentity(incoming.source(), incoming.externalConversationId())
+                        .orElseThrow(() -> e));
+            }
         }
 
         Chat stored = existing.get();
