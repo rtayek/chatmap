@@ -79,7 +79,8 @@ public abstract class CdpWebChatProvider implements ChatProvider {
                 new CdpTranscriptAdapter.ChatWebSummary(candidate.title(), candidate.sourceUri());
         Optional<CdpTranscriptAdapter.Transcript> transcript = adapter.transcript(summary);
         if (transcript.isEmpty()) {
-            throw new IllegalArgumentException("No importable " + name + " chat: " + candidate.sourceUri());
+            String reason = adapter.lastUnavailableReason().map(r -> " (" + r + ")").orElse("");
+            throw new IllegalArgumentException("No importable " + name + " chat: " + candidate.sourceUri() + reason);
         }
         return toImportedChat(transcript.get().title(), transcript.get().url(),
                 transcript.get().turns(), Instant.now().toString());
