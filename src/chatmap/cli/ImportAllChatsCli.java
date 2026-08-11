@@ -118,7 +118,13 @@ public final class ImportAllChatsCli {
                             case updated -> updated++;
                             case unchanged -> skipped++;
                         }
-                    } catch (ChatProviderException | SQLException e) {
+                    } catch (Exception e) {
+                        // Every ChatProvider.fetch() implementation (the default method itself,
+                        // LocalCliHistoryProvider, the web providers) throws an unchecked
+                        // IllegalArgumentException for "discovered but not actually fetchable"
+                        // (e.g. a Codex rollout file for a session that was abandoned with no
+                        // turns in it) -- not just the declared ChatProviderException. One bad
+                        // candidate must not abort the whole run; count it and move on.
                         failed++;
                         System.out.println("  ! failed: " + candidate.title() + " (" + e.getMessage() + ")");
                     }
