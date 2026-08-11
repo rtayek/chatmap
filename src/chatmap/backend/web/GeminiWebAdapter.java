@@ -5,6 +5,7 @@ import chatmap.backend.providers.SessionLines;
 import chatmap.backend.providers.ClaudeTurn;
 import chatmap.backend.providers.ProviderIdentity;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -50,9 +51,9 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
 
     @Override
     List<ChatWebSummary> listChats(CdpPage page) {
-        CdpPage.CdpLocator conversations = conversationLocator(page);
-        CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);
-        int count = Math.min(conversations.count(), maxDiscoverableSidebarChats);
+        CdpPage.CdpLocator links = ensureSidebarExpanded(page);
+        CdpPage.CdpLocator conversations = page.locator(CONVERSATION_SELECTOR);
+        int count = Math.min(links.count(), maxDiscoverableSidebarChats);
         List<ChatWebSummary> summaries = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             CdpPage.CdpLocator conversation = conversations.nth(i);
@@ -69,13 +70,13 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     Optional<OpenConversation> openLatestConversation() {
         CdpPage page = openPage(siteBaseUrl());
         try {
-            CdpPage.CdpLocator conversations = conversationLocator(page);
-            if (conversations.count() == 0) {
+            CdpPage.CdpLocator links = ensureSidebarExpanded(page);
+            if (links.count() == 0) {
                 return Optional.empty();
             }
-            CdpPage.CdpLocator newest = conversations.first();
+            CdpPage.CdpLocator newest = page.locator(CONVERSATION_SELECTOR).first();
             String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(newest));
-            String url = durableUrl(page.locator(CONVERSATION_LINK_SELECTOR).first().getAttribute("href"));
+            String url = durableUrl(links.first().getAttribute("href"));
             if (url != null) {
                 page.navigate(url);
             } else {
@@ -168,14 +169,46 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         return turns;
     }
 
-    private static CdpPage.CdpLocator conversationLocator(CdpPage page) {
-        CdpPage.CdpLocator conversations = page.locator(CONVERSATION_SELECTOR);
-        if (conversations.count() == 0) {
-            page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
-                    .first().click(4000);
-            page.waitForTimeout(1500);
-            conversations = page.locator(CONVERSATION_SELECTOR);
+    /**
+     * Returns a locator for the sidebar rows' anchors, expanding the sidebar first if needed.
+     *
+     * The {@code [data-test-id="conversation"]} wrappers render as soon as the list itself
+     * mounts, but when the side nav is collapsed to its icon rail (aria-label "Open sidebar",
+     * verified live) each row is just Angular comment placeholders with no {@code <a href>}
+     * inside -- the wrapper count alone is not a reliable "ready" signal. Clicking the nav's
+     * menu button expands it and populates the anchors.
+     */
+    private static CdpPage.CdpLocator ensureSidebarExpanded(CdpPage page) {
+        CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);
+        if (links.count() > 0) {
+            return links;
         }
-        return conversations;
+        page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
+                .first().click(4000);
+        links = awaitLinksHydrated(page);
+        if (links.count() > 0) {
+            return links;
+        }
+        // CdpBrowserConnection.openPage() reuses any already-open tab whose URL contains ours --
+        // for a bare "/app" base URL that's *any* open conversation tab -- and skips navigate()
+        // on reuse. A tab left mid-glitch (observed live: Gemini's own sidebar showing "Couldn't
+        // connect" after a background cookie-rotation) then never gets a fresh load and sits
+        // stuck. Force one here as a last resort.
+        page.navigate(BASE_URL);
+        return awaitLinksHydrated(page);
+    }
+
+    /** Polls for the sidebar anchors to populate (bounded), rather than a fixed blind sleep. */
+    private static CdpPage.CdpLocator awaitLinksHydrated(CdpPage page) {
+        CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);
+        long deadline = System.nanoTime() + Duration.ofSeconds(6).toNanos();
+        while (System.nanoTime() < deadline) {
+            if (links.count() > 0) {
+                return links;
+            }
+            page.waitForTimeout(150);
+            links = page.locator(CONVERSATION_LINK_SELECTOR);
+        }
+        return links;
     }
 }
