@@ -20,6 +20,14 @@ public final class CdpBrowserConnection {
 
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(4);
 
+    /**
+     * One {@link HttpClient} per JVM, not per connection. A full import run opens and closes
+     * dozens of {@code CdpBrowserConnection}s in quick succession (one per fetched conversation);
+     * each fresh client spins up its own selector/executor threads, and that churn was a real
+     * source of intermittent CDP command timeouts under rapid-fire use.
+     */
+    private static final HttpClient SHARED_HTTP_CLIENT = HttpClient.newHttpClient();
+
     /** Builds the page for a target; test seam so tests don't need a live WebSocket. */
     @FunctionalInterface
     interface PageFactory {
@@ -31,7 +39,7 @@ public final class CdpBrowserConnection {
     private final PageFactory pageFactory;
 
     public CdpBrowserConnection(String cdpUrl) {
-        this(cdpUrl, HttpClient.newHttpClient());
+        this(cdpUrl, SHARED_HTTP_CLIENT);
     }
 
     public CdpBrowserConnection(String cdpUrl, HttpClient httpClient) {
@@ -41,7 +49,8 @@ public final class CdpBrowserConnection {
     CdpBrowserConnection(String cdpUrl, HttpClient httpClient, PageFactory pageFactory) {
         this.cdpUrl = stripTrailingSlash(cdpUrl);
         this.httpClient = httpClient;
-        this.pageFactory = pageFactory != null ? pageFactory : CdpPage::new;
+        this.pageFactory = pageFactory != null ? pageFactory
+                : (webSocketUrl, onClose) -> new CdpPage(webSocketUrl, onClose, httpClient);
     }
 
     /**
@@ -66,7 +75,16 @@ public final class CdpBrowserConnection {
         return Optional.of(page);
     }
 
-    /** Best-effort close of a browser tab this connection created. Never throws. */
+    /**
+     * Best-effort close of a browser tab this connection created. Never throws.
+     *
+     * Chrome's {@code /json/close} returns before the target is actually torn down, so without
+     * confirmation a call to {@link #openPage} made right after this one can still see the
+     * closing tab in {@code /json/list} and wrongly reuse it (skipping {@code navigate()} since
+     * {@code createdHere} is false) — landing on stale, mid-teardown DOM instead of a fresh page.
+     * A full import run closes and reopens a tab per fetched conversation, so this race fired on
+     * roughly every other fetch. Polling until the target is confirmed gone closes that window.
+     */
     private void closeTarget(String targetId) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(cdpUrl + "/json/close/" + targetId))
@@ -74,10 +92,22 @@ public final class CdpBrowserConnection {
                     .GET()
                     .build();
             httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+            awaitTargetGone(targetId);
         } catch (IOException | RuntimeException ignored) {
             // Not worth failing the caller over a leftover tab.
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private void awaitTargetGone(String targetId) throws IOException, InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        while (System.nanoTime() < deadline) {
+            boolean stillListed = listPageTargets().stream().anyMatch(target -> targetId.equals(target.id()));
+            if (!stillListed) {
+                return;
+            }
+            Thread.sleep(50);
         }
     }
 

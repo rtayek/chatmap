@@ -29,13 +29,14 @@ final class CdpPage implements AutoCloseable {
     private final CdpTransport transport;
     private final Runnable onClose;
 
-    CdpPage(String webSocketUrl) {
-        this(webSocketUrl, () -> { });
-    }
-
-    /** {@code onClose} runs after the transport closes — e.g. to close a browser tab this page owns. */
-    CdpPage(String webSocketUrl, Runnable onClose) {
-        this(new CdpSocket(webSocketUrl), onClose);
+    /**
+     * {@code onClose} runs after the transport closes — e.g. to close a browser tab this page owns.
+     * Takes the caller's {@link HttpClient} rather than building one per page: each client owns its
+     * own selector/executor threads, and a CDP run opens and closes many pages in quick succession
+     * (one per fetched conversation), so a fresh client per page was a real source of contention.
+     */
+    CdpPage(String webSocketUrl, Runnable onClose, HttpClient httpClient) {
+        this(new CdpSocket(webSocketUrl, httpClient), onClose);
     }
 
     CdpPage(CdpTransport transport) {
@@ -253,9 +254,9 @@ final class CdpPage implements AutoCloseable {
         private final StringBuilder text = new StringBuilder();
         private final WebSocket webSocket;
 
-        CdpSocket(String webSocketUrl) {
+        CdpSocket(String webSocketUrl, HttpClient httpClient) {
             try {
-                webSocket = HttpClient.newHttpClient()
+                webSocket = httpClient
                         .newWebSocketBuilder()
                         .connectTimeout(COMMAND_TIMEOUT)
                         .buildAsync(URI.create(webSocketUrl), this)
