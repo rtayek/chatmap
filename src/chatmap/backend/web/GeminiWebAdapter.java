@@ -17,20 +17,26 @@ import com.google.gson.JsonParser;
 /**
  * Reads the most recent gemini.google.com conversation over CDP.
  *
- * Verified against the live logged-in page (2026-08-04). Gemini is an Angular app:
- * conversations are {@code [data-test-id="conversation"]} sidebar items that
- * navigate via the router on a real click (there is no conversation URL to open
- * directly), so {@link #openLatestConversation()} clicks the newest item rather
- * than navigating by URL. Once loaded, turns are {@code <user-query>} and
- * {@code <model-response>} custom elements; the clean text is in {@code .query-text}
- * (user) and {@code .markdown} (model) — the elements' own innerText carries "You
- * said…" / "Gemini said…" accessibility prefixes, which reading the inner content
- * elements avoids.
+ * Verified against the live logged-in page (2026-08-10). Gemini is an Angular app;
+ * conversations are {@code [data-test-id="conversation"]} sidebar items, each
+ * wrapping a single {@code <a href="/app/<id>">} with a durable per-conversation
+ * URL. That URL is read directly off the anchor and navigated to — no click is
+ * needed to discover or open a conversation. (An earlier version of this adapter
+ * clicked the sidebar item itself to navigate, which doesn't work: {@code .click()}
+ * on a wrapper element dispatches a click that bubbles up through ancestors, not
+ * down into a child anchor, so the router never saw a real anchor click and the
+ * page silently stayed on the zero-state "new chat" screen.) Once loaded, turns are
+ * {@code <user-query>} and {@code <model-response>} custom elements; the clean text
+ * is in {@code .query-text} (user) and {@code .markdown} (model) — the elements'
+ * own innerText carries "You said…" / "Gemini said…" accessibility prefixes, which
+ * reading the inner content elements avoids.
  */
 public final class GeminiWebAdapter extends CdpTranscriptAdapter {
 
     static final String BASE_URL = "https://gemini.google.com/app";
     static final String SIDEBAR_URI_PREFIX = "gemini-sidebar-index:";
+    private static final String CONVERSATION_SELECTOR = "[data-test-id='conversation']";
+    private static final String CONVERSATION_LINK_SELECTOR = "[data-test-id='conversation'] a";
     private static final int maxDiscoverableSidebarChats = 50;
 
     GeminiWebAdapter(String cdpUrl) {
@@ -45,12 +51,13 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     @Override
     List<ChatWebSummary> listChats(CdpPage page) {
         CdpPage.CdpLocator conversations = conversationLocator(page);
+        CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);
         int count = Math.min(conversations.count(), maxDiscoverableSidebarChats);
         List<ChatWebSummary> summaries = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             CdpPage.CdpLocator conversation = conversations.nth(i);
             String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(conversation));
-            String uri = stableUrlAfterClick(page, i);
+            String uri = durableUrl(links.nth(i).getAttribute("href"));
             summaries.add(new ChatWebSummary(
                     title == null || title.isBlank() ? "Gemini conversation" : title,
                     uri == null ? SIDEBAR_URI_PREFIX + i : uri));
@@ -62,21 +69,21 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     Optional<OpenConversation> openLatestConversation() {
         CdpPage page = openPage(siteBaseUrl());
         try {
-            CdpPage.CdpLocator conversations = page.locator("[data-test-id='conversation']");
-            if (conversations.count() == 0) {
-                // Expand the side nav so the conversation list renders.
-                page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
-                        .first().click(4000);
-                page.waitForTimeout(1500);
-                conversations = page.locator("[data-test-id='conversation']");
-            }
+            CdpPage.CdpLocator conversations = conversationLocator(page);
             if (conversations.count() == 0) {
                 return Optional.empty();
             }
             CdpPage.CdpLocator newest = conversations.first();
             String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(newest));
-            newest.click(6000);
-            page.waitForTimeout(3000);
+            String url = durableUrl(page.locator(CONVERSATION_LINK_SELECTOR).first().getAttribute("href"));
+            if (url != null) {
+                page.navigate(url);
+            } else {
+                // No durable href found; fall back to clicking the anchor directly (not the
+                // wrapper -- see the class doc for why that distinction matters).
+                page.locator(CONVERSATION_LINK_SELECTOR).first().click(6000);
+                page.waitForTimeout(3000);
+            }
             return Optional.of(new OpenConversation(
                     title == null || title.isBlank() ? "Gemini conversation" : title, page.url(), page));
         } catch (Exception unavailable) {
@@ -89,15 +96,24 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         if (summary.url().startsWith(SIDEBAR_URI_PREFIX)) {
             CdpPage page = openPage(siteBaseUrl());
             int index = Integer.parseInt(summary.url().substring(SIDEBAR_URI_PREFIX.length()));
-            CdpPage.CdpLocator conversations = conversationLocator(page);
-            if (index >= conversations.count()) {
+            CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);
+            if (index >= links.count()) {
                 return Optional.empty();
             }
-            conversations.nth(index).click(6000);
+            links.nth(index).click(6000);
             page.waitForTimeout(3000);
             return Optional.of(new OpenConversation(summary.title(), page.url(), page));
         }
         return super.openConversation(summary);
+    }
+
+    /** The absolute, durable conversation URL for a sidebar anchor's {@code href}, or null. */
+    private static String durableUrl(String href) {
+        if (href == null || href.isBlank()) {
+            return null;
+        }
+        String url = href.startsWith("http") ? href : "https://gemini.google.com" + href;
+        return ProviderIdentity.geminiWebId(url) == null ? null : url;
     }
 
     @Override
@@ -153,24 +169,13 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     }
 
     private static CdpPage.CdpLocator conversationLocator(CdpPage page) {
-        CdpPage.CdpLocator conversations = page.locator("[data-test-id='conversation']");
+        CdpPage.CdpLocator conversations = page.locator(CONVERSATION_SELECTOR);
         if (conversations.count() == 0) {
             page.locator("chat-app-side-nav-menu-button button, button[aria-label*='menu' i]")
                     .first().click(4000);
             page.waitForTimeout(1500);
-            conversations = page.locator("[data-test-id='conversation']");
+            conversations = page.locator(CONVERSATION_SELECTOR);
         }
         return conversations;
-    }
-
-    private static String stableUrlAfterClick(CdpPage page, int index) {
-        try {
-            page.locator("[data-test-id='conversation']").nth(index).click(3000);
-            page.waitForTimeout(500);
-            String url = page.url();
-            return ProviderIdentity.geminiWebId(url) == null ? null : url;
-        } catch (Exception unavailable) {
-            return null;
-        }
     }
 }
