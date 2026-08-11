@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
+import java.util.logging.Logger;
 
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
@@ -13,6 +14,7 @@ import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.service.ServiceGraph;
 import chatmap.storage.Database;
 import chatmap.ui.ChatMapController;
+import chatmap.util.Log;
 
 /**
  * Owns application paths, database/service wiring, background work, and shutdown.
@@ -26,6 +28,7 @@ import chatmap.ui.ChatMapController;
  * by sharing one thread.
  */
 public final class ChatMapRuntime implements AutoCloseable {
+    private static final Logger LOG = Log.of(ChatMapRuntime.class);
     private static final Duration shutdownTimeout = Duration.ofSeconds(5);
 
     private final ResolvedPaths paths;
@@ -49,7 +52,7 @@ public final class ChatMapRuntime implements AutoCloseable {
             throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
         }
         ResolvedPaths paths = parsedArguments.paths();
-        System.out.println(ChatMapPaths.diagnostics(paths));
+        LOG.info(ChatMapPaths.diagnostics(paths));
         Files.createDirectories(paths.homeDirectory());
 
         var connection = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
@@ -103,7 +106,7 @@ public final class ChatMapRuntime implements AutoCloseable {
         if (dbStopped && backendStopped) {
             services.close();
         } else {
-            System.err.println("[ChatMap] Background work did not stop in time; "
+            LOG.warning("Background work did not stop in time; "
                     + "leaving the database connection for the JVM to release on exit.");
         }
     }

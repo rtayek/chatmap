@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.logging.Logger;
 
 import chatmap.backend.ai.AiBackend;
 import chatmap.backend.ai.AiRequest;
@@ -28,8 +29,10 @@ import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
+import chatmap.util.Log;
 
 public final class PromptService {
+    private static final Logger LOG = Log.of(PromptService.class);
     private final Map<String, AiBackend> backends;
     private final Map<String, String> backendLabels;
     private final ImportService importService;
@@ -178,7 +181,7 @@ public final class PromptService {
             return file;
         } catch (IOException e) {
             // Best-effort debug output; the database record above is the one that matters.
-            System.err.println("[ChatMap] Failed to write prompt transcript: " + e.getMessage());
+            LOG.warning("Failed to write prompt transcript: " + e.getMessage());
             return null;
         }
     }

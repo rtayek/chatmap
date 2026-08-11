@@ -3,11 +3,13 @@ package chatmap.service;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.importer.ImportedChat;
 import chatmap.storage.ChatRepository;
+import chatmap.util.Log;
 
 /**
  * Chooses which chat to act on, shared by the CLI and the JavaFX app so the two
@@ -23,10 +25,12 @@ import chatmap.storage.ChatRepository;
  * </ol>
  *
  * A provider that returns empty or throws is treated as unavailable and the next
- * option is tried; provider progress/failures are reported to stderr so both
- * front ends surface the same messages.
+ * option is tried; provider progress/failures are logged so both front ends
+ * (whichever has a visible console) surface the same messages.
  */
 public final class LiveChatFetchService {
+
+    private static final Logger LOG = Log.of(LiveChatFetchService.class);
 
     /** Which chat was chosen, plus a human-readable note on how (for status/logging). */
     public record Resolution(long chatId, String how) {}
@@ -62,9 +66,9 @@ public final class LiveChatFetchService {
                     return new Resolution(stored.id(),
                             "last live chat from " + provider.name() + " (\"" + stored.title() + "\")");
                 }
-                System.err.println("Provider " + provider.name() + " has no live chat; trying next.");
+                LOG.info("Provider " + provider.name() + " has no live chat; trying next.");
             } catch (Exception e) {
-                System.err.println("Provider " + provider.name() + " unavailable: " + e.getMessage());
+                LOG.warning("Provider " + provider.name() + " unavailable: " + e.getMessage());
             }
         }
 
