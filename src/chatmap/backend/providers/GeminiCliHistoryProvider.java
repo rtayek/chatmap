@@ -14,18 +14,28 @@ import chatmap.domain.Source;
  * Reads the most recent Gemini CLI session as a chat.
  *
  * Sessions live at {@code ~/.gemini/tmp/<project-hash>/chats/session-*.jsonl},
- * project-scoped. Verified against real files on disk: each line is a
- * MongoDB-style update; a {@code $set.messages} line carries a full snapshot of
- * the conversation so far (later snapshots supersede earlier ones), and each
- * message is {@code {type, content:[{text}]}}. Only {@code user} and
+ * project-scoped. Verified against real files on disk, which mix two line
+ * shapes:
+ * <ul>
+ *   <li>A MongoDB-style {@code $set.messages} update, carrying a full snapshot
+ *       array of turns so far. In practice this appears once per file (the
+ *       injected {@code <session_context>} setup turn) — later snapshots, if
+ *       any, supersede everything accumulated since the last one.</li>
+ *   <li>Standalone per-line turn records, {@code {type, content, id,
+ *       timestamp, ...}} — one line per real turn, appended after the initial
+ *       snapshot. This is where actual conversation content lives; a version
+ *       of this parser that only read {@code $set.messages} would see just
+ *       the one-message context snapshot and treat every real session as
+ *       empty.</li>
+ * </ul>
+ * For both shapes, a message is {@code {type, content}}: {@code content} is
+ * either a plain string (seen on {@code gemini}-type turns) or an array of
+ * {@code {text}} blocks (seen on {@code user}-type turns; a
+ * {@code functionResponse} block instead of {@code text} is tool-call
+ * plumbing, not user text, and yields no text to keep). Only {@code user} and
  * {@code gemini}/{@code model} messages are kept as turns; the leading
  * {@code <session_context>} block Gemini injects is setup metadata, not
  * conversation, and is skipped.
- *
- * NOTE: on the machine this was built against, only {@code user}-type messages
- * were present in the logs, so the assistant-role mapping ({@code gemini} /
- * {@code model} -> assistant) follows Gemini CLI's documented convention rather
- * than observed data; adjust if a real assistant turn shows a different type.
  */
 public final class GeminiCliHistoryProvider extends LocalCliHistoryProvider {
 
@@ -43,43 +53,49 @@ public final class GeminiCliHistoryProvider extends LocalCliHistoryProvider {
     }
 
     static List<ClaudeTurn> parse(Path file) {
-        JsonArray messages = latestMessagesSnapshot(file);
-        if (messages == null) {
-            return List.of();
-        }
-        List<ClaudeTurn> turns = new ArrayList<>();
-        for (JsonElement element : messages) {
-            if (!element.isJsonObject()) {
+        List<JsonObject> messages = new ArrayList<>();
+        for (String line : SessionLines.read(file)) {
+            JsonObject o = SessionLines.asObject(line);
+            if (o == null) {
                 continue;
             }
-            JsonObject message = element.getAsJsonObject();
+            JsonArray snapshot = messagesSnapshot(o);
+            if (snapshot != null) {
+                // A full-snapshot update: replaces everything accumulated since the last one.
+                messages.clear();
+                for (JsonElement element : snapshot) {
+                    if (element.isJsonObject()) {
+                        messages.add(element.getAsJsonObject());
+                    }
+                }
+            } else if (o.has("type") && o.has("content")) {
+                // A standalone incremental turn, appended after the last snapshot.
+                messages.add(o);
+            }
+        }
+
+        List<ClaudeTurn> turns = new ArrayList<>();
+        for (JsonObject message : messages) {
             String role = mapRole(SessionLines.string(message, "type"));
             if (role == null) {
                 continue;
             }
             String text = messageText(message.get("content"));
             if (text.isBlank() || text.stripLeading().startsWith("<session_context>")) {
-                continue; // injected setup context, not conversation
+                continue; // injected setup context, or tool-call plumbing with no user text
             }
             turns.add(new ClaudeTurn(role, text.strip()));
         }
         return turns;
     }
 
-    /** The messages array from the last {@code $set.messages} line (the newest full snapshot). */
-    private static JsonArray latestMessagesSnapshot(Path file) {
-        JsonArray latest = null;
-        for (String line : SessionLines.read(file)) {
-            JsonObject o = SessionLines.asObject(line);
-            if (o == null || !o.has("$set") || !o.get("$set").isJsonObject()) {
-                continue;
-            }
-            JsonObject set = o.getAsJsonObject("$set");
-            if (set.has("messages") && set.get("messages").isJsonArray()) {
-                latest = set.getAsJsonArray("messages");
-            }
+    /** The {@code messages} array of a {@code $set.messages} line, or null if this line isn't one. */
+    private static JsonArray messagesSnapshot(JsonObject line) {
+        if (!line.has("$set") || !line.get("$set").isJsonObject()) {
+            return null;
         }
-        return latest;
+        JsonObject set = line.getAsJsonObject("$set");
+        return set.has("messages") && set.get("messages").isJsonArray() ? set.getAsJsonArray("messages") : null;
     }
 
     private static String mapRole(String type) {

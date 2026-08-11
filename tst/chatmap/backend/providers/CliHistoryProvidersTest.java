@@ -175,6 +175,37 @@ class CliHistoryProvidersTest {
     }
 
     @Test
+    void geminiReadsStandaloneIncrementalTurnRecordsAfterTheInitialSnapshot(@TempDir Path dir) throws Exception {
+        // Real on-disk shape (not covered by geminiUsesLatestSnapshotSkipsContextAndMapsRoles):
+        // one $set.messages line holding only the injected context, then real turns logged as
+        // standalone per-line {type, content, ...} records rather than further $set snapshots.
+        // A version of the parser that only reads $set.messages sees just the context and
+        // treats every such session as empty -- which is what real Gemini CLI logs look like.
+        Path file = dir.resolve("session-real.jsonl");
+        Files.write(file, List.of(
+                "{\"sessionId\":\"a2a\",\"kind\":\"main\"}",
+                "{\"$set\":{\"messages\":[{\"type\":\"user\",\"content\":"
+                        + "[{\"text\":\"<session_context>\\nsetup</session_context>\"}]}],"
+                        + "\"lastUpdated\":\"2026-08-06T21:33:48.859Z\"}}",
+                "{\"$set\":{\"lastUpdated\":\"2026-08-06T21:33:49.000Z\"}}", // heartbeat, no messages
+                "{\"id\":\"1\",\"timestamp\":\"2026-08-06T21:33:50Z\",\"type\":\"user\","
+                        + "\"content\":[{\"text\":\"examine this project\"}]}",
+                "{\"id\":\"2\",\"timestamp\":\"2026-08-06T21:33:51Z\",\"type\":\"user\","
+                        + "\"content\":[{\"functionResponse\":{\"id\":\"x\",\"name\":\"update_topic\","
+                        + "\"response\":{\"output\":\"noise\"}}}]}",
+                "{\"id\":\"3\",\"timestamp\":\"2026-08-06T21:33:52Z\",\"type\":\"gemini\","
+                        + "\"content\":\"I will begin by examining the project.\",\"thoughts\":[],"
+                        + "\"model\":\"gemini-3.5-flash\"}"));
+
+        List<ClaudeTurn> turns = GeminiCliHistoryProvider.parse(file);
+        assertEquals(2, turns.size(), "context and functionResponse-only turn dropped");
+        assertEquals("user", turns.get(0).role());
+        assertEquals("examine this project", turns.get(0).text());
+        assertEquals("assistant", turns.get(1).role());
+        assertEquals("I will begin by examining the project.", turns.get(1).text());
+    }
+
+    @Test
     void messagesGetSequentialPositions(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("rollout-seq.jsonl");
         Files.write(file, List.of(
