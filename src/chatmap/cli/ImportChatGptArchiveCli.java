@@ -9,19 +9,12 @@ import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
 /** Imports a ChatGPT export ZIP into the same database used by the JavaFX app. */
 public final class ImportChatGptArchiveCli {
 
+    private static final String USAGE = "Usage: importChatGptArchive [--home <directory>] <chatgpt-export.zip>";
+
     public static void main(String[] args) {
-        ParsedArguments parsedArguments;
-        try {
-            parsedArguments = ChatMapPaths.parse(args);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            System.err.println("Usage: importChatGptArchive [--home <directory>] <chatgpt-export.zip>");
-            System.exit(1);
-            return;
-        }
+        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);
         if (parsedArguments.remainingArgs().size() != 1) {
-            System.err.println("Usage: importChatGptArchive [--home <directory>] <chatgpt-export.zip>");
-            System.exit(1);
+            CliBootstrap.exitWithUsage(USAGE);
             return;
         }
         Path archive = Path.of(parsedArguments.remainingArgs().getFirst());

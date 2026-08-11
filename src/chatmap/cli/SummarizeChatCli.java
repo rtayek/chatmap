@@ -22,19 +22,12 @@ import chatmap.service.LiveChatFetchService;
  */
 public final class SummarizeChatCli {
 
+    private static final String USAGE = "Usage: summarizeChat [--home <directory>] [chatId]";
+
     public static void main(String[] args) {
-        ParsedArguments parsedArguments;
-        try {
-            parsedArguments = ChatMapPaths.parse(args);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            System.err.println("Usage: summarizeChat [--home <directory>] [chatId]");
-            System.exit(1);
-            return;
-        }
+        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);
         if (parsedArguments.remainingArgs().size() > 1) {
-            System.err.println("Usage: summarizeChat [--home <directory>] [chatId]");
-            System.exit(1);
+            CliBootstrap.exitWithUsage(USAGE);
             return;
         }
         Long requestedChatId = null;

@@ -10,19 +10,12 @@ import chatmap.domain.ProviderInventory;
 /** Prints a read-only inventory of all discoverable configured-source conversations. */
 public final class ConversationInventoryCli {
 
+    private static final String USAGE = "Usage: conversationInventory [--home <directory>]";
+
     public static void main(String[] args) {
-        ParsedArguments parsedArguments;
-        try {
-            parsedArguments = ChatMapPaths.parse(args);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            System.err.println("Usage: conversationInventory [--home <directory>]");
-            System.exit(1);
-            return;
-        }
+        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);
         if (!parsedArguments.remainingArgs().isEmpty()) {
-            System.err.println("Usage: conversationInventory [--home <directory>]");
-            System.exit(1);
+            CliBootstrap.exitWithUsage(USAGE);
             return;
         }
 

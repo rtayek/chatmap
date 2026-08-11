@@ -34,6 +34,26 @@ public final class CliBootstrap {
         return open(ChatMapPaths.parse(args));
     }
 
+    /**
+     * Parses CLI arguments, printing {@code e.getMessage()} plus {@code usage}
+     * and exiting with status 1 on failure instead of throwing.
+     */
+    public static ParsedArguments parseOrExit(String[] args, String usage) {
+        try {
+            return ChatMapPaths.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            exitWithUsage(usage);
+            throw new AssertionError("unreachable");
+        }
+    }
+
+    /** Prints {@code usage} to stderr and exits with status 1. */
+    public static void exitWithUsage(String usage) {
+        System.err.println(usage);
+        System.exit(1);
+    }
+
     public static CliContext open(ParsedArguments parsedArguments) throws IOException, SQLException {
         return open(parsedArguments, ServiceGraph.Integrations.none());
     }
