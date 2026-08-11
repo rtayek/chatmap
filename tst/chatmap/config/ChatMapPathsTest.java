@@ -152,11 +152,20 @@ final class ChatMapPathsTest {
     }
 
     @Test
-    void missingHomeValueAndUnknownOptionAreUsageErrors() {
+    void missingHomeValueIsAUsageError() {
         assertThrows(IllegalArgumentException.class,
                 () -> ChatMapPaths.resolve(List.of("--home"), Map.of(), tempDir.resolve("user"), tempDir));
-        assertThrows(IllegalArgumentException.class,
-                () -> ChatMapPaths.resolve(List.of("--database", "x"), Map.of(), tempDir.resolve("user"), tempDir));
+    }
+
+    @Test
+    void unrecognizedOptionsPassThroughToRemainingArgsForTheCallingCliToValidate() throws Exception {
+        Path current = tempDir.resolve("repo");
+        Files.createDirectories(current.resolve(".chatmap-local"));
+
+        ChatMapPaths.ParsedArguments parsed = ChatMapPaths.resolve(
+                List.of("--source", "Gemini (web)"), Map.of(), tempDir.resolve("user"), current);
+
+        assertEquals(List.of("--source", "Gemini (web)"), parsed.remainingArgs());
     }
 
     @Test

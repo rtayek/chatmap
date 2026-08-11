@@ -63,9 +63,11 @@ public final class ChatMapPaths {
                     throw new IllegalArgumentException("--home requires a nonblank directory.");
                 }
                 explicitHome = normalize(value);
-            } else if (arg.startsWith("--")) {
-                throw new IllegalArgumentException("Unknown option: " + arg + ". Supported option: --home <directory>.");
             } else {
+                // Not our option; leave it for the calling CLI to validate. Each CLI already
+                // enforces its own remainingArgs() shape (e.g. ImportAllChatsCli's --source),
+                // so rejecting every other "--" flag here would only block those CLI-specific
+                // options from ever reaching their own parsing.
                 remaining.add(arg);
             }
         }
