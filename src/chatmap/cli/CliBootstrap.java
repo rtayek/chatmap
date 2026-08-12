@@ -5,9 +5,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.nio.file.Files;
 
-import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
+import chatmap.config.LoggingBootstrap;
 import chatmap.service.ServiceGraph;
 import chatmap.storage.Database;
 
@@ -31,7 +31,11 @@ public final class CliBootstrap {
     }
 
     public static CliContext open(String[] args) throws IOException, SQLException {
-        return open(ChatMapPaths.parse(args));
+        return open(parse(args));
+    }
+
+    public static ParsedArguments parse(String[] args) {
+        return LoggingBootstrap.bootstrap(args);
     }
 
     /**
@@ -40,7 +44,7 @@ public final class CliBootstrap {
      */
     public static ParsedArguments parseOrExit(String[] args, String usage) {
         try {
-            return ChatMapPaths.parse(args);
+            return parse(args);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
             exitWithUsage(usage);
@@ -61,6 +65,7 @@ public final class CliBootstrap {
     public static CliContext open(ParsedArguments parsedArguments, ServiceGraph.Integrations integrations)
             throws IOException, SQLException {
         ResolvedPaths paths = parsedArguments.paths();
+        LoggingBootstrap.initialize(paths);
         Files.createDirectories(paths.homeDirectory());
         Connection conn = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
         return createContext(conn, paths, integrations);

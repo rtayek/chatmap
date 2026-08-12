@@ -14,7 +14,13 @@ import chatmap.importer.ImportedChat;
 /** Prints the latest prompt and response visible from each configured chat source. */
 public final class LiveSourceExchanges {
 
+    private static final String USAGE = "Usage: LiveSourceExchanges [--home <directory>]";
+
     public static void main(String[] args) {
+        if (!CliBootstrap.parseOrExit(args, USAGE).remainingArgs().isEmpty()) {
+            CliBootstrap.exitWithUsage(USAGE);
+            return;
+        }
         for (ChatProvider provider : DefaultChatProviders.ordered()) {
             printField("provider", provider.name());
             try {

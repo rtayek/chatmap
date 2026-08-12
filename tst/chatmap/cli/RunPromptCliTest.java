@@ -14,6 +14,8 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,6 +23,7 @@ import chatmap.backend.ai.AiBackend;
 import chatmap.backend.ai.AiResponse;
 import chatmap.backend.ai.BackendId;
 import chatmap.backend.ai.DefaultAiBackends;
+import chatmap.config.LoggingBootstrap;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.service.PromptResult;
@@ -30,6 +33,19 @@ import chatmap.storage.MessageRepository;
 
 class RunPromptCliTest {
 
+    private String originalLogDirectory;
+
+    @BeforeEach
+    void rememberLogDirectoryProperty() {
+        originalLogDirectory = System.getProperty(LoggingBootstrap.LOG_DIRECTORY_PROPERTY);
+    }
+
+    @AfterEach
+    void releaseLogFileAndRestoreProperty() {
+        LoggingBootstrap.initializeTemporaryFallback();
+        restoreLogDirectoryProperty(originalLogDirectory);
+    }
+
     @Test
     void defaultAiBackendsInstantiatesSupportedBackends() {
         Map<String, AiBackend> backends = DefaultAiBackends.defaults();
@@ -37,6 +53,14 @@ class RunPromptCliTest {
         assertTrue(backends.containsKey("codex"));
         assertTrue(backends.containsKey("agy"));
         assertTrue(backends.containsKey("ollama"));
+    }
+
+    private static void restoreLogDirectoryProperty(String value) {
+        if (value == null) {
+            System.clearProperty(LoggingBootstrap.LOG_DIRECTORY_PROPERTY);
+        } else {
+            System.setProperty(LoggingBootstrap.LOG_DIRECTORY_PROPERTY, value);
+        }
     }
 
     @Test

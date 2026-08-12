@@ -1,6 +1,6 @@
 <configuration>
 
-    <property name="LOG_DIR" value="${user.home}/.chatmap/logs" />
+    <property name="LOG_DIR" value="${chatmap.log.dir:-${java.io.tmpdir}/chatmap-bootstrap/logs}" />
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -21,6 +21,10 @@
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
+
+    <logger name="chatmap.config.LoggingBootstrap" level="ERROR" additivity="false">
+        <appender-ref ref="FILE" />
+    </logger>
 
     <!-- Configure root logger -->
     <root level="INFO">

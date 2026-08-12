@@ -87,6 +87,7 @@ final class ChatMapPathsTest {
     void missingCurrentDirectoryHomeFallsBackToExistingLegacyHome() throws Exception {
         Path legacy = tempDir.resolve("user").resolve(".chatmap");
         Files.createDirectories(legacy);
+        Files.createFile(legacy.resolve("chatmap.db"));
 
         ChatMapPaths.ParsedArguments parsed = ChatMapPaths.resolve(
                 List.of(),
@@ -95,6 +96,18 @@ final class ChatMapPathsTest {
                 tempDir.resolve("repo"));
 
         assertEquals(legacy.toAbsolutePath().normalize(), parsed.paths().homeDirectory());
+    }
+
+    @Test
+    void legacyDirectoryWithoutDatabaseIsIgnored() throws Exception {
+        Path current = tempDir.resolve("repo");
+        Path legacy = tempDir.resolve("user").resolve(".chatmap");
+        Files.createDirectories(legacy.resolve("logs"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> ChatMapPaths.resolve(List.of(), Map.of(), tempDir.resolve("user"), current));
+
+        assertFalse(Files.exists(legacy.resolve("chatmap.db")));
     }
 
     @Test
@@ -126,6 +139,7 @@ final class ChatMapPathsTest {
         Path expectedHome = selected.toAbsolutePath().normalize();
         assertEquals(expectedHome, parsed.paths().homeDirectory());
         assertEquals(expectedHome.resolve("chatmap.db"), parsed.paths().databasePath());
+        assertEquals(expectedHome.resolve("logs"), parsed.paths().logsDirectory());
     }
 
     @Test

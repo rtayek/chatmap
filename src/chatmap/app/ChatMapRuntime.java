@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
+import chatmap.config.LoggingBootstrap;
 import chatmap.service.ServiceGraph;
 import chatmap.storage.Database;
 import chatmap.ui.ChatMapController;
@@ -29,17 +30,18 @@ import chatmap.util.Log;
  * by sharing one thread.
  */
 public final class ChatMapRuntime implements AutoCloseable {
-    private static final Logger LOG = Log.of(ChatMapRuntime.class);
     private static final Duration shutdownTimeout = Duration.ofSeconds(5);
 
+    private final Logger log;
     private final ResolvedPaths paths;
     private final ServiceGraph services;
     private final ChatMapController controller;
     private final SerializedTaskExecutor dbExecutor;
     private final SerializedTaskExecutor backendExecutor;
 
-    private ChatMapRuntime(ResolvedPaths paths, ServiceGraph services, ChatMapController controller,
+    private ChatMapRuntime(Logger log, ResolvedPaths paths, ServiceGraph services, ChatMapController controller,
             SerializedTaskExecutor dbExecutor, SerializedTaskExecutor backendExecutor) {
+        this.log = log;
         this.paths = paths;
         this.services = services;
         this.controller = controller;
@@ -48,12 +50,10 @@ public final class ChatMapRuntime implements AutoCloseable {
     }
 
     public static ChatMapRuntime open(List<String> rawArguments) throws Exception {
-        ParsedArguments parsedArguments = ChatMapPaths.parse(rawArguments);
-        if (!parsedArguments.remainingArgs().isEmpty()) {
-            throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
-        }
+        ParsedArguments parsedArguments = LoggingBootstrap.bootstrap(rawArguments, ChatMapRuntime::validateArguments);
         ResolvedPaths paths = parsedArguments.paths();
-        LOG.info(ChatMapPaths.diagnostics(paths));
+        Logger log = Log.of(ChatMapRuntime.class);
+        log.info(ChatMapPaths.diagnostics(paths));
         Files.createDirectories(paths.homeDirectory());
 
         var connection = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
@@ -61,7 +61,8 @@ public final class ChatMapRuntime implements AutoCloseable {
             ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create());
             SerializedTaskExecutor dbExecutor = new SerializedTaskExecutor("chatmap-db");
             SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor("chatmap-ai-backend");
-            return new ChatMapRuntime(paths, services, new ChatMapController(services), dbExecutor, backendExecutor);
+            return new ChatMapRuntime(log, paths, services, new ChatMapController(services), dbExecutor,
+                    backendExecutor);
         } catch (Exception failure) {
             try {
                 connection.close();
@@ -69,6 +70,12 @@ public final class ChatMapRuntime implements AutoCloseable {
                 failure.addSuppressed(closeFailure);
             }
             throw failure;
+        }
+    }
+
+    private static void validateArguments(ParsedArguments parsedArguments) {
+        if (!parsedArguments.remainingArgs().isEmpty()) {
+            throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
         }
     }
 
@@ -107,7 +114,7 @@ public final class ChatMapRuntime implements AutoCloseable {
         if (dbStopped && backendStopped) {
             services.close();
         } else {
-            LOG.warn("Background work did not stop in time; "
+            log.warn("Background work did not stop in time; "
                     + "leaving the database connection for the JVM to release on exit.");
         }
     }

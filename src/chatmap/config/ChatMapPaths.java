@@ -87,7 +87,7 @@ public final class ChatMapPaths {
         if (Files.isDirectory(currentHome)) {
             return currentHome;
         }
-        if (Files.isDirectory(legacyHome)) {
+        if (Files.isRegularFile(legacyHome.resolve(DATABASE_FILE))) {
             return legacyHome;
         }
         throw new IllegalArgumentException("No ChatMap home was selected. Checked current-directory home "
@@ -114,6 +114,10 @@ public final class ChatMapPaths {
 
         public Path transcriptsDirectory() {
             return homeDirectory.resolve("transcripts");
+        }
+
+        public Path logsDirectory() {
+            return homeDirectory.resolve("logs");
         }
     }
 

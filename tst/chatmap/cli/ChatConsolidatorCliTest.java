@@ -10,13 +10,29 @@ import java.sql.Connection;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import chatmap.config.LoggingBootstrap;
 import chatmap.storage.Database;
 import chatmap.storage.ProjectRepository;
 
 class ChatConsolidatorCliTest {
+
+    private String originalLogDirectory;
+
+    @BeforeEach
+    void rememberLogDirectoryProperty() {
+        originalLogDirectory = System.getProperty(LoggingBootstrap.LOG_DIRECTORY_PROPERTY);
+    }
+
+    @AfterEach
+    void releaseLogFileAndRestoreProperty() {
+        LoggingBootstrap.initializeTemporaryFallback();
+        restoreLogDirectoryProperty(originalLogDirectory);
+    }
 
     @Test
     void consolidatorProcessesProjectFiles(@TempDir Path tempDir) throws Exception {
@@ -44,6 +60,14 @@ class ChatConsolidatorCliTest {
         assertTrue(content.contains("sampleProject"));
         assertTrue(content.contains("Sample Project Discussion"));
         assertTrue(content.contains("How do we structure the consolidation module?"));
+    }
+
+    private static void restoreLogDirectoryProperty(String value) {
+        if (value == null) {
+            System.clearProperty(LoggingBootstrap.LOG_DIRECTORY_PROPERTY);
+        } else {
+            System.setProperty(LoggingBootstrap.LOG_DIRECTORY_PROPERTY, value);
+        }
     }
 
     @Test

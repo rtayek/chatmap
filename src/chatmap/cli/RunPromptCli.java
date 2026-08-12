@@ -6,7 +6,6 @@ import java.util.Map;
 
 import chatmap.backend.ai.AiBackend;
 import chatmap.backend.ai.DefaultAiBackends;
-import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.service.PromptResult;
 import chatmap.service.PromptService;
@@ -32,7 +31,7 @@ public final class RunPromptCli {
     }
 
     public static PromptResult execute(String[] args, Map<String, AiBackend> backends, Clock clock) throws Exception {
-        ParsedArguments parsedArguments = ChatMapPaths.parse(args);
+        ParsedArguments parsedArguments = CliBootstrap.parse(args);
         List<String> remaining = parsedArguments.remainingArgs();
         if (remaining.size() < 2) {
             throw new IllegalArgumentException("Usage: runPrompt [--home <directory>] <backendId> [--session <id>] <prompt>");

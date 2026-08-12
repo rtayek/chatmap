@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import chatmap.app.ChatMapRuntime;
+import chatmap.config.LoggingBootstrap;
 import chatmap.domain.Chat;
 import chatmap.domain.ConversationInventory;
 import chatmap.domain.Project;
@@ -47,7 +48,14 @@ public final class ChatMapApp extends Application {
     private ChatMapSelectionCoordinator selection;
 
     public static void main(String[] args) {
+        LoggingBootstrap.bootstrap(args, ChatMapApp::validateArguments);
         launch(args);
+    }
+
+    private static void validateArguments(chatmap.config.ChatMapPaths.ParsedArguments parsedArguments) {
+        if (!parsedArguments.remainingArgs().isEmpty()) {
+            throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
+        }
     }
 
     @Override

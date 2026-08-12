@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.domain.Chat;
 import chatmap.domain.Project;
@@ -36,15 +35,7 @@ public final class ChatConsolidatorCli {
     );
 
     public static void main(String[] args) {
-        ParsedArguments parsedArguments;
-        try {
-            parsedArguments = ChatMapPaths.parse(args);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            printUsage();
-            System.exit(1);
-            return;
-        }
+        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, usage());
         List<String> remaining = parsedArguments.remainingArgs();
         Path rootPath = !remaining.isEmpty() ? Paths.get(remaining.get(0)) : Paths.get("..");
         Path outputPath = remaining.size() > 1 ? Paths.get(remaining.get(1)) : Paths.get("consolidated_output");
@@ -115,8 +106,8 @@ public final class ChatConsolidatorCli {
         }
     }
 
-    private static void printUsage() {
-        System.err.println("Usage: chatConsolidator [--home <directory>] [<root>] [<outputDir>]");
+    private static String usage() {
+        return "Usage: chatConsolidator [--home <directory>] [<root>] [<outputDir>]";
     }
 
     static Map<String, List<Path>> scanWorkspace(Path root) throws IOException {
