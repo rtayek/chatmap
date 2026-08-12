@@ -43,15 +43,11 @@ final class ChatGptMapping {
         return reversed;
     }
 
-    /** The message's author role, normalized to user/assistant/system or "unknown". */
-    static String mapRole(JsonObject message) {
+    /** The message's author role, normalized to the closed domain role set. */
+    static MessageRole mapRole(JsonObject message) {
         JsonObject author = object(message.get("author"));
         String role = author == null ? null : string(author.get("role"));
-        if (MessageRole.user.dbValue().equals(role) || MessageRole.assistant.dbValue().equals(role)
-                || MessageRole.system.dbValue().equals(role)) {
-            return role;
-        }
-        return MessageRole.unknown.dbValue();
+        return MessageRole.fromDbValue(role);
     }
 
     /** A ChatGPT epoch-seconds {@code create_time} as a UTC ISO-8601 string, or null. */

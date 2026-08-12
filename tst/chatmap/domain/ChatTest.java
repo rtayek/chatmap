@@ -2,6 +2,7 @@ package chatmap.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
@@ -94,5 +95,17 @@ class ChatTest {
 
         assertEquals(ChatOrigin.imported, chat.originatedBy());
         assertEquals(metadata, chat.importMetadata());
+    }
+
+    @Test
+    void rejectsNullClosedSetAndMetadataFields() {
+        ImportMetadata metadata = ImportMetadata.none(null, "2026-01-03T00:00:00Z");
+
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, null, "Title",
+                null, null, "2026-01-03T00:00:00Z", false, metadata, ChatOrigin.imported));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title",
+                null, null, "2026-01-03T00:00:00Z", false, null, ChatOrigin.imported));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title",
+                null, null, "2026-01-03T00:00:00Z", false, metadata, null));
     }
 }

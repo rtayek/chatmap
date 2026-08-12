@@ -1,5 +1,7 @@
 package chatmap.domain;
 
+import java.util.Objects;
+
 /**
  * One message within a chat.
  *
@@ -17,4 +19,8 @@ public record Message(
         int sequence,
         String timestamp,
         String rawJson) {
+
+    public Message {
+        Objects.requireNonNull(role, "role");
+    }
 }

@@ -32,8 +32,8 @@ class ConversationInventoryFormatterTest {
 
         assertTrue(formatted.contains("Claude (web)  count=1  imported=1  missing=0  complete=false"));
         assertTrue(formatted.contains("diagnostic: Sidebar may be incomplete."));
-        assertTrue(formatted.contains("imported  claudeWeb  claude-1"));
+        assertTrue(formatted.contains("imported  Claude web  claude-1"));
         assertTrue(formatted.contains("Codex (CLI)  count=1  imported=0  missing=1  complete=true"));
-        assertTrue(formatted.contains("missing  codexCli  2026/08/09/rollout.jsonl"));
+        assertTrue(formatted.contains("missing  Codex CLI  2026/08/09/rollout.jsonl"));
     }
 }

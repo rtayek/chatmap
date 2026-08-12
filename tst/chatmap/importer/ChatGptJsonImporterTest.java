@@ -41,8 +41,27 @@ class ChatGptJsonImporterTest {
         assertEquals("2024-07-03T09:51:40Z", imported.chat().updatedAt());
         assertEquals(importedAt, imported.chat().importedAt());
 
-        assertEquals(List.of(MessageRole.system, MessageRole.user, MessageRole.assistant, MessageRole.unknown),
+        assertEquals(List.of(MessageRole.system, MessageRole.user, MessageRole.assistant, MessageRole.tool),
                 imported.messages().stream().map(Message::role).toList());
+    }
+
+    @Test
+    void preservesToolAuthorRole() {
+        String toolConversation = """
+                {
+                  "title": "Tool call",
+                  "mapping": {
+                    "tool": {"message": {
+                      "author": {"role": "tool"},
+                      "content": {"parts": ["tool result"]}
+                    }}
+                  }
+                }
+                """;
+
+        ImportedChat imported = new ChatGptJsonImporter().importJson(toolConversation, importedAt);
+
+        assertEquals(MessageRole.tool, imported.messages().getFirst().role());
     }
 
     @Test

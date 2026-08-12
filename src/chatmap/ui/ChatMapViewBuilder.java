@@ -212,7 +212,7 @@ public final class ChatMapViewBuilder {
     public static String formatResultRow(SearchResult result) {
         StringBuilder row = new StringBuilder();
         row.append(result.chat().title()).append("\n");
-        row.append("Source: ").append(result.chat().source().dbValue());
+        row.append("Source: ").append(result.chat().source().displayName());
         if (result.projectName() != null && !result.projectName().isBlank()) {
             row.append(" | Project: ").append(result.projectName());
         }

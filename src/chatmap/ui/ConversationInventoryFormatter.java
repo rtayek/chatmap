@@ -41,7 +41,7 @@ public final class ConversationInventoryFormatter {
         ConversationCandidate candidate = entry.candidate();
         text.append(entry.alreadyImported() ? "imported" : "missing")
                 .append("  ")
-                .append(candidate.source().dbValue())
+                .append(candidate.source().displayName())
                 .append("  ")
                 .append(nullToBlank(candidate.externalConversationId()))
                 .append("  ")

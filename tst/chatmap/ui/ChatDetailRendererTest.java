@@ -10,6 +10,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
+import chatmap.domain.SearchResult;
 import chatmap.domain.Source;
 import chatmap.exporter.ChatExportModel;
 
@@ -29,17 +30,28 @@ final class ChatDetailRendererTest {
 
         assertEquals("""
                 Planning
-                Source: chatGptWeb
+                Source: ChatGPT web
                 Imported: 2026-08-08T00:00:00Z
 
                 AI Summary (claude): Short summary
 
-                [user]
+                [User]
                 Question
 
-                [assistant]
+                [Assistant]
                 Answer
 
                 """, rendered);
+    }
+
+    @Test
+    void resultRowsUseTheSourceDisplayName() {
+        Chat chat = new Chat(7, null, Source.chatGptWeb, "Planning",
+                null, null, "2026-08-08T00:00:00Z", false);
+
+        String rendered = ChatMapViewBuilder.formatResultRow(
+                new SearchResult(chat, null, List.of(), null));
+
+        assertEquals("Planning\nSource: ChatGPT web", rendered);
     }
 }

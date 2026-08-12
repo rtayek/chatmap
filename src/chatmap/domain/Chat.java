@@ -1,5 +1,7 @@
 package chatmap.domain;
 
+import java.util.Objects;
+
 /**
  * One imported conversation.
  *
@@ -18,6 +20,12 @@ public record Chat(
         boolean archived,
         ImportMetadata importMetadata,
         ChatOrigin originatedBy) {
+
+    public Chat {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(importMetadata, "importMetadata");
+        Objects.requireNonNull(originatedBy, "originatedBy");
+    }
 
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived, ImportMetadata importMetadata) {
