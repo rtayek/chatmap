@@ -1,12 +1,14 @@
 package chatmap.backend.providers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,12 @@ import chatmap.storage.TagRepository;
  * CliHistoryProvidersTest stops at fetch() and never proves anything downstream
  * of it works. One provider (in package scope, since the constructors that take
  * a custom root directory are package-private) per CLI-history provider.
+ *
+ * Also covers the reverse direction: does a fresh {@code listChats()} pass
+ * recognize an already-persisted chat via {@code findImportedIdsByExternalIdentity}
+ * without needing to fetch it again (the pre-fetch skip {@code ImportAllChatsCli}
+ * actually relies on for cheap re-runs, a different code path from persist-time
+ * dedup) -- see {@code freshDiscoveryRecognizesAnAlreadyPersistedCandidate...}.
  */
 class ProviderRoundTripTest {
 
@@ -106,6 +114,57 @@ class ProviderRoundTripTest {
         roundTrip(new GeminiCliHistoryProvider(root), "geminiCli",
                 "dedupes", "How does ChatMap dedupe imported chats?",
                 "ChatMap dedupes by content hash within a source.");
+    }
+
+    /**
+     * The reverse direction from the tests above: given a chat already persisted,
+     * does a fresh discovery pass recognize it without calling fetch() again?
+     *
+     * {@code ImportAllChatsCli}'s efficiency on a re-run over a large local
+     * history doesn't come from persist-time dedup (proven by the
+     * {@code roundTrip} helper's re-fetch/re-persist step above) -- that path
+     * never runs unless fetch() is called at all. It comes from
+     * {@code ChatRepository.findImportedIdsByExternalIdentity}, checked against
+     * bare {@code listChats()} metadata *before* fetch() is ever called. That's
+     * a genuinely different code path; nothing above exercises it.
+     */
+    @Test
+    void freshDiscoveryRecognizesAnAlreadyPersistedCandidateWithoutFetchingItAgain(@TempDir Path root) throws Exception {
+        Path persistedFile = root.resolve("rollout-persisted.jsonl");
+        Files.write(persistedFile, List.of(
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\","
+                        + "\"message\":\"Is this chat already imported?\"}}",
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\","
+                        + "\"message\":\"Yes, once persisted.\"}}"));
+
+        CodexCliHistoryProvider provider = new CodexCliHistoryProvider(root);
+        ConversationCandidate persistedCandidate = provider.listChats().get(0);
+        Chat persistedChat = importService.persist(provider.fetch(persistedCandidate)).chat();
+
+        // A second session file appears in the same directory, never fetched or persisted.
+        Path newFile = root.resolve("rollout-new.jsonl");
+        Files.write(newFile, List.of(
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"user_message\",\"message\":\"A brand new question.\"}}",
+                "{\"type\":\"event_msg\",\"payload\":{\"type\":\"agent_message\",\"message\":\"A brand new answer.\"}}"));
+
+        // Fresh discovery pass over the directory -- this must recognize the persisted
+        // candidate from metadata alone, with no fetch() call in between.
+        List<ConversationCandidate> freshCandidates = provider.listChats();
+        assertEquals(2, freshCandidates.size());
+
+        Map<String, Long> importedIds = chats.findImportedIdsByExternalIdentity(freshCandidates);
+
+        String persistedKey = ChatRepository.identityKey(
+                persistedCandidate.source(), persistedCandidate.externalConversationId());
+        assertEquals(persistedChat.id(), importedIds.get(persistedKey));
+
+        ConversationCandidate newCandidate = freshCandidates.stream()
+                .filter(candidate -> !candidate.externalConversationId()
+                        .equals(persistedCandidate.externalConversationId()))
+                .findFirst().orElseThrow();
+        String newKey = ChatRepository.identityKey(newCandidate.source(), newCandidate.externalConversationId());
+        assertFalse(importedIds.containsKey(newKey), "a never-persisted candidate must not show up as imported");
+        assertEquals(1, importedIds.size(), "only the already-persisted candidate should be recognized");
     }
 
     /**
