@@ -14,7 +14,7 @@ public record AiRequest(
     }
 
     public AiRequest(String prompt, Optional<String> systemPrompt) {
-        this(prompt, systemPrompt, PromptProfile.GENERAL, Optional.empty());
+        this(prompt, systemPrompt, PromptProfile.general, Optional.empty());
     }
 
     public AiRequest {
@@ -25,7 +25,7 @@ public record AiRequest(
     }
 
     public static AiRequest of(String prompt) {
-        return new AiRequest(prompt, Optional.empty(), PromptProfile.GENERAL, Optional.empty());
+        return new AiRequest(prompt, Optional.empty(), PromptProfile.general, Optional.empty());
     }
 
     public static AiRequest withProfile(String prompt, PromptProfile profile) {
@@ -33,7 +33,7 @@ public record AiRequest(
     }
 
     public static AiRequest withSession(String prompt, String sessionId) {
-        return new AiRequest(prompt, Optional.empty(), PromptProfile.GENERAL, Optional.ofNullable(sessionId));
+        return new AiRequest(prompt, Optional.empty(), PromptProfile.general, Optional.ofNullable(sessionId));
     }
 
     public static AiRequest withSession(String prompt, String sessionId, PromptProfile profile) {
@@ -41,7 +41,7 @@ public record AiRequest(
     }
 
     public static AiRequest withSystemPrompt(String prompt, String systemPrompt) {
-        return new AiRequest(prompt, Optional.of(systemPrompt), PromptProfile.GENERAL, Optional.empty());
+        return new AiRequest(prompt, Optional.of(systemPrompt), PromptProfile.general, Optional.empty());
     }
 
     String effectivePrompt() {

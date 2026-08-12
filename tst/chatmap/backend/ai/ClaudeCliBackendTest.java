@@ -66,7 +66,7 @@ final class ClaudeCliBackendTest {
     void guidedTeachingProfileAddsTeachingInstructionToClaudePromptArgument() {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.ask(AiRequest.withProfile("Help me understand fractions", PromptProfile.GUIDED_TEACHING));
+        backend.ask(AiRequest.withProfile("Help me understand fractions", PromptProfile.guidedTeaching));
 
         assertEquals(List.of("claude", "-p"), executor.request.command());
         assertTrue(executor.request.standardInput().contains("[GUIDED_TEACHING mode]"));

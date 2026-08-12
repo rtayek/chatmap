@@ -109,7 +109,7 @@ public final class PromptService {
     }
 
     public PromptResult submit(String backendName, String prompt) throws SQLException {
-        return submit(backendName, prompt, PromptProfile.GENERAL, null);
+        return submit(backendName, prompt, PromptProfile.general, null);
     }
 
     public PromptResult submit(String backendName, String prompt, PromptProfile profile) throws SQLException {
@@ -117,7 +117,7 @@ public final class PromptService {
     }
 
     public PromptResult submit(String backendName, String prompt, String sessionId) throws SQLException {
-        return submit(backendName, prompt, PromptProfile.GENERAL, sessionId);
+        return submit(backendName, prompt, PromptProfile.general, sessionId);
     }
 
     /**

@@ -4,13 +4,13 @@ import java.util.Locale;
 import java.util.Objects;
 
 public enum PromptProfile {
-    GENERAL {
+    general {
         @Override
         String applyTo(String prompt) {
             return prompt;
         }
     },
-    GUIDED_TEACHING {
+    guidedTeaching {
         @Override
         String applyTo(String prompt) {
             return """
@@ -54,7 +54,7 @@ public enum PromptProfile {
                     """ + prompt;
         }
     },
-    JSHELL_HARNESS {
+    jShellHarnesss {
         @Override
         String applyTo(String prompt) {
             return """
@@ -76,9 +76,9 @@ public enum PromptProfile {
     public static PromptProfile fromExternalName(String name) {
         Objects.requireNonNull(name, "name");
         return switch (name.toLowerCase(Locale.ROOT).replace('_', '-')) {
-            case "general" -> GENERAL;
-            case "guided-teaching" -> GUIDED_TEACHING;
-            case "jshell-harness", "jshell" -> JSHELL_HARNESS;
+            case "general" -> general;
+            case "guided-teaching" -> guidedTeaching;
+            case "jshell-harness", "jshell" -> jShellHarnesss;
             default -> throw new IllegalArgumentException("Unknown prompt profile: " + name);
         };
     }
