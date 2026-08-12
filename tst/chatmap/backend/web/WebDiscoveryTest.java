@@ -224,22 +224,16 @@ class WebDiscoveryTest {
     }
 
     @Test
-    void emptyDiscoveryReachesCompleteRatherThanBeingTreatedAsAFailure() {
-        // Zero conversations, proven by a stable scroll state, is a legitimate
-        // "complete, empty" discovery outcome -- structurally distinct from
-        // NoImportableContentException, which is thrown per-candidate at
-        // fetch() time for a conversation that reads fine but has no real
-        // turns. Discovery-level completeness and fetch-level content
-        // emptiness are two different layers; this asserts the discovery
-        // layer never conflates "found nothing" with "something went wrong."
+    void missingScrollContainerCannotProveAnEmptyDiscoveryComplete() {
         List<CdpTranscriptAdapter.ChatWebSummary> noChats = List.of();
         ScriptedAdapter adapter = new ScriptedAdapter(List.of(noChats),
                 List.of(notFound(), notFound(), notFound()), 20);
 
         WebDiscoveryResult result = adapter.discoverAll();
 
-        assertEquals(DiscoveryStatus.complete, result.status());
+        assertEquals(DiscoveryStatus.incomplete, result.status());
         assertTrue(result.conversations().isEmpty());
+        assertTrue(result.reason().contains("iteration limit"), result.reason());
     }
 
     @Test

@@ -9,10 +9,13 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.LongConsumer;
 
 /**
  * Reads the most recent chatgpt.com conversation over CDP.
@@ -124,6 +127,8 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
     private static final int PAGE_LIMIT = 28;
     private static final int MAX_API_PAGES = 400;
     private static final long PAGE_DELAY_MILLIS = 500;
+    private static final int MAX_RATE_LIMIT_RETRIES = 3;
+    private static final long MAX_RETRY_DELAY_MILLIS = 30_000;
 
     /**
      * Exhaustive discovery via chatgpt.com's own {@code /backend-api/conversations}
@@ -148,27 +153,49 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
             return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
         }
 
-        List<ChatWebSummary> all = new ArrayList<>();
-        PageResult activeResult = pageThrough(page, all, false);
+        return enumerate(
+                (offset, archived) -> page.evaluate(conversationPageScript(offset, archived)),
+                page::waitForTimeout,
+                MAX_API_PAGES,
+                MAX_RATE_LIMIT_RETRIES);
+    }
+
+    @FunctionalInterface
+    interface ConversationPageFetcher {
+        Object fetch(int offset, boolean archived);
+    }
+
+    static WebDiscoveryResult enumerate(
+            ConversationPageFetcher fetcher,
+            LongConsumer sleeper,
+            int maxPages,
+            int maxRateLimitRetries) {
+        Map<String, ChatWebSummary> all = new LinkedHashMap<>();
+        PageResult activeResult = pageThrough(
+                fetcher, sleeper, all, false, maxPages, maxRateLimitRetries);
         if (activeResult.status() != DiscoveryStatus.complete) {
-            return new WebDiscoveryResult(providerLabel(), List.copyOf(all), activeResult.status(),
+            return new WebDiscoveryResult("ChatGPT (web)", List.copyOf(all.values()), activeResult.status(),
                     activeResult.reason());
         }
-        int normalCount = all.size();
-        PageResult archivedResult = pageThrough(page, all, true);
+        int normalCount = activeResult.added();
+        PageResult archivedResult = pageThrough(
+                fetcher, sleeper, all, true, maxPages, maxRateLimitRetries);
         if (archivedResult.status() != DiscoveryStatus.complete) {
-            return new WebDiscoveryResult(providerLabel(), List.copyOf(all), archivedResult.status(),
+            return new WebDiscoveryResult("ChatGPT (web)", List.copyOf(all.values()), archivedResult.status(),
                     "Normal conversation list complete (" + normalCount + "), but the archived list did not "
                     + "reach a verified terminal condition: " + archivedResult.reason());
         }
-        int archivedCount = all.size() - normalCount;
-        return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.complete,
+        int archivedCount = archivedResult.added();
+        int rateLimitRetries = activeResult.rateLimitRetries() + archivedResult.rateLimitRetries();
+        return new WebDiscoveryResult("ChatGPT (web)", List.copyOf(all.values()), DiscoveryStatus.complete,
                 "Complete for the normal and archived conversation lists exposed by the current authenticated "
                 + "web UI (" + normalCount + " normal + " + archivedCount + " archived, "
-                + "terminal condition: a page shorter than the requested limit).");
+                + "terminal condition: a page shorter than the requested limit)."
+                + (rateLimitRetries == 0 ? "" : " Recovered from " + rateLimitRetries
+                        + " HTTP 429 rate-limit response(s) with bounded retries."));
     }
 
-    private record PageResult(DiscoveryStatus status, String reason) {
+    private record PageResult(DiscoveryStatus status, String reason, int added, int rateLimitRetries) {
     }
 
     /**
@@ -181,50 +208,129 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
      * reported as incomplete with the exact offset and status, same as any
      * other listing-API error.
      */
-    private PageResult pageThrough(CdpPage page, List<ChatWebSummary> out, boolean archived) {
+    private static PageResult pageThrough(
+            ConversationPageFetcher fetcher,
+            LongConsumer sleeper,
+            Map<String, ChatWebSummary> out,
+            boolean archived,
+            int maxPages,
+            int maxRateLimitRetries) {
         int offset = 0;
-        for (int i = 0; i < MAX_API_PAGES; i++) {
+        int added = 0;
+        int rateLimitRetries = 0;
+        for (int i = 0; i < maxPages; i++) {
             if (i > 0) {
-                page.waitForTimeout(PAGE_DELAY_MILLIS);
+                sleeper.accept(PAGE_DELAY_MILLIS);
             }
-            Object raw = page.evaluate("(async () => { try {"
-                    + "const s = await fetch('/api/auth/session', {credentials:'include'}).then(r=>r.json());"
-                    + "const tok = s && s.accessToken;"
-                    + "if (!tok) return JSON.stringify({error:'no-access-token'});"
-                    + "const res = await fetch('/backend-api/conversations?offset=" + offset + "&limit="
-                    + PAGE_LIMIT + "&order=updated&is_archived=" + archived + "', "
-                    + "{credentials:'include', headers:{Authorization:'Bearer '+tok}});"
-                    + "if (!res.ok) return JSON.stringify({error:'HTTP '+res.status});"
-                    + "return JSON.stringify(await res.json());"
-                    + "} catch (e) { return JSON.stringify({error:String(e)}); } })()");
-            JsonObject parsed = parseOrNull(raw);
+            JsonObject parsed = null;
+            for (int retry = 0; retry <= maxRateLimitRetries; retry++) {
+                parsed = parseOrNull(fetcher.fetch(offset, archived));
+                if (parsed == null || responseStatus(parsed) != 429) {
+                    break;
+                }
+                if (retry == maxRateLimitRetries) {
+                    return new PageResult(DiscoveryStatus.incomplete,
+                            "Conversation listing API exhausted " + maxRateLimitRetries
+                            + " retries after HTTP 429 at offset " + offset + ".",
+                            added, rateLimitRetries);
+                }
+                rateLimitRetries++;
+                sleeper.accept(retryDelayMillis(parsed, retry));
+            }
             if (parsed == null) {
                 return new PageResult(DiscoveryStatus.incomplete,
-                        "Conversation listing API returned an unparseable response at offset " + offset + ".");
+                        "Conversation listing API returned an unparseable response at offset " + offset + ".",
+                        added, rateLimitRetries);
             }
             if (parsed.has("error")) {
                 return new PageResult(DiscoveryStatus.incomplete,
                         "Conversation listing API error at offset " + offset + ": "
-                        + parsed.get("error").getAsString());
+                        + parsed.get("error").getAsString(), added, rateLimitRetries);
             }
-            JsonArray items = parsed.has("items") ? parsed.getAsJsonArray("items") : new JsonArray();
+            if (!parsed.has("items") || !parsed.get("items").isJsonArray()) {
+                return new PageResult(DiscoveryStatus.incomplete,
+                        "Conversation listing API returned a malformed page at offset " + offset + ".",
+                        added, rateLimitRetries);
+            }
+            JsonArray items = parsed.getAsJsonArray("items");
             for (JsonElement element : items) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
                 JsonObject o = element.getAsJsonObject();
                 String id = stringField(o, "id");
                 if (id == null || id.isBlank()) {
                     continue;
                 }
                 String title = stringField(o, "title");
-                out.add(new ChatWebSummary(title == null || title.isBlank() ? "Untitled Chat" : title,
+                ChatWebSummary previous = out.putIfAbsent(id, new ChatWebSummary(
+                        title == null || title.isBlank() ? "Untitled Chat" : title,
                         BASE_URL + "/c/" + id));
+                if (previous == null) {
+                    added++;
+                }
             }
             if (items.size() < PAGE_LIMIT) {
-                return new PageResult(DiscoveryStatus.complete, null);
+                return new PageResult(DiscoveryStatus.complete, null, added, rateLimitRetries);
             }
             offset += PAGE_LIMIT;
         }
         return new PageResult(DiscoveryStatus.incomplete,
-                "Reached the API pagination safety limit (" + MAX_API_PAGES + " pages).");
+                "Reached the API pagination safety limit (" + maxPages + " pages).",
+                added, rateLimitRetries);
+    }
+
+    private static String conversationPageScript(int offset, boolean archived) {
+        return "(async () => { try {"
+                + "let tok=globalThis.__chatmapAccessToken;"
+                + "if(!tok){const s=await fetch('/api/auth/session',{credentials:'include'}).then(r=>r.json());"
+                + "tok=s&&s.accessToken;if(tok)globalThis.__chatmapAccessToken=tok;}"
+                + "if (!tok) return JSON.stringify({error:'no-access-token'});"
+                + "const res = await fetch('/backend-api/conversations?offset=" + offset + "&limit="
+                + PAGE_LIMIT + "&order=updated&is_archived=" + archived + "', "
+                + "{credentials:'include', headers:{Authorization:'Bearer '+tok}});"
+                + "if (!res.ok) return JSON.stringify({error:'HTTP '+res.status,status:res.status,"
+                + "retryAfter:res.headers.get('Retry-After')});"
+                + "return JSON.stringify(await res.json());"
+                + "} catch (e) { return JSON.stringify({error:String(e)}); } })()";
+    }
+
+    private static int responseStatus(JsonObject response) {
+        JsonElement status = response.get("status");
+        if (status == null || status.isJsonNull()) {
+            return -1;
+        }
+        try {
+            return status.getAsInt();
+        } catch (RuntimeException malformed) {
+            return -1;
+        }
+    }
+
+    private static long retryDelayMillis(JsonObject response, int retry) {
+        String retryAfter = stringField(response, "retryAfter");
+        if (retryAfter != null) {
+            try {
+                double seconds = Double.parseDouble(retryAfter.strip());
+                long delay = (long) Math.ceil(seconds * 1000);
+                if (delay >= 0 && delay <= MAX_RETRY_DELAY_MILLIS) {
+                    return delay;
+                }
+            } catch (NumberFormatException ignored) {
+                // HTTP-date handling follows below.
+            }
+            try {
+                long delay = java.time.ZonedDateTime.parse(
+                        retryAfter, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+                        .toInstant().toEpochMilli() - System.currentTimeMillis();
+                if (delay >= 0 && delay <= MAX_RETRY_DELAY_MILLIS) {
+                    return delay;
+                }
+            } catch (java.time.DateTimeException ignored) {
+                // Fall through to bounded exponential backoff.
+            }
+        }
+        return Math.min(PAGE_DELAY_MILLIS * (1L << Math.min(retry, 3)), MAX_RETRY_DELAY_MILLIS);
     }
 
     private static JsonObject parseOrNull(Object raw) {

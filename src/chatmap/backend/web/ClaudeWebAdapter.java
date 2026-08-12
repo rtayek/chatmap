@@ -9,9 +9,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -174,48 +176,78 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
                     + "probably not logged in.");
         }
 
-        List<ChatWebSummary> all = new ArrayList<>();
+        return enumerate(orgId, offset -> page.evaluate(conversationPageScript(orgId, offset)), MAX_API_PAGES);
+    }
+
+    @FunctionalInterface
+    interface ConversationPageFetcher {
+        Object fetch(int offset);
+    }
+
+    static WebDiscoveryResult enumerate(
+            String orgId, ConversationPageFetcher fetcher, int maxPages) {
+        if (orgId == null || orgId.isBlank()) {
+            return new WebDiscoveryResult("Claude (web)", List.of(), DiscoveryStatus.unavailable,
+                    "Could not determine the active organization id (lastActiveOrg cookie missing); "
+                    + "probably not logged in.");
+        }
+
+        Map<String, ChatWebSummary> all = new LinkedHashMap<>();
         int offset = 0;
-        for (int i = 0; i < MAX_API_PAGES; i++) {
-            Object raw = page.evaluate("(async () => { try {"
-                    + "const res = await fetch('/api/organizations/" + orgId
-                    + "/chat_conversations_v2?limit=" + PAGE_LIMIT + "&offset=" + offset + "', "
-                    + "{credentials:'include'});"
-                    + "if (!res.ok) return JSON.stringify({error:'HTTP '+res.status});"
-                    + "return JSON.stringify(await res.json());"
-                    + "} catch (e) { return JSON.stringify({error:String(e)}); } })()");
+        for (int i = 0; i < maxPages; i++) {
+            Object raw = fetcher.fetch(offset);
             JsonObject parsed = parseOrNull(raw);
             if (parsed == null) {
-                return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.incomplete,
+                return new WebDiscoveryResult("Claude (web)", List.copyOf(all.values()), DiscoveryStatus.incomplete,
                         "Conversation listing API returned an unparseable response at offset " + offset + ".");
             }
             if (parsed.has("error")) {
-                return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.incomplete,
+                return new WebDiscoveryResult("Claude (web)", List.copyOf(all.values()), DiscoveryStatus.incomplete,
                         "Conversation listing API error at offset " + offset + ": "
                         + parsed.get("error").getAsString());
             }
-            JsonArray data = parsed.has("data") ? parsed.getAsJsonArray("data") : new JsonArray();
+            if (!parsed.has("data") || !parsed.get("data").isJsonArray()
+                    || !parsed.has("has_more") || !parsed.get("has_more").isJsonPrimitive()
+                    || !parsed.getAsJsonPrimitive("has_more").isBoolean()) {
+                return new WebDiscoveryResult("Claude (web)", List.copyOf(all.values()), DiscoveryStatus.incomplete,
+                        "Conversation listing API returned a malformed page at offset " + offset + ".");
+            }
+            JsonArray data = parsed.getAsJsonArray("data");
             for (JsonElement element : data) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
                 JsonObject o = element.getAsJsonObject();
                 String uuid = stringField(o, "uuid");
                 if (uuid == null || uuid.isBlank()) {
                     continue;
                 }
                 String title = stringField(o, "name");
-                all.add(new ChatWebSummary(title == null || title.isBlank() ? "Untitled Chat" : title,
+                all.putIfAbsent(uuid, new ChatWebSummary(
+                        title == null || title.isBlank() ? "Untitled Chat" : title,
                         CLAUDE_BASE_URL + "/chat/" + uuid));
             }
-            boolean hasMore = parsed.has("has_more") && parsed.get("has_more").getAsBoolean();
+            boolean hasMore = parsed.get("has_more").getAsBoolean();
             if (!hasMore) {
-                return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.complete,
+                return new WebDiscoveryResult("Claude (web)", List.copyOf(all.values()), DiscoveryStatus.complete,
                         "Complete for the normal conversation list exposed by the current authenticated web UI "
                         + "(chat_conversations_v2 has_more=false). No separate archived-conversation listing "
                         + "was found on this endpoint.");
             }
             offset += PAGE_LIMIT;
         }
-        return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.incomplete,
-                "Reached the API pagination safety limit (" + MAX_API_PAGES + " pages) without has_more=false.");
+        return new WebDiscoveryResult("Claude (web)", List.copyOf(all.values()), DiscoveryStatus.incomplete,
+                "Reached the API pagination safety limit (" + maxPages + " pages) without has_more=false.");
+    }
+
+    private static String conversationPageScript(String orgId, int offset) {
+        return "(async () => { try {"
+                + "const res = await fetch('/api/organizations/" + orgId
+                + "/chat_conversations_v2?limit=" + PAGE_LIMIT + "&offset=" + offset + "', "
+                + "{credentials:'include'});"
+                + "if (!res.ok) return JSON.stringify({error:'HTTP '+res.status,status:res.status});"
+                + "return JSON.stringify(await res.json());"
+                + "} catch (e) { return JSON.stringify({error:String(e)}); } })()";
     }
 
     private static String extractOrgId(CdpPage page) {

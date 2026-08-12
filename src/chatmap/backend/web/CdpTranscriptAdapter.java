@@ -230,7 +230,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             boolean grew = byIdentity.size() > before;
 
             ScrollAttempt attempt = scrollForMore(page);
-            stableRounds = (grew || attempt.moved()) ? 0 : stableRounds + 1;
+            stableRounds = (grew || attempt.moved() || !attempt.found()) ? 0 : stableRounds + 1;
 
             if (stableRounds >= STABLE_ROUNDS_REQUIRED) {
                 return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),

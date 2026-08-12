@@ -7,9 +7,12 @@ import chatmap.backend.providers.ProviderIdentity;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.LongConsumer;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -38,6 +41,9 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     static final String SIDEBAR_URI_PREFIX = "gemini-sidebar-index:";
     private static final String CONVERSATION_SELECTOR = "[data-test-id='conversation']";
     private static final String CONVERSATION_LINK_SELECTOR = "[data-test-id='conversation'] a";
+    private static final int STABLE_TERMINAL_ROUNDS = 3;
+    private static final int MAX_GEMINI_DISCOVERY_ROUNDS = 40;
+    private static final long GEMINI_SCROLL_WAIT_MILLIS = 1_000;
 
     GeminiWebAdapter(String cdpUrl) {
         super(cdpUrl);
@@ -119,13 +125,184 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
 
     /**
      * Gemini's conversation list is driven by Google's undocumented, version-coupled
-     * {@code batchexecute} RPC protocol rather than a stable REST-style endpoint
-     * (confirmed live on 2026-08-12: {@code otAQ7b} et al., not safely reusable
-     * without reverse-engineering positional argument encoding that can change
-     * with the site's own deploy). Discovery here relies on the inherited generic
-     * scroll-and-accumulate strategy ({@link CdpTranscriptAdapter#doDiscoverAll})
-     * instead, using {@link #listChats} for each round.
+     * {@code batchexecute} RPC protocol rather than a stable REST-style endpoint.
+     * Discovery therefore stays in the authenticated sidebar, but unlike the generic
+     * fallback it positively identifies the nearest scrollable ancestor of a known
+     * conversation row and requires repeated terminal-position observations.
      */
+    @Override
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+            page = openPage(siteBaseUrl());
+        } catch (Exception unopenable) {
+            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
+        }
+        try {
+            ensureSidebarExpanded(page);
+        } catch (RuntimeException ignored) {
+            // The provider-specific probe below distinguishes login, explicit empty,
+            // unhydrated, and selector-failure states more accurately than this
+            // best-effort expansion helper can.
+        }
+        return discoverConversationList(
+                () -> inspectConversationList(page),
+                page::waitForTimeout,
+                MAX_GEMINI_DISCOVERY_ROUNDS);
+    }
+
+    @FunctionalInterface
+    interface ConversationListProbe {
+        ConversationListState inspect();
+    }
+
+    record ConversationListState(
+            List<ChatWebSummary> conversations,
+            boolean authenticatedUi,
+            boolean explicitEmptyState,
+            boolean loginPage,
+            boolean containerFound,
+            boolean atTerminal,
+            boolean moved) {
+
+        ConversationListState {
+            conversations = List.copyOf(conversations);
+        }
+    }
+
+    static WebDiscoveryResult discoverConversationList(
+            ConversationListProbe probe, LongConsumer sleeper, int maxRounds) {
+        Map<String, ChatWebSummary> discovered = new LinkedHashMap<>();
+        int stableTerminalRounds = 0;
+        boolean authenticatedUiSeen = false;
+        boolean containerSeen = false;
+
+        for (int round = 0; round < maxRounds; round++) {
+            ConversationListState state;
+            try {
+                state = probe.inspect();
+            } catch (RuntimeException selectorFailure) {
+                return new WebDiscoveryResult("Gemini (web)", List.copyOf(discovered.values()),
+                        DiscoveryStatus.incomplete,
+                        "Could not inspect the Gemini conversation sidebar: " + diagnostic(selectorFailure));
+            }
+
+            if (state.loginPage()) {
+                return new WebDiscoveryResult("Gemini (web)", List.copyOf(discovered.values()),
+                        DiscoveryStatus.unavailable,
+                        "Gemini displayed a login page instead of the authenticated conversation sidebar.");
+            }
+
+            authenticatedUiSeen |= state.authenticatedUi();
+            containerSeen |= state.containerFound();
+            int before = discovered.size();
+            for (ChatWebSummary summary : state.conversations()) {
+                String id = ProviderIdentity.geminiWebId(summary.url());
+                if (id != null && !id.isBlank()) {
+                    discovered.putIfAbsent(id, summary);
+                }
+            }
+            boolean grew = discovered.size() > before;
+
+            if (state.authenticatedUi() && state.explicitEmptyState()
+                    && state.conversations().isEmpty() && discovered.isEmpty()) {
+                return new WebDiscoveryResult("Gemini (web)", List.of(), DiscoveryStatus.complete,
+                        "Complete for the normal conversation list exposed by the authenticated Gemini sidebar: "
+                        + "the provider's explicit empty state was present. Archived or hidden conversations are "
+                        + "outside this verified scope.");
+            }
+
+            if (state.authenticatedUi() && state.containerFound()
+                    && state.atTerminal() && !state.moved() && !grew) {
+                stableTerminalRounds++;
+            } else {
+                stableTerminalRounds = 0;
+            }
+
+            if (stableTerminalRounds >= STABLE_TERMINAL_ROUNDS) {
+                return new WebDiscoveryResult("Gemini (web)", List.copyOf(discovered.values()),
+                        DiscoveryStatus.complete,
+                        "Complete for the normal conversation list exposed by the authenticated Gemini sidebar: "
+                        + "its nearest scrollable ancestor remained at the terminal position with no new durable "
+                        + "conversation ids across " + STABLE_TERMINAL_ROUNDS + " checks. Archived or hidden "
+                        + "conversations are outside this verified scope.");
+            }
+            sleeper.accept(GEMINI_SCROLL_WAIT_MILLIS);
+        }
+
+        String reason;
+        if (!authenticatedUiSeen) {
+            reason = "The authenticated Gemini conversation UI or an explicit empty state could not be verified; "
+                    + "the sidebar may be logged out, unhydrated, or its selectors may have changed.";
+        } else if (!containerSeen) {
+            reason = "The Gemini conversation rows were found, but their conversation-list scroll container "
+                    + "could not be identified.";
+        } else {
+            reason = "The Gemini conversation-list container did not remain at a verified terminal position "
+                    + "before the discovery iteration limit (" + maxRounds + ").";
+        }
+        return new WebDiscoveryResult("Gemini (web)", List.copyOf(discovered.values()),
+                DiscoveryStatus.incomplete, reason);
+    }
+
+    private static ConversationListState inspectConversationList(CdpPage page) {
+        Object raw = page.evaluate("() => {"
+                + "const rowSelector=" + CdpPage.jsString(CONVERSATION_SELECTOR) + ";"
+                + "const rows=[...document.querySelectorAll(rowSelector)];"
+                + "const login=location.hostname==='accounts.google.com'"
+                + "||!!document.querySelector('a[href*=\"accounts.google.com/ServiceLogin\"]');"
+                + "const empty=!!document.querySelector("
+                + "'[data-test-id=\"conversation-list-empty-state\"],'"
+                + "+'[data-test-id=\"empty-conversation-list\"]');"
+                + "let container=null;"
+                + "if(rows.length){for(let p=rows[0].parentElement;p;p=p.parentElement){"
+                + "const y=getComputedStyle(p).overflowY;"
+                + "if((y==='auto'||y==='scroll'||y==='overlay')&&p.clientHeight>0){container=p;break;}}}"
+                + "let before=0,after=0,terminal=false;"
+                + "if(container){before=container.scrollTop;const max=Math.max(0,container.scrollHeight-container.clientHeight);"
+                + "terminal=before>=max-2;container.scrollTop=max;after=container.scrollTop;}"
+                + "const chats=rows.map((row,index)=>{const a=row.querySelector('a[href]');"
+                + "return {title:(row.innerText||'').trim(),href:a?a.href:null,index:index};});"
+                + "return JSON.stringify({chats:chats,authenticated:rows.length>0||empty,empty:empty,login:login,"
+                + "container:!!container,terminal:terminal,moved:after>before+1});"
+                + "}");
+        return parseConversationListState(raw == null ? "{}" : raw.toString());
+    }
+
+    private static ConversationListState parseConversationListState(String json) {
+        try {
+            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+            List<ChatWebSummary> chats = new ArrayList<>();
+            if (root.has("chats") && root.get("chats").isJsonArray()) {
+                for (JsonElement element : root.getAsJsonArray("chats")) {
+                    if (!element.isJsonObject()) {
+                        continue;
+                    }
+                    JsonObject chat = element.getAsJsonObject();
+                    String href = SessionLines.string(chat, "href");
+                    String url = durableUrl(href);
+                    if (url == null) {
+                        continue;
+                    }
+                    String title = SessionLines.string(chat, "title");
+                    chats.add(new ChatWebSummary(
+                            title == null || title.isBlank() ? "Gemini conversation" : title, url));
+                }
+            }
+            return new ConversationListState(chats,
+                    booleanField(root, "authenticated"), booleanField(root, "empty"),
+                    booleanField(root, "login"), booleanField(root, "container"),
+                    booleanField(root, "terminal"), booleanField(root, "moved"));
+        } catch (RuntimeException malformed) {
+            throw new IllegalStateException("Malformed Gemini conversation-list probe response", malformed);
+        }
+    }
+
+    private static boolean booleanField(JsonObject object, String name) {
+        return object.has(name) && object.get(name).isJsonPrimitive()
+                && object.getAsJsonPrimitive(name).isBoolean()
+                && object.get(name).getAsBoolean();
+    }
 
     /** The absolute, durable conversation URL for a sidebar anchor's {@code href}, or null. */
     private static String durableUrl(String href) {
