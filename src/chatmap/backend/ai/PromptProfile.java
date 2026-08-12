@@ -54,7 +54,7 @@ public enum PromptProfile {
                     """ + prompt;
         }
     },
-    jShellHarnesss {
+    jShellHarness {
         @Override
         String applyTo(String prompt) {
             return """
@@ -78,7 +78,7 @@ public enum PromptProfile {
         return switch (name.toLowerCase(Locale.ROOT).replace('_', '-')) {
             case "general" -> general;
             case "guided-teaching" -> guidedTeaching;
-            case "jshell-harness", "jshell" -> jShellHarnesss;
+            case "jshell-harness", "jshell" -> jShellHarness;
             default -> throw new IllegalArgumentException("Unknown prompt profile: " + name);
         };
     }
