@@ -3,7 +3,8 @@ package chatmap.service;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
 
 import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
@@ -66,9 +67,9 @@ public final class LiveChatFetchService {
                     return new Resolution(stored.id(),
                             "last live chat from " + provider.name() + " (\"" + stored.title() + "\")");
                 }
-                LOG.info("Provider " + provider.name() + " has no live chat; trying next.");
+                LOG.info("Provider {} has no live chat; trying next.", provider.name());
             } catch (Exception e) {
-                LOG.warning("Provider " + provider.name() + " unavailable: " + e.getMessage());
+                LOG.warn("Provider {} unavailable: {}", provider.name(), e.getMessage());
             }
         }
 

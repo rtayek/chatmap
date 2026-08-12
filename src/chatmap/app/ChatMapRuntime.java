@@ -6,7 +6,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
 
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
@@ -106,7 +107,7 @@ public final class ChatMapRuntime implements AutoCloseable {
         if (dbStopped && backendStopped) {
             services.close();
         } else {
-            LOG.warning("Background work did not stop in time; "
+            LOG.warn("Background work did not stop in time; "
                     + "leaving the database connection for the JVM to release on exit.");
         }
     }

@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.logging.Logger;
+
+import org.slf4j.Logger;
 
 import chatmap.backend.ai.AiBackend;
 import chatmap.backend.ai.AiRequest;
@@ -181,7 +182,7 @@ public final class PromptService {
             return file;
         } catch (IOException e) {
             // Best-effort debug output; the database record above is the one that matters.
-            LOG.warning("Failed to write prompt transcript: " + e.getMessage());
+            LOG.warn("Failed to write prompt transcript: {}", e.getMessage(), e);
             return null;
         }
     }
