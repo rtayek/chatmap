@@ -1,6 +1,7 @@
 package chatmap.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.junit.jupiter.api.Test;
 
@@ -56,5 +57,42 @@ class ChatTest {
         assertEquals("hash-2", changed.importMetadata().transcriptHash());
         assertEquals("2026-02-01T00:00:00Z", changed.lastImportedAt());
         assertEquals("file:///a", changed.sourceUri());
+    }
+
+    @Test
+    void eightArgConstructorDefaultsOriginatedByToImportedAndImportMetadataToNone() {
+        Chat chat = new Chat(1L, null, Source.plainText, "Title",
+                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false);
+
+        assertEquals("IMPORTED", chat.originatedBy());
+        assertNull(chat.externalConversationId());
+        assertNull(chat.sourceUri());
+        assertNull(chat.contentHash());
+        // ImportMetadata.none() carries updatedAt/importedAt through as sourceUpdatedAt/lastImportedAt,
+        // not left null or transposed with each other.
+        assertEquals("2026-01-02T00:00:00Z", chat.sourceUpdatedAt());
+        assertEquals("2026-01-03T00:00:00Z", chat.lastImportedAt());
+    }
+
+    @Test
+    void nineArgConstructorUsesGivenOriginatedByAndStillDefaultsImportMetadataToNone() {
+        Chat chat = new Chat(1L, null, Source.jshellHarness, "Title",
+                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, "GENERATED");
+
+        assertEquals("GENERATED", chat.originatedBy());
+        assertNull(chat.externalConversationId());
+        assertEquals("2026-01-02T00:00:00Z", chat.sourceUpdatedAt());
+        assertEquals("2026-01-03T00:00:00Z", chat.lastImportedAt());
+    }
+
+    @Test
+    void nineArgImportMetadataConstructorDefaultsOriginatedByToImported() {
+        ImportMetadata metadata = new ImportMetadata("ext-1", "file:///a", "hash-1",
+                "2026-01-04T00:00:00Z", "2026-01-05T00:00:00Z");
+        Chat chat = new Chat(1L, null, Source.chatgptJson, "Title",
+                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, metadata);
+
+        assertEquals("IMPORTED", chat.originatedBy());
+        assertEquals(metadata, chat.importMetadata());
     }
 }
