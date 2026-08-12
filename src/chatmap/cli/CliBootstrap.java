@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.nio.file.Files;
+import java.util.function.IntConsumer;
 
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
@@ -43,19 +44,27 @@ public final class CliBootstrap {
      * and exiting with status 1 on failure instead of throwing.
      */
     public static ParsedArguments parseOrExit(String[] args, String usage) {
+        return parseOrExit(args, usage, System::exit);
+    }
+
+    static ParsedArguments parseOrExit(String[] args, String usage, IntConsumer exitHandler) {
         try {
             return parse(args);
         } catch (IllegalArgumentException e) {
             System.err.println(e.getMessage());
-            exitWithUsage(usage);
+            exitWithUsage(usage, exitHandler);
             throw new AssertionError("unreachable");
         }
     }
 
     /** Prints {@code usage} to stderr and exits with status 1. */
     public static void exitWithUsage(String usage) {
+        exitWithUsage(usage, System::exit);
+    }
+
+    static void exitWithUsage(String usage, IntConsumer exitHandler) {
         System.err.println(usage);
-        System.exit(1);
+        exitHandler.accept(1);
     }
 
     public static CliContext open(ParsedArguments parsedArguments) throws IOException, SQLException {

@@ -17,6 +17,15 @@ public final class ImportChatGptArchiveCli {
             CliBootstrap.exitWithUsage(USAGE);
             return;
         }
+        try {
+            run(parsedArguments);
+        } catch (Exception e) {
+            System.err.println("Could not import ChatGPT archive: " + e.getMessage());
+            System.exit(1);
+        }
+    }
+
+    static void run(ParsedArguments parsedArguments) throws Exception {
         Path archive = Path.of(parsedArguments.remainingArgs().getFirst());
         System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));
 
@@ -40,9 +49,6 @@ public final class ImportChatGptArchiveCli {
                             + failure.reason());
                 }
             }
-        } catch (Exception e) {
-            System.err.println("Could not import ChatGPT archive: " + e.getMessage());
-            System.exit(1);
         }
     }
 
