@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
@@ -42,7 +43,7 @@ class PlainTextImporterTest {
 
         assertEquals(1, imported.messages().size());
         Message message = imported.messages().getFirst();
-        assertEquals(PlainTextImporter.unknownRole, message.role());
+        assertEquals(MessageRole.unknown, message.role());
         assertEquals(text, message.text());
         assertEquals(0, message.sequence());
         assertEquals(null, message.timestamp());
@@ -56,7 +57,7 @@ class PlainTextImporterTest {
 
         ImportedChat imported = new PlainTextImporter().importText("Transcript", text, importedAt);
 
-        assertEquals(List.of("user", "assistant"),
+        assertEquals(List.of(MessageRole.user, MessageRole.assistant),
                 imported.messages().stream().map(Message::role).toList());
         assertEquals(List.of("First line\n\nSecond paragraph.", "Answer line\n\nMore detail."),
                 imported.messages().stream().map(Message::text).toList());

@@ -16,6 +16,7 @@ import chatmap.backend.ai.BackendId;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 import chatmap.service.SummaryService.Parsed;
 import chatmap.storage.ChatRepository;
@@ -93,8 +94,8 @@ class SummaryServiceTest {
     void buildPromptIncludesTitleAndRoleLabeledMessages() {
         Chat chat = new Chat(1, null, Source.plainText, "Storage Decision", null, null, "2026-01-01T00:00:00Z", false);
         List<Message> messages = List.of(
-                new Message(1, 1, "user", "Should we use SQLite?", 0, null, null),
-                new Message(2, 1, "assistant", "Yes, with FTS5 for search.", 1, null, null));
+                new Message(1, 1, MessageRole.user, "Should we use SQLite?", 0, null, null),
+                new Message(2, 1, MessageRole.assistant, "Yes, with FTS5 for search.", 1, null, null));
 
         String prompt = SummaryService.buildPrompt(chat, messages);
 
@@ -162,7 +163,7 @@ class SummaryServiceTest {
     private Chat insertChatWithMessage() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Storage Decision",
                 null, null, "2026-01-01T00:00:00Z", false));
-        messages.insert(new Message(0, chat.id(), "user", "Should we use SQLite?", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "Should we use SQLite?", 0, null, null));
         return chat;
     }
 }

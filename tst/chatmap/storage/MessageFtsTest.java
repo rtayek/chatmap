@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 
 /**
@@ -50,7 +51,7 @@ class MessageFtsTest {
     }
 
     private Message newMessage(long chatId, int seq, String text) throws Exception {
-        return messages.insert(new Message(0, chatId, "user", text, seq, null, null));
+        return messages.insert(new Message(0, chatId, MessageRole.user, text, seq, null, null));
     }
 
     @Test

@@ -109,7 +109,7 @@ public final class SummaryService {
     static String buildPrompt(Chat chat, List<Message> chatMessages) {
         StringBuilder transcript = new StringBuilder();
         for (Message m : chatMessages) {
-            transcript.append(m.role().toUpperCase(Locale.ROOT)).append(": ").append(m.text()).append("\n\n");
+            transcript.append(m.role().dbValue().toUpperCase(Locale.ROOT)).append(": ").append(m.text()).append("\n\n");
         }
 
         return """

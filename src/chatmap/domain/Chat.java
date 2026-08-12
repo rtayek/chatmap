@@ -17,21 +17,22 @@ public record Chat(
         String importedAt,
         boolean archived,
         ImportMetadata importMetadata,
-        String originatedBy) {
+        ChatOrigin originatedBy) {
 
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived, ImportMetadata importMetadata) {
-        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived, importMetadata, "IMPORTED");
+        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived, importMetadata,
+                ChatOrigin.imported);
     }
 
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
-                ImportMetadata.none(updatedAt, importedAt), "IMPORTED");
+                ImportMetadata.none(updatedAt, importedAt), ChatOrigin.imported);
     }
 
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
-            String updatedAt, String importedAt, boolean archived, String originatedBy) {
+            String updatedAt, String importedAt, boolean archived, ChatOrigin originatedBy) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
                 ImportMetadata.none(updatedAt, importedAt), originatedBy);
     }
@@ -81,7 +82,7 @@ public record Chat(
         private String contentHash;
         private String sourceUpdatedAt;
         private String lastImportedAt;
-        private String originatedBy;
+        private ChatOrigin originatedBy;
 
         private Builder(Chat chat) {
             this.id = chat.id;
@@ -150,7 +151,7 @@ public record Chat(
             return this;
         }
 
-        public Builder originatedBy(String originatedBy) {
+        public Builder originatedBy(ChatOrigin originatedBy) {
             this.originatedBy = originatedBy;
             return this;
         }

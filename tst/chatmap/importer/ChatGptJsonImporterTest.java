@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
@@ -40,7 +41,7 @@ class ChatGptJsonImporterTest {
         assertEquals("2024-07-03T09:51:40Z", imported.chat().updatedAt());
         assertEquals(importedAt, imported.chat().importedAt());
 
-        assertEquals(List.of("system", "user", "assistant", "unknown"),
+        assertEquals(List.of(MessageRole.system, MessageRole.user, MessageRole.assistant, MessageRole.unknown),
                 imported.messages().stream().map(Message::role).toList());
     }
 
@@ -135,7 +136,7 @@ class ChatGptJsonImporterTest {
                 .filter(message -> message.id() == hits.get(0))
                 .findFirst()
                 .orElseThrow();
-        assertEquals("user", storedHit.role());
+        assertEquals(MessageRole.user, storedHit.role());
         assertEquals("Please explain SQLite FTS5.\n\nKeep it practical.", storedHit.text());
         assertEquals(Source.chatgptJson, chats.findById(storedChat.id()).orElseThrow().source());
     }

@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
@@ -58,8 +59,8 @@ class ExportServiceTest {
     void loadChatHydratesChatAndItsMessages() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Hydrated",
                 null, null, "2026-08-10T00:00:00Z", false));
-        Message first = messages.insert(new Message(0, chat.id(), "user", "hi", 0, null, null));
-        Message second = messages.insert(new Message(0, chat.id(), "assistant", "hello", 1, null, null));
+        Message first = messages.insert(new Message(0, chat.id(), MessageRole.user, "hi", 0, null, null));
+        Message second = messages.insert(new Message(0, chat.id(), MessageRole.assistant, "hello", 1, null, null));
 
         ChatExportModel model = exportService.loadChat(chat.id()).orElseThrow();
 
@@ -74,7 +75,7 @@ class ExportServiceTest {
                 "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
         Chat chat = chats.insert(new Chat(0, project.id(), Source.plainText, "In project",
                 null, null, "2026-08-10T00:00:00Z", false));
-        Message message = messages.insert(new Message(0, chat.id(), "user", "hi", 0, null, null));
+        Message message = messages.insert(new Message(0, chat.id(), MessageRole.user, "hi", 0, null, null));
         Tag tag = tags.insert(new Tag(0, "MVP"));
         tags.assignToChat(chat.id(), tag.id());
 

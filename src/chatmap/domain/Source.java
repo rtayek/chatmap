@@ -19,31 +19,37 @@ package chatmap.domain;
  * without losing access to the user's chats.
  */
 public enum Source {
-    plainText("plainText"),
-    markdown("markdown"),
-    chatgptJson("chatgptJson"),
-    claudeWeb("claudeWeb"),
-    chatGptWeb("chatGptWeb"),
-    geminiWeb("geminiWeb"),
-    claudeCode("claudeCode"),
-    codexCli("codexCli"),
-    geminiCli("geminiCli"),
-    jshellHarness("jshellHarness"),
-    claudeCliPrompt("claudeCliPrompt"),
-    codexCliPrompt("codexCliPrompt"),
-    geminiCliPrompt("geminiCliPrompt"),
-    agyCliPrompt("agyCliPrompt"),
-    ollamaPrompt("ollamaPrompt"),
-    unknown("unknown");
+    plainText("plainText", "Plain text"),
+    markdown("markdown", "Markdown"),
+    chatgptJson("chatgptJson", "ChatGPT JSON"),
+    claudeWeb("claudeWeb", "Claude web"),
+    chatGptWeb("chatGptWeb", "ChatGPT web"),
+    geminiWeb("geminiWeb", "Gemini web"),
+    claudeCode("claudeCode", "Claude Code"),
+    codexCli("codexCli", "Codex CLI"),
+    geminiCli("geminiCli", "Gemini CLI"),
+    jshellHarness("jshellHarness", "JShell harness"),
+    claudeCliPrompt("claudeCliPrompt", "Claude CLI prompt"),
+    codexCliPrompt("codexCliPrompt", "Codex CLI prompt"),
+    geminiCliPrompt("geminiCliPrompt", "Gemini CLI prompt"),
+    agyCliPrompt("agyCliPrompt", "Antigravity CLI prompt"),
+    ollamaPrompt("ollamaPrompt", "Ollama prompt"),
+    unknown("unknown", "Unknown");
 
     private final String dbValue;
+    private final String displayName;
 
-    Source(String dbValue) {
+    Source(String dbValue, String displayName) {
         this.dbValue = dbValue;
+        this.displayName = displayName;
     }
 
     public String dbValue() {
         return dbValue;
+    }
+
+    public String displayName() {
+        return displayName;
     }
 
     public static Source fromDbValue(String dbValue) {

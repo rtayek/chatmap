@@ -67,7 +67,7 @@ public final class ChatRepository {
                 ps.setString(10, chat.contentHash());
                 ps.setString(11, chat.sourceUpdatedAt());
                 ps.setString(12, chat.lastImportedAt());
-                ps.setString(13, chat.originatedBy());
+                ps.setString(13, chat.originatedBy().dbValue());
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     keys.next();
@@ -327,7 +327,8 @@ public final class ChatRepository {
                 ps.setString(7, contentHash);
                 ps.setString(8, sourceUpdatedAt);
                 ps.setString(9, lastImportedAt);
-                ps.setString(10, "IMPORTED"); // updateFromSource is for imports
+                // updateFromSource is for imports.
+                ps.setString(10, chatmap.domain.ChatOrigin.imported.dbValue());
                 ps.setLong(11, id);
                 ps.executeUpdate();
             }

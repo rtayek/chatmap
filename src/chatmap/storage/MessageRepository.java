@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 
 /**
  * CRUD for messages plus FTS-backed text search.
@@ -34,7 +35,7 @@ public final class MessageRepository {
                     + "VALUES (?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setLong(1, m.chatId());
-                ps.setString(2, m.role());
+                ps.setString(2, m.role().dbValue());
                 ps.setString(3, m.text());
                 ps.setInt(4, m.sequence());
                 ps.setString(5, m.timestamp());
@@ -60,7 +61,7 @@ public final class MessageRepository {
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 for (Message m : messageList) {
                     ps.setLong(1, m.chatId());
-                    ps.setString(2, m.role());
+                    ps.setString(2, m.role().dbValue());
                     ps.setString(3, m.text());
                     ps.setInt(4, m.sequence());
                     ps.setString(5, m.timestamp());
@@ -169,7 +170,7 @@ public final class MessageRepository {
         return new Message(
                 rs.getLong("id"),
                 rs.getLong("chatId"),
-                rs.getString("role"),
+                MessageRole.fromDbValue(rs.getString("role")),
                 rs.getString("text"),
                 rs.getInt("sequence"),
                 rs.getString("timestamp"),

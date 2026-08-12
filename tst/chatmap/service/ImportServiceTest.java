@@ -18,6 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
@@ -228,10 +229,11 @@ class ImportServiceTest {
 
     @Test
     void failedNewImportRollsBackChatMessagesAndFts() throws Exception {
+        // null text violates the messages.text NOT NULL constraint, forcing a SQLException.
         ImportedChat invalid = providerChatWithMessages(Source.chatGptWeb, "bad-new",
                 "https://chatgpt.com/c/bad-new", "Bad",
-                List.of(new Message(0, 0, "user", "visible before failure", 0, null, null),
-                        new Message(0, 0, null, "invalid role", 1, null, null)));
+                List.of(new Message(0, 0, MessageRole.user, "visible before failure", 0, null, null),
+                        new Message(0, 0, MessageRole.unknown, null, 1, null, null)));
 
         assertThrowsSql(() -> importService.persist(invalid));
 
@@ -246,8 +248,8 @@ class ImportServiceTest {
         String originalHash = chats.findById(first.id()).orElseThrow().contentHash();
         ImportedChat invalidRefresh = providerChatWithMessages(Source.chatGptWeb, "rollback",
                 "https://chatgpt.com/c/rollback", "Rollback",
-                List.of(new Message(0, 0, "user", "replacement partial", 0, null, null),
-                        new Message(0, 0, null, "invalid role", 1, null, null)));
+                List.of(new Message(0, 0, MessageRole.user, "replacement partial", 0, null, null),
+                        new Message(0, 0, MessageRole.unknown, null, 1, null, null)));
 
         assertThrowsSql(() -> importService.persist(invalidRefresh));
 
@@ -285,8 +287,8 @@ class ImportServiceTest {
                     "2026-08-05T00:00:00Z", false));
             ImportedChat invalid = providerChatWithMessages(Source.chatGptWeb, "bad-outer",
                     "https://chatgpt.com/c/bad-outer", "Bad",
-                    List.of(new Message(0, 0, "user", "partial text", 0, null, null),
-                            new Message(0, 0, null, "invalid role", 1, null, null)));
+                    List.of(new Message(0, 0, MessageRole.user, "partial text", 0, null, null),
+                            new Message(0, 0, MessageRole.unknown, null, 1, null, null)));
 
             assertThrowsSql(() -> importService.persist(invalid));
             assertEquals(List.of(survivor), chats.findAll());
@@ -308,7 +310,7 @@ class ImportServiceTest {
             String title, List<String> texts) {
         List<Message> messages = new java.util.ArrayList<>();
         for (int i = 0; i < texts.size(); i++) {
-            messages.add(new Message(0, 0, i % 2 == 0 ? "user" : "assistant", texts.get(i), i, null, null));
+            messages.add(new Message(0, 0, i % 2 == 0 ? MessageRole.user : MessageRole.assistant, texts.get(i), i, null, null));
         }
         return providerChatWithMessages(source, externalId, sourceUri, title, messages);
     }

@@ -8,6 +8,7 @@ import chatmap.backend.providers.ChatProvider;
 import chatmap.backend.providers.DefaultChatProviders;
 import chatmap.backend.web.CdpWebChatProvider;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.importer.ImportedChat;
 
 /** Prints the latest prompt and response visible from each configured chat source. */
@@ -36,14 +37,14 @@ public final class LiveSourceExchanges {
         printField("title", chat.chat().title());
         printField("externalConversationId", chat.chat().externalConversationId());
         printField("sourceUri", chat.chat().sourceUri());
-        printBlock("last prompt", lastText(chat.messages(), chatmap.domain.Message.ROLE_USER));
-        printBlock("last response", lastText(chat.messages(), chatmap.domain.Message.ROLE_ASSISTANT));
+        printBlock("last prompt", lastText(chat.messages(), MessageRole.user));
+        printBlock("last response", lastText(chat.messages(), MessageRole.assistant));
     }
 
-    private static String lastText(List<Message> messages, String role) {
+    private static String lastText(List<Message> messages, MessageRole role) {
         List<Message> matches = new ArrayList<>();
         for (Message message : messages) {
-            if (role.equals(message.role())) {
+            if (role == message.role()) {
                 matches.add(message);
             }
         }

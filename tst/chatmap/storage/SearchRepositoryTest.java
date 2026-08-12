@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
@@ -47,7 +48,7 @@ class SearchRepositoryTest {
     @Test
     void insertedMessageIsSearchable() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, chat.id(), "user", "alpha target", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "alpha target", 0, null, null));
 
         assertEquals(List.of(chat), search.searchChatsByMessageText("target"));
     }
@@ -55,7 +56,7 @@ class SearchRepositoryTest {
     @Test
     void updatedMessageTextUpdatesSearchResults() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        Message message = messages.insert(new Message(0, chat.id(), "user", "old target", 0, null, null));
+        Message message = messages.insert(new Message(0, chat.id(), MessageRole.user, "old target", 0, null, null));
 
         messages.updateText(message.id(), "new target");
 
@@ -66,7 +67,7 @@ class SearchRepositoryTest {
     @Test
     void deletedMessageDisappearsFromSearchResults() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        Message message = messages.insert(new Message(0, chat.id(), "user", "delete target", 0, null, null));
+        Message message = messages.insert(new Message(0, chat.id(), MessageRole.user, "delete target", 0, null, null));
 
         messages.delete(message.id());
 
@@ -76,7 +77,7 @@ class SearchRepositoryTest {
     @Test
     void searchIsCaseInsensitive() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, chat.id(), "user", "ChatMap Target", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "ChatMap Target", 0, null, null));
 
         assertEquals(List.of(chat), search.searchChatsByMessageText("chatmap"));
         assertEquals(List.of(chat), search.searchChatsByMessageText("CHATMAP"));
@@ -85,7 +86,7 @@ class SearchRepositoryTest {
     @Test
     void multiWordQueryUsesFtsAndSemantics() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, chat.id(), "user", "alpha beta gamma", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "alpha beta gamma", 0, null, null));
 
         assertEquals(List.of(chat), search.searchChatsByMessageText("alpha beta"));
         assertTrue(search.searchChatsByMessageText("alpha missing").isEmpty());
@@ -95,8 +96,8 @@ class SearchRepositoryTest {
     void archivedFilterWorks() throws Exception {
         Chat active = insertChat("Active", null, false, "2026-07-06T00:00:00Z");
         Chat archived = insertChat("Archived", null, true, "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, active.id(), "user", "shared target", 0, null, null));
-        messages.insert(new Message(0, archived.id(), "user", "shared target", 0, null, null));
+        messages.insert(new Message(0, active.id(), MessageRole.user, "shared target", 0, null, null));
+        messages.insert(new Message(0, archived.id(), MessageRole.user, "shared target", 0, null, null));
 
         assertEquals(List.of(active), search.searchChatsByMessageText("target", new SearchOptions(null, null, false)));
         assertEquals(List.of(archived), search.searchChatsByMessageText("target", new SearchOptions(null, null, true)));
@@ -107,8 +108,8 @@ class SearchRepositoryTest {
         Project project = projects.insert(new Project(0, "Project", null, "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
         Chat match = insertChat("In Project", project.id(), false, "2026-07-06T00:00:00Z");
         Chat miss = insertChat("Outside", null, false, "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, match.id(), "user", "project target", 0, null, null));
-        messages.insert(new Message(0, miss.id(), "user", "project target", 0, null, null));
+        messages.insert(new Message(0, match.id(), MessageRole.user, "project target", 0, null, null));
+        messages.insert(new Message(0, miss.id(), MessageRole.user, "project target", 0, null, null));
 
         assertEquals(List.of(match), search.searchChatsByMessageText("target", new SearchOptions(project.id(), null, null)));
     }
@@ -119,8 +120,8 @@ class SearchRepositoryTest {
         Chat miss = insertChat("Untagged", null, false, "2026-07-06T00:01:00Z");
         Tag tag = tags.insert(new Tag(0, "MVP"));
         tags.assignToChat(match.id(), tag.id());
-        messages.insert(new Message(0, match.id(), "user", "tag target", 0, null, null));
-        messages.insert(new Message(0, miss.id(), "user", "tag target", 0, null, null));
+        messages.insert(new Message(0, match.id(), MessageRole.user, "tag target", 0, null, null));
+        messages.insert(new Message(0, miss.id(), MessageRole.user, "tag target", 0, null, null));
 
         assertEquals(List.of(match), search.searchChatsByMessageText("target", new SearchOptions(null, tag.id(), null)));
     }
@@ -134,9 +135,9 @@ class SearchRepositoryTest {
         Chat tagOnly = insertChat("Tag Only", null, false, "2026-07-06T00:02:00Z");
         tags.assignToChat(match.id(), tag.id());
         tags.assignToChat(tagOnly.id(), tag.id());
-        messages.insert(new Message(0, match.id(), "user", "combined target", 0, null, null));
-        messages.insert(new Message(0, projectOnly.id(), "user", "combined target", 0, null, null));
-        messages.insert(new Message(0, tagOnly.id(), "user", "combined target", 0, null, null));
+        messages.insert(new Message(0, match.id(), MessageRole.user, "combined target", 0, null, null));
+        messages.insert(new Message(0, projectOnly.id(), MessageRole.user, "combined target", 0, null, null));
+        messages.insert(new Message(0, tagOnly.id(), MessageRole.user, "combined target", 0, null, null));
 
         assertEquals(List.of(match), search.searchChatsByMessageText(
                 "target", new SearchOptions(project.id(), tag.id(), null)));
@@ -151,8 +152,8 @@ class SearchRepositoryTest {
     @Test
     void duplicateMessageMatchesReturnEachChatOnce() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, chat.id(), "user", "duplicate target", 0, null, null));
-        messages.insert(new Message(0, chat.id(), "assistant", "duplicate target", 1, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "duplicate target", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.assistant, "duplicate target", 1, null, null));
 
         assertEquals(List.of(chat), search.searchChatsByMessageText("target"));
     }
@@ -164,7 +165,7 @@ class SearchRepositoryTest {
         Tag tag = tags.insert(new Tag(0, "Search"));
         Chat chat = insertChat("Chat", project.id(), false, "2026-07-06T00:00:00Z");
         tags.assignToChat(chat.id(), tag.id());
-        messages.insert(new Message(0, chat.id(), "user", "A ChatMap target appears here.", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "A ChatMap target appears here.", 0, null, null));
 
         List<SearchResult> results = search.searchResultsByMessageText("target");
 
@@ -199,8 +200,8 @@ class SearchRepositoryTest {
     void fullTextResultsAreRankedByRelevanceBeforeImportChronology() throws Exception {
         Chat strongerOlder = insertChat("Stronger", null, false, "2026-07-06T00:00:00Z");
         Chat weakerNewer = insertChat("Weaker", null, false, "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, weakerNewer.id(), "user", "needle", 0, null, null));
-        messages.insert(new Message(0, strongerOlder.id(), "user", "needle needle needle", 0, null, null));
+        messages.insert(new Message(0, weakerNewer.id(), MessageRole.user, "needle", 0, null, null));
+        messages.insert(new Message(0, strongerOlder.id(), MessageRole.user, "needle needle needle", 0, null, null));
 
         List<SearchResult> results = search.searchResultsByMessageText("needle");
 
@@ -211,8 +212,8 @@ class SearchRepositoryTest {
     @Test
     void bestMatchingMessageProvidesSingleResultSnippet() throws Exception {
         Chat chat = insertChat("Chat", null, false, "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, chat.id(), "user", "needle", 0, null, null));
-        messages.insert(new Message(0, chat.id(), "assistant", "needle needle needle", 1, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "needle", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.assistant, "needle needle needle", 1, null, null));
 
         List<SearchResult> results = search.searchResultsByMessageText("needle");
 
@@ -226,7 +227,7 @@ class SearchRepositoryTest {
         Tag tag = tags.insert(new Tag(0, "LargeBatch"));
         for (int i = 0; i < 1050; i++) {
             Chat chat = insertChat("Chat " + i, null, false, "2026-07-06T00:00:00Z");
-            messages.insert(new Message(0, chat.id(), "user", "overflow needle " + i, 0, null, null));
+            messages.insert(new Message(0, chat.id(), MessageRole.user, "overflow needle " + i, 0, null, null));
             tags.assignToChat(chat.id(), tag.id());
         }
 

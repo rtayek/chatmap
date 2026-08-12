@@ -7,6 +7,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 
 final class RolePrefixedTranscriptParser {
 
@@ -46,7 +47,8 @@ final class RolePrefixedTranscriptParser {
     }
 
     private static Message message(int sequence, String role, List<String> lines) {
-        return new Message(0, 0, role, String.join("\n", trimBlankLines(lines)), sequence, null, null);
+        return new Message(0, 0, MessageRole.fromDbValue(role), String.join("\n", trimBlankLines(lines)),
+                sequence, null, null);
     }
 
     private static List<String> trimBlankLines(List<String> lines) {

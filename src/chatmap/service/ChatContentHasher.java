@@ -27,7 +27,7 @@ final class ChatContentHasher {
         messages.stream()
                 .sorted(Comparator.comparingInt(Message::sequence))
                 .forEach(message -> {
-                    addField(digest, normalize(message.role()));
+                    addField(digest, normalize(message.role().dbValue()));
                     addField(digest, normalize(message.text()));
                 });
         return HexFormat.of().formatHex(digest.digest());

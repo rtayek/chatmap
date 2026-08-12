@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 
@@ -83,7 +84,7 @@ final class LocalCliSessions {
         List<Message> messages = new ArrayList<>();
         int sequence = 0;
         for (ClaudeTurn turn : turns) {
-            messages.add(new Message(0, 0, turn.role(), turn.text(), sequence++, null, null));
+            messages.add(new Message(0, 0, MessageRole.fromDbValue(turn.role()), turn.text(), sequence++, null, null));
         }
         return new ImportedChat(chat, messages);
     }

@@ -16,6 +16,7 @@ import com.google.gson.JsonObject;
 import chatmap.domain.Chat;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 
 /** Shared parsing of a single ChatGPT conversation object. */
@@ -49,7 +50,7 @@ public final class ChatGptConversationParser {
         List<Message> messages = new ArrayList<>();
         for (int i = 0; i < drafts.size(); i++) {
             MessageDraft draft = drafts.get(i);
-            messages.add(new Message(0, 0, draft.role(), draft.text(), i, draft.timestamp(), draft.rawJson()));
+            messages.add(new Message(0, 0, MessageRole.fromDbValue(draft.role()), draft.text(), i, draft.timestamp(), draft.rawJson()));
         }
 
         Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt, importedAt, false,

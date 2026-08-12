@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
@@ -69,9 +70,9 @@ class HandoffExporterTest {
                 null, null, "2026-07-03T08:00:00Z", true));
         Tag tag = tags.insert(new Tag(0, "planning"));
         tags.assignToChat(chat.id(), tag.id());
-        messages.insert(new Message(0, chat.id(), "user",
+        messages.insert(new Message(0, chat.id(), MessageRole.user,
                 "Please turn these planning notes into a checklist.", 0, null, null));
-        messages.insert(new Message(0, chat.id(), "unknown",
+        messages.insert(new Message(0, chat.id(), MessageRole.unknown,
                 "A note without a parsed role.", 1, null, null));
 
         String markdown = exportProject(project.id());
@@ -92,14 +93,14 @@ class HandoffExporterTest {
         tags.assignToChat(first.id(), mvp.id());
         tags.assignToChat(first.id(), export.id());
 
-        messages.insert(new Message(0, first.id(), "assistant",
+        messages.insert(new Message(0, first.id(), MessageRole.assistant,
                 "First draft before the user asks anything.", 0, null, null));
-        messages.insert(new Message(0, first.id(), "user",
+        messages.insert(new Message(0, first.id(), MessageRole.user,
                 "Summarize the storage and export work.", 1, null, null));
-        messages.insert(new Message(0, first.id(), "assistant",
+        messages.insert(new Message(0, first.id(), MessageRole.assistant,
                 "Storage is backed by SQLite. Export is deterministic Markdown.", 2, null, null));
 
-        messages.insert(new Message(0, second.id(), "unknown",
+        messages.insert(new Message(0, second.id(), MessageRole.unknown,
                 "No user or assistant roles were parsed here.", 0, null, null));
 
         String markdown = exportProject(project.id());
@@ -121,9 +122,9 @@ class HandoffExporterTest {
         Tag zebra = tags.insert(new Tag(0, "zebra"));
         tags.assignToChat(first.id(), zebra.id());
         tags.assignToChat(first.id(), alpha.id());
-        Message later = messages.insert(new Message(0, first.id(), "assistant", "later", 1, null, null));
-        Message earlier = messages.insert(new Message(0, first.id(), "user", "earlier", 0, null, null));
-        Message only = messages.insert(new Message(0, second.id(), "user", "only", 0, null, null));
+        Message later = messages.insert(new Message(0, first.id(), MessageRole.assistant, "later", 1, null, null));
+        Message earlier = messages.insert(new Message(0, first.id(), MessageRole.user, "earlier", 0, null, null));
+        Message only = messages.insert(new Message(0, second.id(), MessageRole.user, "only", 0, null, null));
 
         ProjectHandoffModel model = exportService.loadProjectHandoff(project.id(), exportedAt).orElseThrow();
 

@@ -132,22 +132,22 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         if (testId != null) {
             String lowered = testId.toLowerCase(Locale.ROOT);
             if (lowered.contains("user")) {
-                return chatmap.domain.Message.ROLE_USER;
+                return chatmap.domain.MessageRole.user.dbValue();
             }
             if (lowered.contains("assistant") || lowered.contains("claude")) {
-                return chatmap.domain.Message.ROLE_ASSISTANT;
+                return chatmap.domain.MessageRole.assistant.dbValue();
             }
         }
         String classAttr = turn.getAttribute("class");
         if (classAttr != null) {
             String lowered = classAttr.toLowerCase(Locale.ROOT);
             if (lowered.contains("user")) {
-                return chatmap.domain.Message.ROLE_USER;
+                return chatmap.domain.MessageRole.user.dbValue();
             }
             if (lowered.contains("claude") || lowered.contains("assistant")) {
-                return chatmap.domain.Message.ROLE_ASSISTANT;
+                return chatmap.domain.MessageRole.assistant.dbValue();
             }
         }
-        return "unknown";
+        return chatmap.domain.MessageRole.unknown.dbValue();
     }
 }

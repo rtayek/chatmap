@@ -22,7 +22,7 @@ public final class MarkdownExporter {
 
         for (int i = 0; i < model.messages().size(); i++) {
             Message message = model.messages().get(i);
-            out.append("## ").append(message.role()).append("\n\n");
+            out.append("## ").append(message.role().dbValue()).append("\n\n");
             out.append(message.text());
             if (!message.text().endsWith("\n")) {
                 out.append("\n");

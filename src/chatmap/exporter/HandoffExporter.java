@@ -5,6 +5,7 @@ import java.util.Objects;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Tag;
 
@@ -48,8 +49,8 @@ public final class HandoffExporter {
         Markdown.metadata(out, "Updated", chat.updatedAt());
         out.append("Archived: ").append(chat.archived() ? "yes" : "no").append("\n");
         out.append("Tags: ").append(formatTags(entry.tags())).append("\n");
-        appendPreview(out, "First user", firstRole(entry.messages(), chatmap.domain.Message.ROLE_USER));
-        appendPreview(out, "Last assistant", lastRole(entry.messages(), chatmap.domain.Message.ROLE_ASSISTANT));
+        appendPreview(out, "First user", firstRole(entry.messages(), MessageRole.user));
+        appendPreview(out, "Last assistant", lastRole(entry.messages(), MessageRole.assistant));
     }
 
     private static void appendPreview(StringBuilder out, String label, Message message) {
@@ -76,19 +77,19 @@ public final class HandoffExporter {
         return out.toString();
     }
 
-    private static Message firstRole(List<Message> messages, String role) {
+    private static Message firstRole(List<Message> messages, MessageRole role) {
         for (Message message : messages) {
-            if (role.equals(message.role())) {
+            if (role == message.role()) {
                 return message;
             }
         }
         return null;
     }
 
-    private static Message lastRole(List<Message> messages, String role) {
+    private static Message lastRole(List<Message> messages, MessageRole role) {
         for (int i = messages.size() - 1; i >= 0; i--) {
             Message message = messages.get(i);
-            if (role.equals(message.role())) {
+            if (role == message.role()) {
                 return message;
             }
         }

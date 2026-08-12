@@ -10,6 +10,8 @@ import java.util.Set;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import chatmap.domain.MessageRole;
+
 /**
  * Shared reading of a ChatGPT conversation {@code mapping} tree, used by both the
  * loose-{@code .json} importer and the export-ZIP importer so the format's quirks
@@ -45,10 +47,11 @@ final class ChatGptMapping {
     static String mapRole(JsonObject message) {
         JsonObject author = object(message.get("author"));
         String role = author == null ? null : string(author.get("role"));
-        if (chatmap.domain.Message.ROLE_USER.equals(role) || chatmap.domain.Message.ROLE_ASSISTANT.equals(role) || "system".equals(role)) {
+        if (MessageRole.user.dbValue().equals(role) || MessageRole.assistant.dbValue().equals(role)
+                || MessageRole.system.dbValue().equals(role)) {
             return role;
         }
-        return "unknown";
+        return MessageRole.unknown.dbValue();
     }
 
     /** A ChatGPT epoch-seconds {@code create_time} as a UTC ISO-8601 string, or null. */

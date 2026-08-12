@@ -18,6 +18,7 @@ import chatmap.backend.ai.BackendId;
 import chatmap.backend.ai.CommandBackedAiBackend;
 import chatmap.backend.ai.CommandBackedRun;
 import chatmap.backend.command.CommandResult;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,9 +93,9 @@ final class PromptServiceTest {
 
             List<chatmap.domain.Message> storedMessages = messages.findByChat(storedChats.get(0).id());
             assertEquals(2, storedMessages.size());
-            assertEquals("user", storedMessages.get(0).role());
+            assertEquals(MessageRole.user, storedMessages.get(0).role());
             assertEquals("Test prompt", storedMessages.get(0).text());
-            assertEquals("assistant", storedMessages.get(1).role());
+            assertEquals(MessageRole.assistant, storedMessages.get(1).role());
             assertEquals("Claude answer", storedMessages.get(1).text());
         }
     }

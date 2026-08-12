@@ -17,6 +17,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
@@ -123,9 +124,9 @@ class RepositoryTest {
     void createsUpdatesDeletesAndSearchesMessages() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Searchable",
                 null, null, "2026-07-06T00:00:00Z", false));
-        Message first = messages.insert(new Message(0, chat.id(), "user",
+        Message first = messages.insert(new Message(0, chat.id(), MessageRole.user,
                 "storage foundation alpha", 0, null, null));
-        Message second = messages.insert(new Message(0, chat.id(), "assistant",
+        Message second = messages.insert(new Message(0, chat.id(), MessageRole.assistant,
                 "repository beta", 1, null, null));
 
         assertEquals(List.of(first, second), messages.findByChat(chat.id()));
@@ -138,7 +139,7 @@ class RepositoryTest {
 
         messages.delete(second.id());
 
-        assertEquals(List.of(new Message(first.id(), chat.id(), "user",
+        assertEquals(List.of(new Message(first.id(), chat.id(), MessageRole.user,
                 "storage foundation gamma", 0, null, null)), messages.findByChat(chat.id()));
         assertTrue(messages.searchText("beta").isEmpty());
     }
@@ -147,8 +148,8 @@ class RepositoryTest {
     void insertsBatchOfMessagesInSingleOperation() throws Exception {
         Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Batch", null, null, "2026-07-06T00:00:00Z", false));
         List<Message> batch = List.of(
-                new Message(0, chat.id(), "user", "Batch item 1", 0, null, null),
-                new Message(0, chat.id(), "assistant", "Batch item 2", 1, null, null)
+                new Message(0, chat.id(), MessageRole.user, "Batch item 1", 0, null, null),
+                new Message(0, chat.id(), MessageRole.assistant, "Batch item 2", 1, null, null)
         );
 
         messages.insertAll(batch);
@@ -167,9 +168,9 @@ class RepositoryTest {
                 null, null, "2026-07-06T00:01:00Z", false));
         Chat empty = chats.insert(new Chat(0, null, Source.plainText, "Empty",
                 null, null, "2026-07-06T00:02:00Z", false));
-        Message firstTwo = messages.insert(new Message(0, first.id(), "assistant", "two", 2, null, null));
-        Message firstOne = messages.insert(new Message(0, first.id(), "user", "one", 1, null, null));
-        Message secondOne = messages.insert(new Message(0, second.id(), "user", "other", 0, null, null));
+        Message firstTwo = messages.insert(new Message(0, first.id(), MessageRole.assistant, "two", 2, null, null));
+        Message firstOne = messages.insert(new Message(0, first.id(), MessageRole.user, "one", 1, null, null));
+        Message secondOne = messages.insert(new Message(0, second.id(), MessageRole.user, "other", 0, null, null));
 
         var byChat = messages.findByChatIds(List.of(first.id(), second.id(), empty.id()));
 
@@ -261,7 +262,7 @@ class RepositoryTest {
 
     @Test
     void enforcesForeignKeysAndCaseInsensitiveUniqueTags() throws Exception {
-        assertThrows(SQLException.class, () -> messages.insert(new Message(0, 999, "user",
+        assertThrows(SQLException.class, () -> messages.insert(new Message(0, 999, MessageRole.user,
                 "orphan", 0, null, null)));
 
         tags.insert(new Tag(0, "SQLite"));

@@ -17,6 +17,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.ConversationInventory;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
@@ -338,7 +339,7 @@ class ChatMapControllerTest {
     private Chat insertChat(String title, String text) throws Exception {
         Chat chat = chats.insert(new Chat(
                 0, null, Source.plainText, title, null, null, "2026-07-08T00:00:00Z", false));
-        messages.insert(new Message(0, chat.id(), "unknown", text, 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.unknown, text, 0, null, null));
         return chat;
     }
 }

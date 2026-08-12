@@ -6,12 +6,12 @@ import java.util.regex.Pattern;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 
 /** Imports Markdown as a transcript when role prefixes are present. */
 public final class MarkdownImporter {
 
-    public static final String unknownRole = "unknown";
     private static final Pattern roleLine = Pattern.compile(
             "^\\s*(user|assistant|system):.*$",
             Pattern.CASE_INSENSITIVE);
@@ -25,7 +25,7 @@ public final class MarkdownImporter {
                 null, null, importedAt, false);
         List<Message> messages = RolePrefixedTranscriptParser.parse(markdownWithoutTitleHeading(markdown));
         if (messages.isEmpty()) {
-            messages = List.of(new Message(0, 0, unknownRole, markdown, 0, null, null));
+            messages = List.of(new Message(0, 0, MessageRole.unknown, markdown, 0, null, null));
         }
         return new ImportedChat(chat, messages);
     }

@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import chatmap.domain.Chat;
+import chatmap.domain.ChatOrigin;
 import chatmap.domain.ImportMetadata;
 import chatmap.domain.Source;
 
@@ -42,6 +43,6 @@ final class ChatRowMapper {
                         rs.getString("contentHash"),
                         rs.getString("sourceUpdatedAt"),
                         rs.getString("lastImportedAt")),
-                rs.getString("originatedBy"));
+                ChatOrigin.fromDbValue(rs.getString("originatedBy")));
     }
 }

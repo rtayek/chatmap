@@ -8,6 +8,7 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 
 class SampleImportFilesTest {
@@ -23,8 +24,8 @@ class SampleImportFilesTest {
         assertEquals("ChatMap plain text sample", imported.chat().title());
         assertEquals(Source.plainText, imported.chat().source());
         assertEquals(2, imported.messages().size());
-        assertEquals("user", imported.messages().get(0).role());
-        assertEquals("assistant", imported.messages().get(1).role());
+        assertEquals(MessageRole.user, imported.messages().get(0).role());
+        assertEquals(MessageRole.assistant, imported.messages().get(1).role());
         assertTrue(imported.messages().getFirst().text().contains("ChatMap"));
     }
 
@@ -37,8 +38,8 @@ class SampleImportFilesTest {
         assertEquals("ChatMap Markdown Sample", imported.chat().title());
         assertEquals(Source.markdown, imported.chat().source());
         assertEquals(2, imported.messages().size());
-        assertEquals("user", imported.messages().get(0).role());
-        assertEquals("assistant", imported.messages().get(1).role());
+        assertEquals(MessageRole.user, imported.messages().get(0).role());
+        assertEquals(MessageRole.assistant, imported.messages().get(1).role());
         assertTrue(imported.messages().getFirst().text().contains("ChatMap"));
     }
 
@@ -51,8 +52,8 @@ class SampleImportFilesTest {
         assertEquals("ChatMap ChatGPT Sample", imported.chat().title());
         assertEquals(Source.chatgptJson, imported.chat().source());
         assertEquals("2024-07-03T09:46:40Z", imported.chat().createdAt());
-        assertEquals("user", imported.messages().get(1).role());
-        assertEquals("assistant", imported.messages().get(2).role());
+        assertEquals(MessageRole.user, imported.messages().get(1).role());
+        assertEquals(MessageRole.assistant, imported.messages().get(2).role());
         assertTrue(imported.messages().get(1).text().contains("ChatMap"));
         assertTrue(imported.messages().get(1).rawJson().contains("\"id\":\"userMessage\""));
     }

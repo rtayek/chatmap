@@ -10,6 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 
@@ -33,10 +34,10 @@ final class ClaudeWebChatProviderTest {
 
         List<Message> messages = chat.messages();
         assertEquals(2, messages.size());
-        assertEquals("user", messages.get(0).role());
+        assertEquals(MessageRole.user, messages.get(0).role());
         assertEquals("How do I center a div?", messages.get(0).text());
         assertEquals(0, messages.get(0).sequence());
-        assertEquals("assistant", messages.get(1).role());
+        assertEquals(MessageRole.assistant, messages.get(1).role());
         assertEquals("Use flexbox.", messages.get(1).text());
         assertEquals(1, messages.get(1).sequence());
     }
@@ -67,7 +68,7 @@ final class ClaudeWebChatProviderTest {
                 "t", List.of(new ClaudeTurn("unknown", "tool output")), "2026-08-04T00:00:00Z");
 
         assertEquals(1, chat.messages().size());
-        assertEquals("unknown", chat.messages().get(0).role());
+        assertEquals(MessageRole.unknown, chat.messages().get(0).role());
     }
 
     @Test

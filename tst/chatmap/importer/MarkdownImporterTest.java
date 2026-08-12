@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.Database;
 import chatmap.storage.MessageRepository;
@@ -41,7 +42,7 @@ class MarkdownImporterTest {
 
         assertEquals(1, imported.messages().size());
         Message message = imported.messages().getFirst();
-        assertEquals(MarkdownImporter.unknownRole, message.role());
+        assertEquals(MessageRole.unknown, message.role());
         assertEquals(markdown, message.text());
         assertEquals(0, message.sequence());
         assertEquals(null, message.timestamp());
@@ -67,7 +68,7 @@ class MarkdownImporterTest {
         ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
 
         assertEquals("Transcript", imported.chat().title());
-        assertEquals(List.of("user", "assistant"),
+        assertEquals(List.of(MessageRole.user, MessageRole.assistant),
                 imported.messages().stream().map(Message::role).toList());
         assertEquals("Question line\n\nQuestion detail.",
                 imported.messages().get(0).text());
@@ -83,7 +84,7 @@ class MarkdownImporterTest {
         ImportedChat imported = new MarkdownImporter().importMarkdown(markdown, "fallback.md", importedAt);
 
         assertEquals("Transcript", imported.chat().title());
-        assertEquals(List.of("system", "user", "assistant"),
+        assertEquals(List.of(MessageRole.system, MessageRole.user, MessageRole.assistant),
                 imported.messages().stream().map(Message::role).toList());
         assertEquals("System note.", imported.messages().get(0).text());
         assertEquals("Question line", imported.messages().get(1).text());

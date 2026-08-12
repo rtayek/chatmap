@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
@@ -57,8 +58,8 @@ class SearchServiceTest {
     void searchesMessageTextAndReturnsMatchingChats() throws Exception {
         Chat match = insertChat("Match", "2026-07-06T00:00:00Z");
         Chat miss = insertChat("Miss", "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, match.id(), "user", "ChatMap search target", 0, null, null));
-        messages.insert(new Message(0, miss.id(), "user", "unrelated content", 0, null, null));
+        messages.insert(new Message(0, match.id(), MessageRole.user, "ChatMap search target", 0, null, null));
+        messages.insert(new Message(0, miss.id(), MessageRole.user, "unrelated content", 0, null, null));
 
         assertEquals(List.of(match), searchService.searchChats("target"));
     }
@@ -66,7 +67,7 @@ class SearchServiceTest {
     @Test
     void simpleSearchMatchesPartialTokens() throws Exception {
         Chat match = insertChat("Match", "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, match.id(), "user", "ChatMap search target", 0, null, null));
+        messages.insert(new Message(0, match.id(), MessageRole.user, "ChatMap search target", 0, null, null));
 
         assertEquals(List.of(match), searchService.searchChats("chat"));
     }
@@ -75,8 +76,8 @@ class SearchServiceTest {
     void multiWordServiceSearchMatchesAnyTokenPrefix() throws Exception {
         Chat alpha = insertChat("Alpha", "2026-07-06T00:00:00Z");
         Chat beta = insertChat("Beta", "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, alpha.id(), "user", "alpha content", 0, null, null));
-        messages.insert(new Message(0, beta.id(), "user", "beta content", 0, null, null));
+        messages.insert(new Message(0, alpha.id(), MessageRole.user, "alpha content", 0, null, null));
+        messages.insert(new Message(0, beta.id(), MessageRole.user, "beta content", 0, null, null));
 
         assertEquals(List.of(alpha, beta), searchService.searchChats("alp bet"));
     }
@@ -107,7 +108,7 @@ class SearchServiceTest {
     void clearingSearchWithEmptyQueryRestoresFullChatList() throws Exception {
         Chat first = insertChat("First", "2026-07-06T00:00:00Z");
         Chat second = insertChat("Second", "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, first.id(), "user", "target", 0, null, null));
+        messages.insert(new Message(0, first.id(), MessageRole.user, "target", 0, null, null));
 
         assertEquals(List.of(first), searchService.searchChats("target"));
         assertEquals(List.of(first, second), searchService.searchChats(""));
@@ -117,8 +118,8 @@ class SearchServiceTest {
     void searchResultsAreReturnedInDeterministicOrder() throws Exception {
         Chat second = insertChat("Second", "2026-07-06T00:01:00Z");
         Chat first = insertChat("First", "2026-07-06T00:00:00Z");
-        messages.insert(new Message(0, second.id(), "user", "target", 0, null, null));
-        messages.insert(new Message(0, first.id(), "user", "target", 0, null, null));
+        messages.insert(new Message(0, second.id(), MessageRole.user, "target", 0, null, null));
+        messages.insert(new Message(0, first.id(), MessageRole.user, "target", 0, null, null));
 
         assertEquals(List.of(first, second), searchService.searchChats("target"));
     }
@@ -153,7 +154,7 @@ class SearchServiceTest {
     @Test
     void oneResultIsSelectableAndLoadsNormalDetailData() throws Exception {
         Chat chat = insertChat("Selectable", "2026-07-06T00:00:00Z");
-        Message message = messages.insert(new Message(0, chat.id(), "assistant", "selectable target", 0, null, null));
+        Message message = messages.insert(new Message(0, chat.id(), MessageRole.assistant, "selectable target", 0, null, null));
 
         SearchResult result = searchService.searchResults("target").getFirst();
 
@@ -165,8 +166,8 @@ class SearchServiceTest {
     void multipleResultsAreSelectableByChatId() throws Exception {
         Chat first = insertChat("First", "2026-07-06T00:00:00Z");
         Chat second = insertChat("Second", "2026-07-06T00:01:00Z");
-        messages.insert(new Message(0, first.id(), "user", "target one", 0, null, null));
-        messages.insert(new Message(0, second.id(), "user", "target two", 0, null, null));
+        messages.insert(new Message(0, first.id(), MessageRole.user, "target one", 0, null, null));
+        messages.insert(new Message(0, second.id(), MessageRole.user, "target two", 0, null, null));
 
         List<SearchResult> results = searchService.searchResults("target");
 
@@ -183,7 +184,7 @@ class SearchServiceTest {
         Chat chat = chats.insert(new Chat(
                 0, project.id(), Source.plainText, "Metadata", null, null, "2026-07-06T00:00:00Z", false));
         tags.assignToChat(chat.id(), tag.id());
-        messages.insert(new Message(0, chat.id(), "user", "ChatMap metadata target", 0, null, null));
+        messages.insert(new Message(0, chat.id(), MessageRole.user, "ChatMap metadata target", 0, null, null));
 
         SearchResult result = searchService.searchResults("metadata").getFirst();
 

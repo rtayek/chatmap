@@ -64,7 +64,7 @@ class ChatTest {
         Chat chat = new Chat(1L, null, Source.plainText, "Title",
                 "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false);
 
-        assertEquals("IMPORTED", chat.originatedBy());
+        assertEquals(ChatOrigin.imported, chat.originatedBy());
         assertNull(chat.externalConversationId());
         assertNull(chat.sourceUri());
         assertNull(chat.contentHash());
@@ -77,9 +77,9 @@ class ChatTest {
     @Test
     void nineArgConstructorUsesGivenOriginatedByAndStillDefaultsImportMetadataToNone() {
         Chat chat = new Chat(1L, null, Source.jshellHarness, "Title",
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, "GENERATED");
+                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, ChatOrigin.generated);
 
-        assertEquals("GENERATED", chat.originatedBy());
+        assertEquals(ChatOrigin.generated, chat.originatedBy());
         assertNull(chat.externalConversationId());
         assertEquals("2026-01-02T00:00:00Z", chat.sourceUpdatedAt());
         assertEquals("2026-01-03T00:00:00Z", chat.lastImportedAt());
@@ -92,7 +92,7 @@ class ChatTest {
         Chat chat = new Chat(1L, null, Source.chatgptJson, "Title",
                 "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, metadata);
 
-        assertEquals("IMPORTED", chat.originatedBy());
+        assertEquals(ChatOrigin.imported, chat.originatedBy());
         assertEquals(metadata, chat.importMetadata());
     }
 }

@@ -13,6 +13,7 @@ import chatmap.backend.ai.AiBackendUnsupportedRequestException;
 import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
 import chatmap.storage.Database;
@@ -47,7 +48,7 @@ class ServiceGraphTest {
                 Chat chat = new Chat(
                         0, null, Source.plainText, "Injected Chat",
                         null, null, "2026-08-08T00:00:00Z", false);
-                Message message = new Message(0, 0, "user", "injected body", 0, null, null);
+                Message message = new Message(0, 0, MessageRole.user, "injected body", 0, null, null);
                 return Optional.of(new ImportedChat(chat, List.of(message)));
             }
         };

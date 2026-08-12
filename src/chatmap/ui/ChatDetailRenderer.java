@@ -19,7 +19,7 @@ final class ChatDetailRenderer {
                     .append(summary.summary()).append("\n\n");
         }
         for (Message message : model.messages()) {
-            out.append("[").append(message.role()).append("]\n");
+            out.append("[").append(message.role().dbValue()).append("]\n");
             out.append(message.text()).append("\n\n");
         }
         return out.toString();

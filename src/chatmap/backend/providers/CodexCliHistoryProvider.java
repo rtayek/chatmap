@@ -6,7 +6,7 @@ import java.util.List;
 
 import com.google.gson.JsonObject;
 
-import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
 
 /**
@@ -48,9 +48,9 @@ public final class CodexCliHistoryProvider extends LocalCliHistoryProvider {
             String text = SessionLines.string(payload, "message");
             String role;
             if ("user_message".equals(payloadType)) {
-                role = Message.ROLE_USER;
+                role = MessageRole.user.dbValue();
             } else if ("agent_message".equals(payloadType)) {
-                role = Message.ROLE_ASSISTANT;
+                role = MessageRole.assistant.dbValue();
             } else {
                 continue;
             }
