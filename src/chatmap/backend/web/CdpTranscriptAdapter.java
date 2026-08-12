@@ -2,7 +2,11 @@ package chatmap.backend.web;
 
 import chatmap.backend.providers.ClaudeTurn;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -82,6 +86,165 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
         } finally {
             close();
         }
+    }
+
+    private static final int MAX_DISCOVERY_ROUNDS = 500;
+    private static final int STABLE_ROUNDS_REQUIRED = 3;
+    private static final long SCROLL_WAIT_MILLIS = 900;
+
+    /**
+     * Exhaustively discovers every conversation the current authenticated
+     * session can enumerate, until a verified terminal condition is reached
+     * (or the iteration budget/an error forces an honest incomplete/failed/
+     * unavailable result instead). Self-contained like the other public
+     * methods here: attaches, discovers, releases the CDP connection.
+     */
+    public final WebDiscoveryResult discoverAll() {
+        lastUnavailableReason = null;
+        try {
+            if (!connectViaCdpOnly()) {
+                return WebDiscoveryResult.unavailable(providerLabel(), "CDP connection could not be established");
+            }
+            WebDiscoveryResult result = doDiscoverAll();
+            if (result.status() != DiscoveryStatus.complete) {
+                lastUnavailableReason = result.reason();
+            }
+            return result;
+        } catch (Exception failure) {
+            String reason = diagnostic(failure);
+            lastUnavailableReason = reason;
+            return WebDiscoveryResult.failed(providerLabel(), reason);
+        } finally {
+            close();
+        }
+    }
+
+    /** Display name used in discovery results; override if it should differ from the class name. */
+    String providerLabel() {
+        return getClass().getSimpleName();
+    }
+
+    /**
+     * A durable identity for discovery-time deduplication, or null when the
+     * summary carries no durable id yet (the caller falls back to the
+     * summary's URL, which is still stable within one discovery run).
+     * Override with the site's real identity extraction; the default treats
+     * every summary as identity-less.
+     */
+    String identityOf(ChatWebSummary summary) {
+        return null;
+    }
+
+    /** One scroll attempt: whether a scrollable container was found, and whether it actually moved. */
+    record ScrollAttempt(boolean found, double before, double after) {
+        boolean moved() {
+            return found && after > before + 1;
+        }
+
+        static ScrollAttempt parse(String json) {
+            try {
+                JsonObject o = JsonParser.parseString(json).getAsJsonObject();
+                if (!o.has("found") || !o.get("found").getAsBoolean()) {
+                    return new ScrollAttempt(false, 0, 0);
+                }
+                return new ScrollAttempt(true, o.get("before").getAsDouble(), o.get("after").getAsDouble());
+            } catch (RuntimeException malformed) {
+                return new ScrollAttempt(false, 0, 0);
+            }
+        }
+    }
+
+    /**
+     * Scrolls the site's conversation list one step further, if a scrollable
+     * container can be found. The default heuristic (the widest block-level
+     * element whose content overflows its own box) was verified live against
+     * claude.ai's and gemini.google.com's conversation lists on 2026-08-12;
+     * override for a site whose scroll container it cannot find.
+     */
+    ScrollAttempt scrollForMore(CdpPage page) {
+        Object raw = page.evaluate("() => {"
+                + "const el=[...document.querySelectorAll('div')]"
+                + ".filter(e => e.scrollHeight > e.clientHeight + 40"
+                + " && e.clientHeight > 80 && e.clientHeight < 2000)"
+                + ".sort((a,b) => b.scrollHeight - a.scrollHeight)[0];"
+                + "if (!el) return JSON.stringify({found:false});"
+                + "const before = el.scrollTop;"
+                + "el.scrollTop = el.scrollHeight;"
+                + "return JSON.stringify({found:true, before:before, after:el.scrollTop});"
+                + "}");
+        return ScrollAttempt.parse(raw == null ? "{\"found\":false}" : raw.toString());
+    }
+
+    /**
+     * Default exhaustive strategy: repeatedly read the currently-rendered
+     * conversation summaries via {@link #listChats}, accumulate by identity,
+     * and scroll for more via {@link #scrollForMore}. Declares completion
+     * only once the scroll position has genuinely stopped advancing for
+     * several consecutive rounds — "no new items this round" alone is not
+     * trusted, since a slow lazy load could still be in flight. Adapters
+     * with a safer authenticated listing endpoint override this entirely
+     * rather than depending on DOM scrolling at all.
+     */
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+            page = openPage(siteBaseUrl());
+        } catch (Exception unopenable) {
+            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
+        }
+        return accumulate(page);
+    }
+
+    /** How long to wait after a scroll for lazy-loaded entries; overridable so tests run instantly. */
+    long scrollWaitMillis() {
+        return SCROLL_WAIT_MILLIS;
+    }
+
+    /** Safety-net iteration cap; overridable so a "never stabilizes" test doesn't spin for real. */
+    int maxDiscoveryRounds() {
+        return MAX_DISCOVERY_ROUNDS;
+    }
+
+    /**
+     * The scroll-and-accumulate loop itself, isolated from page-opening so it
+     * can be driven directly in tests against a hand-built {@link CdpPage}.
+     */
+    final WebDiscoveryResult accumulate(CdpPage page) {
+        LinkedHashMap<String, ChatWebSummary> byIdentity = new LinkedHashMap<>();
+        int stableRounds = 0;
+        int limit = maxDiscoveryRounds();
+        for (int round = 0; round < limit; round++) {
+            List<ChatWebSummary> batch;
+            try {
+                batch = listChats(page);
+            } catch (Exception selectorFailure) {
+                return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),
+                        DiscoveryStatus.incomplete,
+                        "Selector failure while reading the conversation list: " + diagnostic(selectorFailure));
+            }
+            int before = byIdentity.size();
+            for (ChatWebSummary summary : batch) {
+                String id = identityOf(summary);
+                byIdentity.putIfAbsent(id == null || id.isBlank() ? summary.url() : id, summary);
+            }
+            boolean grew = byIdentity.size() > before;
+
+            ScrollAttempt attempt = scrollForMore(page);
+            stableRounds = (grew || attempt.moved()) ? 0 : stableRounds + 1;
+
+            if (stableRounds >= STABLE_ROUNDS_REQUIRED) {
+                return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),
+                        DiscoveryStatus.complete,
+                        "Complete for the normal conversation list exposed by the current authenticated web UI: "
+                        + "scroll position and discovered count both stayed unchanged across "
+                        + STABLE_ROUNDS_REQUIRED + " consecutive checks.");
+            }
+            page.waitForTimeout(scrollWaitMillis());
+        }
+        return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),
+                DiscoveryStatus.incomplete,
+                "Reached the discovery iteration limit (" + limit
+                + ") without a verified terminal condition.");
     }
 
     /**
@@ -174,7 +337,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
         browser = null;
     }
 
-    private static String diagnostic(Exception failure) {
+    static String diagnostic(Exception failure) {
         String simpleName = failure.getClass().getSimpleName();
         String message = failure.getMessage();
         if (message == null || message.isBlank()) {

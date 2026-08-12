@@ -28,6 +28,7 @@ public abstract class CdpWebChatProvider implements ChatProvider {
     private final CdpTranscriptAdapter adapter;
     private final String cdpUrl;
     private final String inventoryDiagnostic;
+    private volatile WebDiscoveryResult lastDiscovery;
 
     protected CdpWebChatProvider(
             String name,
@@ -70,9 +71,11 @@ public abstract class CdpWebChatProvider implements ChatProvider {
     @Override
     public List<ConversationCandidate> listChats() {
         if (!launcher.ensureChromeRunning(cdpUrl, System.out)) {
+            lastDiscovery = WebDiscoveryResult.unavailable(name, "Chrome CDP endpoint not reachable");
             return List.of();
         }
-        return candidates(adapter.discoverableChats());
+        lastDiscovery = adapter.discoverAll();
+        return candidates(lastDiscovery.conversations());
     }
 
     @Override
@@ -94,14 +97,25 @@ public abstract class CdpWebChatProvider implements ChatProvider {
                 transcript.get().turns(), Instant.now().toString());
     }
 
+    /**
+     * True only when the most recent {@link #listChats()} call reached a
+     * verified terminal condition ({@link DiscoveryStatus#complete}). Before
+     * the first call, or when it was incomplete/unavailable/failed, this is
+     * false -- callers should not treat "no newly discovered chats" as
+     * complete unless the underlying discovery actually proved it.
+     */
     @Override
     public boolean inventoryComplete() {
-        return false;
+        return lastDiscovery != null && lastDiscovery.status() == DiscoveryStatus.complete;
     }
 
     @Override
     public Optional<String> inventoryDiagnostic() {
-        return Optional.of(inventoryDiagnostic);
+        if (lastDiscovery == null) {
+            return Optional.of(inventoryDiagnostic);
+        }
+        String reason = lastDiscovery.reason();
+        return Optional.of(reason == null || reason.isBlank() ? inventoryDiagnostic : reason);
     }
 
     public Optional<String> lastUnavailableReason() {

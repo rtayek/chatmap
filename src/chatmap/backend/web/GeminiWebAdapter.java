@@ -38,7 +38,6 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     static final String SIDEBAR_URI_PREFIX = "gemini-sidebar-index:";
     private static final String CONVERSATION_SELECTOR = "[data-test-id='conversation']";
     private static final String CONVERSATION_LINK_SELECTOR = "[data-test-id='conversation'] a";
-    private static final int maxDiscoverableSidebarChats = 50;
 
     GeminiWebAdapter(String cdpUrl) {
         super(cdpUrl);
@@ -53,7 +52,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
     List<ChatWebSummary> listChats(CdpPage page) {
         CdpPage.CdpLocator links = ensureSidebarExpanded(page);
         CdpPage.CdpLocator conversations = page.locator(CONVERSATION_SELECTOR);
-        int count = Math.min(links.count(), maxDiscoverableSidebarChats);
+        int count = links.count();
         List<ChatWebSummary> summaries = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             CdpPage.CdpLocator conversation = conversations.nth(i);
@@ -107,6 +106,26 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         }
         return super.openConversation(summary);
     }
+
+    @Override
+    String identityOf(ChatWebSummary summary) {
+        return ProviderIdentity.geminiWebId(summary.url());
+    }
+
+    @Override
+    String providerLabel() {
+        return "Gemini (web)";
+    }
+
+    /**
+     * Gemini's conversation list is driven by Google's undocumented, version-coupled
+     * {@code batchexecute} RPC protocol rather than a stable REST-style endpoint
+     * (confirmed live on 2026-08-12: {@code otAQ7b} et al., not safely reusable
+     * without reverse-engineering positional argument encoding that can change
+     * with the site's own deploy). Discovery here relies on the inherited generic
+     * scroll-and-accumulate strategy ({@link CdpTranscriptAdapter#doDiscoverAll})
+     * instead, using {@link #listChats} for each round.
+     */
 
     /** The absolute, durable conversation URL for a sidebar anchor's {@code href}, or null. */
     private static String durableUrl(String href) {

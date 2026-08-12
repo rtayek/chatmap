@@ -1,6 +1,12 @@
 package chatmap.backend.web;
 
 import chatmap.backend.providers.ClaudeTurn;
+import chatmap.backend.providers.ProviderIdentity;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -125,6 +131,113 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
             }
         }
         return List.of();
+    }
+
+    @Override
+    String identityOf(ChatWebSummary summary) {
+        return ProviderIdentity.claudeWebId(summary.url());
+    }
+
+    @Override
+    String providerLabel() {
+        return "Claude (web)";
+    }
+
+    private static final int PAGE_LIMIT = 30;
+    private static final int MAX_API_PAGES = 200;
+
+    /**
+     * Exhaustive discovery via claude.ai's own {@code chat_conversations_v2}
+     * listing endpoint instead of DOM scrolling: {@code has_more} in the
+     * response is an explicit, authoritative terminal signal, and it sidesteps
+     * a discrepancy actually observed live where the sidebar/{@code /recents}
+     * DOM's {@code a[href*='/chat/']} count (title elements can render as more
+     * than one anchor) exceeded the true conversation count. Called via
+     * {@code fetch()} from the already-authenticated page context (cookies
+     * only, same origin) -- no credential is read into or logged by this code.
+     * Verified live on 2026-08-12: the endpoint has no separate archived-list
+     * parameter, so there is nothing additional to enumerate there.
+     */
+    @Override
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+            page = openPage(siteBaseUrl());
+        } catch (Exception unopenable) {
+            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
+        }
+
+        String orgId = extractOrgId(page);
+        if (orgId == null || orgId.isBlank()) {
+            return new WebDiscoveryResult(providerLabel(), List.of(), DiscoveryStatus.unavailable,
+                    "Could not determine the active organization id (lastActiveOrg cookie missing); "
+                    + "probably not logged in.");
+        }
+
+        List<ChatWebSummary> all = new ArrayList<>();
+        int offset = 0;
+        for (int i = 0; i < MAX_API_PAGES; i++) {
+            Object raw = page.evaluate("(async () => { try {"
+                    + "const res = await fetch('/api/organizations/" + orgId
+                    + "/chat_conversations_v2?limit=" + PAGE_LIMIT + "&offset=" + offset + "', "
+                    + "{credentials:'include'});"
+                    + "if (!res.ok) return JSON.stringify({error:'HTTP '+res.status});"
+                    + "return JSON.stringify(await res.json());"
+                    + "} catch (e) { return JSON.stringify({error:String(e)}); } })()");
+            JsonObject parsed = parseOrNull(raw);
+            if (parsed == null) {
+                return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.incomplete,
+                        "Conversation listing API returned an unparseable response at offset " + offset + ".");
+            }
+            if (parsed.has("error")) {
+                return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.incomplete,
+                        "Conversation listing API error at offset " + offset + ": "
+                        + parsed.get("error").getAsString());
+            }
+            JsonArray data = parsed.has("data") ? parsed.getAsJsonArray("data") : new JsonArray();
+            for (JsonElement element : data) {
+                JsonObject o = element.getAsJsonObject();
+                String uuid = stringField(o, "uuid");
+                if (uuid == null || uuid.isBlank()) {
+                    continue;
+                }
+                String title = stringField(o, "name");
+                all.add(new ChatWebSummary(title == null || title.isBlank() ? "Untitled Chat" : title,
+                        CLAUDE_BASE_URL + "/chat/" + uuid));
+            }
+            boolean hasMore = parsed.has("has_more") && parsed.get("has_more").getAsBoolean();
+            if (!hasMore) {
+                return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.complete,
+                        "Complete for the normal conversation list exposed by the current authenticated web UI "
+                        + "(chat_conversations_v2 has_more=false). No separate archived-conversation listing "
+                        + "was found on this endpoint.");
+            }
+            offset += PAGE_LIMIT;
+        }
+        return new WebDiscoveryResult(providerLabel(), List.copyOf(all), DiscoveryStatus.incomplete,
+                "Reached the API pagination safety limit (" + MAX_API_PAGES + " pages) without has_more=false.");
+    }
+
+    private static String extractOrgId(CdpPage page) {
+        Object raw = page.evaluate("() => { const m = document.cookie.match(/lastActiveOrg=([^;]+)/); "
+                + "return m ? m[1] : null; }");
+        return raw == null ? null : raw.toString();
+    }
+
+    private static JsonObject parseOrNull(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return JsonParser.parseString(raw.toString()).getAsJsonObject();
+        } catch (RuntimeException malformed) {
+            return null;
+        }
+    }
+
+    private static String stringField(JsonObject object, String name) {
+        JsonElement value = object.get(name);
+        return value == null || value.isJsonNull() ? null : value.getAsString();
     }
 
     private static String inferRole(CdpPage.CdpLocator turn) {

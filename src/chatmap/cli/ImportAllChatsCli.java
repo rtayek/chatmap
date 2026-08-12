@@ -80,9 +80,12 @@ public final class ImportAllChatsCli {
                     System.out.println("  unavailable: " + unavailable.getMessage());
                     continue;
                 }
+                boolean providerComplete = provider.inventoryComplete();
+                String providerDiagnostic = provider.inventoryDiagnostic().orElse(null);
 
                 if (candidates.isEmpty()) {
                     System.out.println("  no chats found");
+                    printCompleteness(providerComplete, providerDiagnostic);
                     continue;
                 }
 
@@ -136,6 +139,7 @@ public final class ImportAllChatsCli {
 
                 System.out.println("  " + inserted + " new, " + updated + " updated, "
                         + skipped + " already imported, " + noContent + " no content, " + failed + " failed");
+                printCompleteness(providerComplete, providerDiagnostic);
                 totalInserted += inserted;
                 totalUpdated += updated;
                 totalSkipped += skipped;
@@ -150,6 +154,17 @@ public final class ImportAllChatsCli {
         } catch (Exception e) {
             System.err.println("Fatal error: " + e.getMessage());
             System.exit(1);
+        }
+    }
+
+    /** Reports whether this provider's discovery reached a verified terminal condition. */
+    private static void printCompleteness(boolean complete, String diagnostic) {
+        if (complete) {
+            System.out.println("  complete"
+                    + (diagnostic == null || diagnostic.isBlank() ? "" : ": " + diagnostic));
+        } else {
+            System.out.println("  incomplete"
+                    + (diagnostic == null || diagnostic.isBlank() ? "" : ": " + diagnostic));
         }
     }
 }
