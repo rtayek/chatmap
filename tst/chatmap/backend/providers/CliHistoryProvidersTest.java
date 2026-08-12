@@ -115,6 +115,20 @@ class CliHistoryProvidersTest {
     }
 
     @Test
+    void fetchThrowsNoImportableContentForASessionWithNoTurns(@TempDir Path dir) throws Exception {
+        Path codexRoot = dir.resolve("codex");
+        Files.createDirectories(codexRoot);
+        Path empty = codexRoot.resolve("rollout-empty.jsonl");
+        Files.write(empty, List.of("{\"type\":\"session_meta\",\"payload\":{\"session_id\":\"abc\"}}"));
+
+        CodexCliHistoryProvider provider = new CodexCliHistoryProvider(codexRoot);
+        var candidate = provider.listChats().getFirst();
+
+        org.junit.jupiter.api.Assertions.assertThrows(NoImportableContentException.class,
+                () -> provider.fetch(candidate));
+    }
+
+    @Test
     void claudeCodeEmptyWhenNoMessageTurns(@TempDir Path dir) throws Exception {
         Path file = dir.resolve("empty.jsonl");
         Files.write(file, List.of("{\"type\":\"queue-operation\",\"content\":\"noise\"}"));

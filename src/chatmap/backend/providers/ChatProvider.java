@@ -48,7 +48,7 @@ public interface ChatProvider {
     /** Fetches one discovered conversation as an importable transcript. */
     default ImportedChat fetch(ConversationCandidate candidate) throws ChatProviderException {
         return latestChat().orElseThrow(() ->
-                new IllegalArgumentException("Provider has no fetchable chat for " + candidate));
+                new NoImportableContentException("Provider has no fetchable chat for " + candidate));
     }
 
     /** Whether {@link #listChats()} is known to cover the provider's complete history. */

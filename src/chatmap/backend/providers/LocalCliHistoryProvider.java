@@ -66,7 +66,7 @@ abstract class LocalCliHistoryProvider implements ChatProvider {
     @Override
     public final ImportedChat fetch(ConversationCandidate candidate) {
         return buildFrom(root, root.resolve(candidate.externalConversationId()).normalize())
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new NoImportableContentException(
                         "No importable " + sessionNoun + ": " + candidate.externalConversationId()));
     }
 

@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import chatmap.backend.providers.ChatProvider;
 import chatmap.backend.providers.ClaudeTurn;
+import chatmap.backend.providers.NoImportableContentException;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
 import chatmap.importer.ImportedChat;
@@ -80,7 +81,7 @@ public abstract class CdpWebChatProvider implements ChatProvider {
         Optional<CdpTranscriptAdapter.Transcript> transcript = adapter.transcript(summary);
         if (transcript.isEmpty()) {
             String reason = adapter.lastUnavailableReason().map(r -> " (" + r + ")").orElse("");
-            throw new IllegalArgumentException("No importable " + name + " chat: " + candidate.sourceUri() + reason);
+            throw new NoImportableContentException("No importable " + name + " chat: " + candidate.sourceUri() + reason);
         }
         return toImportedChat(transcript.get().title(), transcript.get().url(),
                 transcript.get().turns(), Instant.now().toString());

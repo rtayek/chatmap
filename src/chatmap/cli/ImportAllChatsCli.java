@@ -7,6 +7,7 @@ import java.util.Map;
 import chatmap.backend.providers.ChatProvider;
 import chatmap.backend.providers.ChatProviderException;
 import chatmap.backend.providers.DefaultChatProviders;
+import chatmap.backend.providers.NoImportableContentException;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.domain.ConversationCandidate;
 import chatmap.importer.ImportedChat;
@@ -65,6 +66,7 @@ public final class ImportAllChatsCli {
             int totalInserted = 0;
             int totalUpdated = 0;
             int totalSkipped = 0;
+            int totalNoContent = 0;
             int totalFailed = 0;
 
             for (ChatProvider provider : providers) {
@@ -95,6 +97,7 @@ public final class ImportAllChatsCli {
                 int inserted = 0;
                 int updated = 0;
                 int skipped = 0;
+                int noContent = 0;
                 int failed = 0;
 
                 for (ConversationCandidate candidate : candidates) {
@@ -118,29 +121,32 @@ public final class ImportAllChatsCli {
                             case updated -> updated++;
                             case unchanged -> skipped++;
                         }
+                    } catch (NoImportableContentException noContentFound) {
+                        // The candidate was read successfully but has no real turns (e.g. a
+                        // Codex rollout for an abandoned session, or a Gemini CLI session file
+                        // that's only injected setup context). Not a failure -- don't print a
+                        // per-candidate line for it, just count it, so a provider with thousands
+                        // of these doesn't bury the genuine failures below.
+                        noContent++;
                     } catch (Exception e) {
-                        // Every ChatProvider.fetch() implementation (the default method itself,
-                        // LocalCliHistoryProvider, the web providers) throws an unchecked
-                        // IllegalArgumentException for "discovered but not actually fetchable"
-                        // (e.g. a Codex rollout file for a session that was abandoned with no
-                        // turns in it) -- not just the declared ChatProviderException. One bad
-                        // candidate must not abort the whole run; count it and move on.
                         failed++;
                         System.out.println("  ! failed: " + candidate.title() + " (" + e.getMessage() + ")");
                     }
                 }
 
                 System.out.println("  " + inserted + " new, " + updated + " updated, "
-                        + skipped + " already imported, " + failed + " failed");
+                        + skipped + " already imported, " + noContent + " no content, " + failed + " failed");
                 totalInserted += inserted;
                 totalUpdated += updated;
                 totalSkipped += skipped;
+                totalNoContent += noContent;
                 totalFailed += failed;
             }
 
             System.out.println();
             System.out.println("Total: " + totalInserted + " new, " + totalUpdated + " updated, "
-                    + totalSkipped + " already imported, " + totalFailed + " failed");
+                    + totalSkipped + " already imported, " + totalNoContent + " no content, "
+                    + totalFailed + " failed");
         } catch (Exception e) {
             System.err.println("Fatal error: " + e.getMessage());
             System.exit(1);
