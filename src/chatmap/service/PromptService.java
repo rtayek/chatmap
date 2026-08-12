@@ -25,7 +25,6 @@ import chatmap.backend.command.CommandRequest;
 import chatmap.backend.command.CommandResult;
 import chatmap.backend.command.CommandRunner;
 import chatmap.backend.ai.PromptProfile;
-import chatmap.config.ChatMapPaths;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
@@ -40,8 +39,12 @@ public final class PromptService {
     private final Clock clock;
     private final Path transcriptDirectory;
 
-    public PromptService(Map<String, AiBackend> backends, ImportService importService, Clock clock) {
-        this(backends, backendIdsAsLabels(backends), importService, clock, ChatMapPaths.transcriptsDirectory());
+    public PromptService(
+            Map<String, AiBackend> backends,
+            ImportService importService,
+            Clock clock,
+            Path transcriptDirectory) {
+        this(backends, backendIdsAsLabels(backends), importService, clock, transcriptDirectory);
     }
 
     public PromptService(
@@ -59,8 +62,9 @@ public final class PromptService {
         this.backendLabels = Map.copyOf(labels);
         this.importService = importService;
         this.clock = Objects.requireNonNull(clock, "clock");
-        Path dir = transcriptDirectory != null ? transcriptDirectory : ChatMapPaths.transcriptsDirectory();
-        this.transcriptDirectory = dir.toAbsolutePath().normalize();
+        this.transcriptDirectory = Objects.requireNonNull(transcriptDirectory, "transcriptDirectory")
+                .toAbsolutePath()
+                .normalize();
     }
 
     public boolean hasBackend(String backendName) {

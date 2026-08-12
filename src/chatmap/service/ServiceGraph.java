@@ -12,6 +12,7 @@ import chatmap.backend.ai.AiResponse;
 import chatmap.backend.ai.BackendId;
 import chatmap.backend.providers.ChatProvider;
 import chatmap.backend.ai.AiBackendUnsupportedRequestException;
+import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.storage.ChatRepository;
 import chatmap.storage.MessageRepository;
 import chatmap.storage.ProjectRepository;
@@ -68,13 +69,14 @@ public record ServiceGraph(
     }
 
     /** Builds every repository and service over {@code connection}. Caller owns the connection. */
-    public static ServiceGraph create(Connection connection) {
-        return create(connection, Integrations.none());
+    public static ServiceGraph create(Connection connection, ResolvedPaths paths) {
+        return create(connection, Integrations.none(), paths);
     }
 
     /** Builds every repository and service over {@code connection}. Caller owns the connection. */
-    public static ServiceGraph create(Connection connection, Integrations integrations) {
+    public static ServiceGraph create(Connection connection, Integrations integrations, ResolvedPaths paths) {
         Objects.requireNonNull(integrations, "integrations");
+        Objects.requireNonNull(paths, "paths");
         ChatRepository chats = new ChatRepository(connection);
         MessageRepository messages = new MessageRepository(connection);
         ProjectRepository projects = new ProjectRepository(connection);
@@ -98,7 +100,8 @@ public record ServiceGraph(
         PromptService promptService = new PromptService(
                 integrations.promptBackends(),
                 importService,
-                java.time.Clock.systemUTC());
+                java.time.Clock.systemUTC(),
+                paths.transcriptsDirectory());
 
         return new ServiceGraph(connection, chats, messages, projects, tags, summaries, search,
                 importService, archiveImportService, conversationInventoryService,

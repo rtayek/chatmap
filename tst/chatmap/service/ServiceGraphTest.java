@@ -2,15 +2,24 @@ package chatmap.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import chatmap.backend.ai.AiResponse;
+import chatmap.backend.ai.BackendId;
 import chatmap.backend.ai.AiBackendUnsupportedRequestException;
 import chatmap.backend.providers.ChatProvider;
+import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
@@ -20,10 +29,13 @@ import chatmap.storage.Database;
 
 class ServiceGraphTest {
 
+    @TempDir
+    Path tempDir;
+
     @Test
     void defaultGraphDoesNotConfigureOptionalLiveProvidersOrSummaryBackend() throws Exception {
         try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
-                ServiceGraph graph = ServiceGraph.create(connection)) {
+                ServiceGraph graph = ServiceGraph.create(connection, paths())) {
             Chat stored = graph.chats().insert(new Chat(
                     0, null, Source.plainText, "Stored", null, null, "2026-08-08T00:00:00Z", false));
 
@@ -58,7 +70,8 @@ class ServiceGraphTest {
                         connection,
                         new ServiceGraph.Integrations(List.of(provider), request -> {
                             throw new AssertionError("summary backend should not run");
-                        }))) {
+                        }),
+                        paths())) {
             LiveChatFetchService.Resolution resolution = graph.liveChatFetchService().resolve(null);
 
             assertEquals("Injected Chat", graph.chats().findById(resolution.chatId()).orElseThrow().title());
@@ -68,8 +81,34 @@ class ServiceGraphTest {
     @Test
     void promptServiceIsProvidedByServiceGraph() throws Exception {
         try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
-                ServiceGraph graph = ServiceGraph.create(connection)) {
+                ServiceGraph graph = ServiceGraph.create(connection, paths())) {
             org.junit.jupiter.api.Assertions.assertNotNull(graph.promptService());
         }
+    }
+
+    @Test
+    void promptServiceWritesTranscriptsUnderResolvedHome() throws Exception {
+        ResolvedPaths paths = paths();
+        ServiceGraph.Integrations integrations = new ServiceGraph.Integrations(
+                List.of(),
+                request -> {
+                    throw new AssertionError("summary backend should not run");
+                },
+                Map.of("fake", request -> new AiResponse(
+                        "response", new BackendId("fake"), Duration.ZERO)));
+
+        try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
+                ServiceGraph graph = ServiceGraph.create(connection, integrations, paths)) {
+            PromptResult result = graph.promptService().submit("fake", "prompt");
+
+            Path transcript = result.transcript().orElseThrow();
+            assertTrue(transcript.startsWith(paths.transcriptsDirectory()));
+            assertTrue(Files.isRegularFile(transcript));
+        }
+    }
+
+    private ResolvedPaths paths() {
+        Path home = tempDir.resolve("home");
+        return new ResolvedPaths(home, home.resolve("chatmap.db"));
     }
 }

@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import chatmap.backend.providers.ChatProvider;
+import chatmap.backend.providers.ChatProviderException;
 import chatmap.backend.providers.ClaudeTurn;
 import chatmap.backend.providers.NoImportableContentException;
 import chatmap.domain.ConversationCandidate;
@@ -75,13 +76,19 @@ public abstract class CdpWebChatProvider implements ChatProvider {
     }
 
     @Override
-    public ImportedChat fetch(ConversationCandidate candidate) {
+    public ImportedChat fetch(ConversationCandidate candidate) throws ChatProviderException {
         CdpTranscriptAdapter.ChatWebSummary summary =
                 new CdpTranscriptAdapter.ChatWebSummary(candidate.title(), candidate.sourceUri());
         Optional<CdpTranscriptAdapter.Transcript> transcript = adapter.transcript(summary);
         if (transcript.isEmpty()) {
-            String reason = adapter.lastUnavailableReason().map(r -> " (" + r + ")").orElse("");
-            throw new NoImportableContentException("No importable " + name + " chat: " + candidate.sourceUri() + reason);
+            Optional<String> unavailableReason = adapter.lastUnavailableReason();
+            if (unavailableReason.isPresent()) {
+                throw new ChatProviderException(
+                        "Could not read " + name + " chat " + candidate.sourceUri()
+                                + ": " + unavailableReason.get());
+            }
+            throw new NoImportableContentException(
+                    "No importable " + name + " chat: " + candidate.sourceUri());
         }
         return toImportedChat(transcript.get().title(), transcript.get().url(),
                 transcript.get().turns(), Instant.now().toString());

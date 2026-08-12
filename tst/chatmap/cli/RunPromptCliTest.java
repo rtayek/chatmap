@@ -77,6 +77,10 @@ class RunPromptCliTest {
 
         assertEquals("Fake CLI", result.backendLabel());
         assertEquals("Fake CLI response", result.response());
+        Path transcript = result.transcript().orElseThrow();
+        assertTrue(transcript.startsWith(home.resolve("transcripts")));
+        assertTrue(Files.isRegularFile(transcript));
+        assertTrue(Files.isDirectory(home.resolve("logs")));
 
         Path dbPath = home.resolve("chatmap.db");
         try (Connection conn = new Database("jdbc:sqlite:" + dbPath).openAndInitialize()) {

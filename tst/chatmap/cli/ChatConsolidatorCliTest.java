@@ -36,7 +36,9 @@ class ChatConsolidatorCliTest {
 
     @Test
     void consolidatorProcessesProjectFiles(@TempDir Path tempDir) throws Exception {
-        Path projectDir = tempDir.resolve("sampleProject");
+        Path home = tempDir.resolve("home");
+        Path workspace = tempDir.resolve("workspace");
+        Path projectDir = workspace.resolve("sampleProject");
         Files.createDirectories(projectDir);
 
         Path chatFile = projectDir.resolve("sample-chat.md");
@@ -51,7 +53,9 @@ class ChatConsolidatorCliTest {
         Path outputDir = tempDir.resolve("output");
 
         // Run CLI on temporary workspace
-        ChatConsolidatorCli.main(new String[]{tempDir.toString(), outputDir.toString()});
+        ChatConsolidatorCli.main(new String[]{
+                "--home", home.toString(), workspace.toString(), outputDir.toString()
+        });
 
         Path consolidatedFile = outputDir.resolve("sampleProject_CONSOLIDATED.md");
         assertTrue(Files.exists(consolidatedFile), "Consolidated Markdown file should be generated");

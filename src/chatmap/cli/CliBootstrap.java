@@ -77,6 +77,6 @@ public final class CliBootstrap {
 
     public static CliContext createContext(
             Connection connection, ResolvedPaths paths, ServiceGraph.Integrations integrations) {
-        return new CliContext(ServiceGraph.create(connection, integrations), paths);
+        return new CliContext(ServiceGraph.create(connection, integrations, paths), paths);
     }
 }

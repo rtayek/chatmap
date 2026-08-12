@@ -58,7 +58,7 @@ public final class ChatMapRuntime implements AutoCloseable {
 
         var connection = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
         try {
-            ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create());
+            ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create(), paths);
             SerializedTaskExecutor dbExecutor = new SerializedTaskExecutor("chatmap-db");
             SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor("chatmap-ai-backend");
             return new ChatMapRuntime(log, paths, services, new ChatMapController(services), dbExecutor,

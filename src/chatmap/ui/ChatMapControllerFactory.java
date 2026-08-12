@@ -3,6 +3,7 @@ package chatmap.ui;
 import java.sql.Connection;
 
 import chatmap.app.DefaultServiceIntegrations;
+import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.service.ServiceGraph;
 import chatmap.service.ServiceGraph.Integrations;
 
@@ -12,12 +13,12 @@ public final class ChatMapControllerFactory {
     private ChatMapControllerFactory() {
     }
 
-    public static ChatMapController create(Connection connection) {
-        return create(connection, defaultIntegrations());
+    public static ChatMapController create(Connection connection, ResolvedPaths paths) {
+        return create(connection, defaultIntegrations(), paths);
     }
 
-    static ChatMapController create(Connection connection, Integrations integrations) {
-        return new ChatMapController(ServiceGraph.create(connection, integrations));
+    static ChatMapController create(Connection connection, Integrations integrations, ResolvedPaths paths) {
+        return new ChatMapController(ServiceGraph.create(connection, integrations, paths));
     }
 
     static Integrations defaultIntegrations() {
