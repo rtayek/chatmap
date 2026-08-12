@@ -45,16 +45,6 @@
 			<attribute name="gradle_used_by_scope" value="main,test"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="lib/slf4j-nop-2.0.18.jar">
-		<attributes>
-			<attribute name="gradle_used_by_scope" value="main,test"/>
-		</attributes>
-	</classpathentry>
-	<classpathentry kind="lib" path="lib/slf4j-api-2.0.18.jar">
-		<attributes>
-			<attribute name="gradle_used_by_scope" value="main,test"/>
-		</attributes>
-	</classpathentry>
 	<classpathentry kind="lib" path="lib/junit-jupiter-params-5.11.0.jar">
 		<attributes>
 			<attribute name="gradle_used_by_scope" value="test"/>
