@@ -1,0 +1,336 @@
+package chatmap.application.service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+
+import chatmap.application.port.command.CommandExecutionException;
+import chatmap.application.port.command.CommandExecutor;
+import chatmap.application.port.command.CommandRequest;
+import chatmap.application.port.command.CommandResult;
+import chatmap.domain.HandoffTask;
+
+/**
+ * Polls a Git "inbox" repository for handoff task markdown files, runs each
+ * one against an isolated worktree of its target project using the
+ * requested local CLI agent, and reports success (archiving the task file)
+ * or failure (writing a failure report back into the inbox) so results sync
+ * back through the inbox repo.
+ *
+ * <p><b>Design decisions made without further confirmation, per this
+ * feature's own "decide and document" instruction:</b>
+ * <ul>
+ *   <li><b>Push is opt-in.</b> {@code autoPush=false} (the constructor
+ *   default used by the CLI) commits locally in both the target project's
+ *   worktree and the inbox repo but never runs {@code git push} anywhere,
+ *   including for failure reports. This was chosen as the most literal
+ *   reading of "I'll ask before any push." The practical cost: until
+ *   {@code autoPush} is enabled (or pushes are flushed some other way),
+ *   failure reports do not reach GitHub and therefore do not sync to the
+ *   phone -- the notification loop this feature exists for is inert by
+ *   default. Each {@link HandoffRunResult#pushPending()} flags this so a
+ *   caller can surface it clearly rather than silently.</li>
+ *   <li><b>Worktree branch handling.</b> {@code git worktree add} is tried
+ *   first assuming the branch already exists; on failure it is retried with
+ *   {@code -b} to create the branch fresh off the target repo's current
+ *   HEAD, since the inbox template's {@code branch: feature-} suggests
+ *   branches are typically new, per-task names.</li>
+ *   <li><b>"Remove or archive the source handoff file" -&gt; archive.</b> On
+ *   success the task file is moved to an {@code archive/} subfolder inside
+ *   its same project folder in the inbox repo (matching this project's own
+ *   {@code handoffs/archive/} convention) rather than deleted outright, so a
+ *   processed task remains auditable.</li>
+ *   <li><b>Agent invocation shape.</b> Mirrors the existing
+ *   {@code StandardCliBackend} convention: {@code <agent> -p} with the task
+ *   body piped as standard input, run inside the worktree directory.</li>
+ * </ul>
+ */
+public final class HandoffOrchestratorService {
+
+    private static final Duration GIT_TIMEOUT = Duration.ofSeconds(60);
+    private static final Duration AGENT_TIMEOUT = Duration.ofMinutes(30);
+    private static final String ARCHIVE_SUBDIR = "archive";
+    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
+
+    private final CommandExecutor commandExecutor;
+    private final Map<String, Path> projectRegistry;
+    private final Clock clock;
+    private final boolean autoPush;
+
+    public HandoffOrchestratorService(
+            CommandExecutor commandExecutor,
+            Map<String, Path> projectRegistry,
+            Clock clock,
+            boolean autoPush) {
+        this.commandExecutor = Objects.requireNonNull(commandExecutor, "commandExecutor");
+        this.projectRegistry = Map.copyOf(Objects.requireNonNull(projectRegistry, "projectRegistry"));
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.autoPush = autoPush;
+    }
+
+    /** Pulls the inbox, finds every eligible task file, and processes each one in turn. */
+    public List<HandoffRunResult> processInboxOnce(Path inboxRepo) {
+        Objects.requireNonNull(inboxRepo, "inboxRepo");
+        git(inboxRepo, "pull");
+
+        List<HandoffRunResult> results = new ArrayList<>();
+        for (Path file : scanForTaskFiles(inboxRepo)) {
+            results.add(processOne(inboxRepo, file));
+        }
+        return results;
+    }
+
+    /**
+     * Scans the inbox's immediate project subfolders for {@code .md} files,
+     * ignoring {@code template.md} (case-insensitive) and anything already
+     * under an {@value #ARCHIVE_SUBDIR} folder. Deterministic order (sorted
+     * by path) so a run's processing order doesn't depend on filesystem
+     * iteration order.
+     */
+    static List<Path> scanForTaskFiles(Path inboxRepo) {
+        try (var projectDirs = Files.list(inboxRepo)) {
+            List<Path> files = new ArrayList<>();
+            for (Path projectDir : projectDirs.filter(Files::isDirectory)
+                    .filter(HandoffOrchestratorService::isNotHidden).toList()) {
+                try (var entries = Files.list(projectDir)) {
+                    entries.filter(Files::isRegularFile)
+                            .filter(HandoffOrchestratorService::isEligibleTaskFile)
+                            .forEach(files::add);
+                }
+            }
+            files.sort(Comparator.comparing(Path::toString));
+            return files;
+        } catch (IOException failure) {
+            throw new UncheckedIoOrchestratorException("Could not scan inbox " + inboxRepo, failure);
+        }
+    }
+
+    /** Every file passed here comes from {@link #scanForTaskFiles}, so both levels always exist in practice. */
+    private static String projectKeyOf(Path file) {
+        Path parent = file.getParent();
+        Path parentName = parent == null ? null : parent.getFileName();
+        return parentName == null ? "unknown" : parentName.toString();
+    }
+
+    private static boolean isNotHidden(Path dir) {
+        Path name = dir.getFileName();
+        return name != null && !name.toString().startsWith(".");
+    }
+
+    private static boolean isEligibleTaskFile(Path file) {
+        Path fileName = file.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        String name = fileName.toString();
+        return name.toLowerCase(Locale.ROOT).endsWith(".md")
+                && !name.equalsIgnoreCase("template.md");
+    }
+
+    private HandoffRunResult processOne(Path inboxRepo, Path file) {
+        String projectKey = projectKeyOf(file);
+
+        HandoffTask task;
+        try {
+            task = HandoffTaskParser.parse(file, projectKey, Files.readString(file));
+        } catch (HandoffTaskParseException | IOException parseFailure) {
+            return recordFailure(inboxRepo, file, projectKey,
+                    "Could not parse handoff file: " + parseFailure.getMessage());
+        }
+
+        Path targetRepo = projectRegistry.get(projectKey);
+        if (targetRepo == null) {
+            return recordFailure(inboxRepo, file, projectKey,
+                    "No configured target project path for project key '" + projectKey + "'.");
+        }
+
+        Path worktree = allocateWorktreePath(task.branch());
+        try {
+            CommandResult worktreeResult = addWorktree(targetRepo, worktree, task.branch());
+            if (worktreeResult.exitCode() != 0) {
+                return recordFailure(inboxRepo, file, projectKey,
+                        "git worktree add failed: " + worktreeResult.standardError().strip());
+            }
+
+            CommandResult agentResult = commandExecutor.run(new CommandRequest(
+                    List.of(task.agent(), "-p"), task.body(), AGENT_TIMEOUT, worktree));
+            if (agentResult.timedOut()) {
+                return recordFailure(inboxRepo, file, projectKey,
+                        task.agent() + " timed out after " + AGENT_TIMEOUT);
+            }
+            if (agentResult.exitCode() != 0) {
+                return recordFailure(inboxRepo, file, projectKey,
+                        task.agent() + " exited with status " + agentResult.exitCode()
+                        + (agentResult.standardError().isBlank() ? "" : ": " + agentResult.standardError().strip()));
+            }
+
+            return recordSuccess(inboxRepo, file, task, worktree);
+        } catch (CommandExecutionException executionFailure) {
+            return recordFailure(inboxRepo, file, projectKey,
+                    "Could not run " + task.agent() + ": " + executionFailure.getMessage());
+        } finally {
+            removeWorktree(targetRepo, worktree);
+        }
+    }
+
+    private Path allocateWorktreePath(String branch) {
+        try {
+            Path placeholder = Files.createTempDirectory("chatmap-handoff-" + sanitize(branch) + "-");
+            // git worktree add requires the target path not already exist.
+            Files.delete(placeholder);
+            return placeholder;
+        } catch (IOException failure) {
+            throw new UncheckedIoOrchestratorException("Could not allocate a worktree path", failure);
+        }
+    }
+
+    private static String sanitize(String branch) {
+        return branch.replaceAll("[^A-Za-z0-9._-]", "-");
+    }
+
+    private CommandResult addWorktree(Path targetRepo, Path worktree, String branch) {
+        CommandResult existingBranch = git(targetRepo, "worktree", "add", worktree.toString(), branch);
+        if (existingBranch.exitCode() == 0) {
+            return existingBranch;
+        }
+        return git(targetRepo, "worktree", "add", "-b", branch, worktree.toString());
+    }
+
+    private void removeWorktree(Path targetRepo, Path worktree) {
+        git(targetRepo, "worktree", "remove", "--force", worktree.toString());
+        try {
+            if (Files.exists(worktree)) {
+                deleteRecursively(worktree);
+            }
+        } catch (IOException ignored) {
+            // Best-effort: a leftover temp directory is not worth failing the run over.
+        }
+    }
+
+    private static void deleteRecursively(Path root) throws IOException {
+        try (var paths = Files.walk(root)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
+    }
+
+    private HandoffRunResult recordSuccess(Path inboxRepo, Path file, HandoffTask task, Path worktree) {
+        boolean worktreeHasChanges = hasChanges(worktree);
+        boolean pushPending = false;
+        if (worktreeHasChanges) {
+            git(worktree, "add", "-A");
+            git(worktree, "commit", "-m", "Handoff: " + task.branch());
+            if (autoPush) {
+                git(worktree, "push", "-u", "origin", task.branch());
+            } else {
+                pushPending = true;
+            }
+        }
+
+        Path archived = archive(file);
+        git(inboxRepo, "add", "-A");
+        git(inboxRepo, "commit", "-m", "Archive completed handoff: " + relativeName(inboxRepo, archived));
+        if (autoPush) {
+            git(inboxRepo, "push");
+        } else {
+            pushPending = true;
+        }
+
+        String detail = worktreeHasChanges
+                ? "Agent completed and committed changes on branch " + task.branch() + "."
+                : "Agent completed successfully but left no changes to commit.";
+        return new HandoffRunResult(file, task.projectKey(), HandoffRunResult.Outcome.success, detail, pushPending);
+    }
+
+    private HandoffRunResult recordFailure(Path inboxRepo, Path file, String projectKey, String reason) {
+        Path reportPath = failureReportPath(file);
+        String report = "# Handoff Failure Report\n\n"
+                + "- Source file: " + relativeName(inboxRepo, file) + "\n"
+                + "- Project: " + projectKey + "\n"
+                + "- Timestamp: " + clock.instant() + "\n\n"
+                + "## Reason\n\n"
+                + reason + "\n";
+        try {
+            Files.writeString(reportPath, report);
+        } catch (IOException writeFailure) {
+            // The failure report itself couldn't be written; the original reason is still
+            // the useful signal here, so surface both rather than throwing past the caller.
+            return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure,
+                    reason + " (additionally, could not write failure report: " + writeFailure.getMessage() + ")",
+                    false);
+        }
+
+        git(inboxRepo, "add", "-A");
+        git(inboxRepo, "commit", "-m", "Add failure report for: " + relativeName(inboxRepo, file));
+        boolean pushPending = true;
+        if (autoPush) {
+            git(inboxRepo, "push");
+            pushPending = false;
+        }
+        return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure, reason, pushPending);
+    }
+
+    private Path failureReportPath(Path taskFile) {
+        String stamp = TIMESTAMP.format(clock.instant().atZone(java.time.ZoneOffset.UTC));
+        Path fileName = taskFile.getFileName();
+        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("\\.md$", "");
+        return taskFile.resolveSibling("failure-report-" + baseName + "-" + stamp + ".md");
+    }
+
+    private Path archive(Path file) {
+        Path parent = file.getParent();
+        Path fileName = file.getFileName();
+        if (parent == null || fileName == null) {
+            throw new UncheckedIoOrchestratorException(
+                    "File has no parent directory or file name to archive: " + file,
+                    new IOException("not archivable: " + file));
+        }
+        try {
+            Path archiveDir = parent.resolve(ARCHIVE_SUBDIR);
+            Files.createDirectories(archiveDir);
+            Path destination = archiveDir.resolve(fileName);
+            Files.move(file, destination, StandardCopyOption.REPLACE_EXISTING);
+            return destination;
+        } catch (IOException failure) {
+            throw new UncheckedIoOrchestratorException("Could not archive " + file, failure);
+        }
+    }
+
+    private static String relativeName(Path root, Path file) {
+        try {
+            return root.relativize(file).toString().replace('\\', '/');
+        } catch (IllegalArgumentException notRelativizable) {
+            return file.toString();
+        }
+    }
+
+    private boolean hasChanges(Path worktree) {
+        CommandResult status = git(worktree, "status", "--porcelain");
+        return !status.standardOutput().isBlank();
+    }
+
+    private CommandResult git(Path workingDirectory, String... args) {
+        List<String> command = new ArrayList<>();
+        command.add("git");
+        command.addAll(List.of(args));
+        return commandExecutor.run(new CommandRequest(command, "", GIT_TIMEOUT, workingDirectory));
+    }
+
+    /** Wraps an unexpected {@link IOException} from filesystem scanning/cleanup as unchecked. */
+    static final class UncheckedIoOrchestratorException extends RuntimeException {
+        UncheckedIoOrchestratorException(String message, IOException cause) {
+            super(message, cause);
+        }
+    }
+}

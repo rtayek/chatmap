@@ -29,7 +29,11 @@ public final class CommandRunner implements CommandExecutor {
         long started = System.nanoTime();
         Process process;
         try {
-            process = new ProcessBuilder(request.command()).start();
+            ProcessBuilder builder = new ProcessBuilder(request.command());
+            if (request.workingDirectory() != null) {
+                builder.directory(request.workingDirectory().toFile());
+            }
+            process = builder.start();
         } catch (IOException exception) {
             throw new CommandExecutionException("Could not start command " + request.command().getFirst(), exception);
         }
