@@ -27,6 +27,18 @@ class HandoffOrchestratorServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC);
 
+    @Test
+    void claudeAgentCommandIncludesSkipPermissions() {
+        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions"),
+                HandoffOrchestratorService.agentCommand("claude"));
+    }
+
+    @Test
+    void otherAgentsDoNotGetTheSkipPermissionsFlag() {
+        assertEquals(List.of("codex", "-p"), HandoffOrchestratorService.agentCommand("codex"));
+        assertEquals(List.of("gemini", "-p"), HandoffOrchestratorService.agentCommand("gemini"));
+    }
+
     @TempDir
     Path inbox;
 

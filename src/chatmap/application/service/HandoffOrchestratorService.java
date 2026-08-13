@@ -55,7 +55,16 @@ import chatmap.domain.HandoffTask;
  *   processed task remains auditable.</li>
  *   <li><b>Agent invocation shape.</b> Mirrors the existing
  *   {@code StandardCliBackend} convention: {@code <agent> -p} with the task
- *   body piped as standard input, run inside the worktree directory.</li>
+ *   body piped as standard input, run inside the worktree directory. For
+ *   {@code claude} specifically, also passes
+ *   {@code --dangerously-skip-permissions} -- confirmed live that without
+ *   it, {@code claude -p} exits 0 and makes zero file edits (every task
+ *   "succeeds" but does nothing), which defeats the entire feature. This
+ *   trades a real security boundary (interactive permission prompts) for
+ *   the worktree's isolation instead: a task file landing in the inbox now
+ *   gets unrestricted tool access, contained only in that a disposable
+ *   branch/worktree is what it can affect, not that its actions are
+ *   individually confirmed. See {@link #agentCommand}.</li>
  * </ul>
  */
 public final class HandoffOrchestratorService {
@@ -180,7 +189,7 @@ public final class HandoffOrchestratorService {
 
             LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
             CommandResult agentResult = commandExecutor.run(new CommandRequest(
-                    List.of(task.agent(), "-p"), task.body(), AGENT_TIMEOUT, worktree));
+                    agentCommand(task.agent()), task.body(), AGENT_TIMEOUT, worktree));
             if (agentResult.timedOut()) {
                 LOG.warn("{} timed out after {} on {}", task.agent(), AGENT_TIMEOUT, file);
                 return recordFailure(inboxRepo, file, projectKey,
@@ -213,6 +222,24 @@ public final class HandoffOrchestratorService {
         } catch (IOException failure) {
             throw new UncheckedIoOrchestratorException("Could not allocate a worktree path", failure);
         }
+    }
+
+    /**
+     * The CLI invocation for a task's agent. For {@code claude} this adds
+     * {@code --dangerously-skip-permissions} -- confirmed live on
+     * 2026-08-12 that without it, {@code claude -p} runs and exits 0 but
+     * makes no file edits at all (every prior task "succeeded" with zero
+     * changes), so the task is otherwise unable to do anything besides talk.
+     * Deliberately scoped to {@code claude} only: the flag name and
+     * semantics for other agents (codex, gemini, ...) haven't been verified,
+     * and passing an unrecognized flag to a different CLI would just trade
+     * one silent no-op failure mode for a loud one.
+     */
+    static List<String> agentCommand(String agent) {
+        if ("claude".equals(agent)) {
+            return List.of(agent, "-p", "--dangerously-skip-permissions");
+        }
+        return List.of(agent, "-p");
     }
 
     private static String sanitize(String branch) {
