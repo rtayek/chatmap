@@ -14,10 +14,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+
 import chatmap.application.port.command.CommandExecutionException;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
+import chatmap.application.support.Log;
 import chatmap.domain.HandoffTask;
 
 /**
@@ -57,6 +60,7 @@ import chatmap.domain.HandoffTask;
  */
 public final class HandoffOrchestratorService {
 
+    private static final Logger LOG = Log.of(HandoffOrchestratorService.class);
     private static final Duration GIT_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration AGENT_TIMEOUT = Duration.ofMinutes(30);
     private static final String ARCHIVE_SUBDIR = "archive";
@@ -81,12 +85,19 @@ public final class HandoffOrchestratorService {
     /** Pulls the inbox, finds every eligible task file, and processes each one in turn. */
     public List<HandoffRunResult> processInboxOnce(Path inboxRepo) {
         Objects.requireNonNull(inboxRepo, "inboxRepo");
+        LOG.info("Executing handoff orchestrator check on {}", inboxRepo);
         git(inboxRepo, "pull");
 
+        List<Path> taskFiles = scanForTaskFiles(inboxRepo);
+        LOG.info("Found {} handoff task file(s) in {}", taskFiles.size(), inboxRepo);
+
         List<HandoffRunResult> results = new ArrayList<>();
-        for (Path file : scanForTaskFiles(inboxRepo)) {
+        for (Path file : taskFiles) {
             results.add(processOne(inboxRepo, file));
         }
+        long succeeded = results.stream().filter(r -> r.outcome() == HandoffRunResult.Outcome.success).count();
+        LOG.info("Handoff orchestrator check complete: {} succeeded, {} failed", succeeded,
+                results.size() - succeeded);
         return results;
     }
 
@@ -139,36 +150,44 @@ public final class HandoffOrchestratorService {
 
     private HandoffRunResult processOne(Path inboxRepo, Path file) {
         String projectKey = projectKeyOf(file);
+        LOG.info("Processing handoff task {} (project={})", file, projectKey);
 
         HandoffTask task;
         try {
             task = HandoffTaskParser.parse(file, projectKey, Files.readString(file));
         } catch (HandoffTaskParseException | IOException parseFailure) {
+            LOG.warn("Could not parse handoff file {}: {}", file, parseFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not parse handoff file: " + parseFailure.getMessage());
         }
 
         Path targetRepo = projectRegistry.get(projectKey);
         if (targetRepo == null) {
+            LOG.warn("No configured target project path for project key '{}'", projectKey);
             return recordFailure(inboxRepo, file, projectKey,
                     "No configured target project path for project key '" + projectKey + "'.");
         }
 
         Path worktree = allocateWorktreePath(task.branch());
+        LOG.debug("Allocated worktree {} for branch {} of {}", worktree, task.branch(), targetRepo);
         try {
             CommandResult worktreeResult = addWorktree(targetRepo, worktree, task.branch());
             if (worktreeResult.exitCode() != 0) {
+                LOG.warn("git worktree add failed for {}: {}", targetRepo, worktreeResult.standardError().strip());
                 return recordFailure(inboxRepo, file, projectKey,
                         "git worktree add failed: " + worktreeResult.standardError().strip());
             }
 
+            LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
             CommandResult agentResult = commandExecutor.run(new CommandRequest(
                     List.of(task.agent(), "-p"), task.body(), AGENT_TIMEOUT, worktree));
             if (agentResult.timedOut()) {
+                LOG.warn("{} timed out after {} on {}", task.agent(), AGENT_TIMEOUT, file);
                 return recordFailure(inboxRepo, file, projectKey,
                         task.agent() + " timed out after " + AGENT_TIMEOUT);
             }
             if (agentResult.exitCode() != 0) {
+                LOG.warn("{} exited with status {} on {}", task.agent(), agentResult.exitCode(), file);
                 return recordFailure(inboxRepo, file, projectKey,
                         task.agent() + " exited with status " + agentResult.exitCode()
                         + (agentResult.standardError().isBlank() ? "" : ": " + agentResult.standardError().strip()));
@@ -176,10 +195,12 @@ public final class HandoffOrchestratorService {
 
             return recordSuccess(inboxRepo, file, task, worktree);
         } catch (CommandExecutionException executionFailure) {
+            LOG.warn("Could not run {} for {}: {}", task.agent(), file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not run " + task.agent() + ": " + executionFailure.getMessage());
         } finally {
             removeWorktree(targetRepo, worktree);
+            LOG.debug("Removed worktree {}", worktree);
         }
     }
 
@@ -250,10 +271,12 @@ public final class HandoffOrchestratorService {
         String detail = worktreeHasChanges
                 ? "Agent completed and committed changes on branch " + task.branch() + "."
                 : "Agent completed successfully but left no changes to commit.";
+        LOG.info("Handoff task {} succeeded ({})", file, detail);
         return new HandoffRunResult(file, task.projectKey(), HandoffRunResult.Outcome.success, detail, pushPending);
     }
 
     private HandoffRunResult recordFailure(Path inboxRepo, Path file, String projectKey, String reason) {
+        LOG.warn("Handoff task {} failed: {}", file, reason);
         Path reportPath = failureReportPath(file);
         String report = "# Handoff Failure Report\n\n"
                 + "- Source file: " + relativeName(inboxRepo, file) + "\n"
