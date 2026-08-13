@@ -68,13 +68,13 @@ The ChatGPT conversation endpoint produced HTTP 429 during repeated live enumera
 
 Add bounded retry handling for HTTP 429:
 
-* Honor `Retry-After` when present and reasonable.
-* Otherwise use bounded exponential backoff.
-* Use a small maximum retry count.
+* Retry a page at most three times after its initial request.
+* Honor numeric-seconds and HTTP-date `Retry-After` values when they produce a delay from zero through 30 seconds.
+* Otherwise use exponential backoff starting at 500 ms and capped at 30 seconds.
 * Preserve the current offset and retry that page.
 * Do not duplicate conversations after a retry.
 * If retries are exhausted, return `incomplete` with the list accumulated so far and a diagnostic containing the failing offset.
-* Do not retry authentication failures indefinitely.
+* Do not apply rate-limit retries to authentication failures. If page-local token caching is added, a 401 or 403 may clear the cached token and refresh the authenticated session once; after that, return `incomplete` without further authentication retries.
 * Keep access tokens inside the authenticated browser context; do not return, log, or persist them.
 * Consider avoiding an unnecessary `/api/auth/session` request for every page if that can be done without exposing the token to Java.
 
@@ -82,7 +82,7 @@ Normal and archived enumeration must remain separate, and the final result shoul
 
 ## 3. Add provider-specific tests
 
-The generic scrolling tests are useful, but the two authenticated pagination implementations need deterministic tests.
+The generic scrolling tests are useful, but the provider-specific discovery implementations need deterministic tests.
 
 Add tests for Claude covering:
 
@@ -110,7 +110,7 @@ Add tests for ChatGPT covering:
 
 Add or revise Gemini tests covering:
 
-* Correct conversation-list container found.
+* The production container-selection probe starts from a known Gemini conversation element and chooses its nearest scrollable ancestor; testing only a fake state with `containerFound=true` is not sufficient for this requirement.
 * Virtualized entries accumulated.
 * Verified bottom reached.
 * Container not found produces `incomplete`, not `complete`.
@@ -118,7 +118,7 @@ Add or revise Gemini tests covering:
 * Empty or missing list without proof produces `incomplete` or `unavailable`.
 * Slow hydration does not cause premature completion.
 
-Use fake CDP responses or small package-private abstractions. Tests must not require live accounts.
+Use fake CDP responses or small package-private abstractions. A focused production-probe test may use a minimal local DOM fixture or an existing browser-free equivalent, but must not add a dependency solely for that test without approval. Tests must not require live accounts.
 
 ## Real-account verification
 
@@ -126,11 +126,11 @@ After automated validation:
 
 1. Confirm the selected ChatMap home and database.
 2. Confirm no competing ChatMap process is running.
-3. Make a timestamped database backup before any import.
+3. Make a timestamped database backup before any import. Prefer SQLite's online backup mechanism. If copying the database file directly, first confirm no writer is active and the WAL is empty or has been checkpointed; verify the backup exists and matches the source size or checksum.
 4. Run web inventory twice.
-5. Verify that ChatGPT either completes both times or recovers correctly from 429 responses.
+5. Record whether ChatGPT completes both times. If a 429 occurs, verify that retry recovers or that exhaustion returns the accumulated partial list as `incomplete` with the failing offset. Do not require a live 429 to occur; the deterministic tests are the acceptance evidence for that path.
 6. Record the exact completeness and scope for Claude, ChatGPT, and Gemini.
-7. Import only if new conversations are found.
+7. Import new conversations only when that provider's discovery is `complete`. If discovery is `incomplete` or `unavailable`, report the partial inventory and do not import from that provider without separate approval.
 8. Repeat the import to verify idempotence.
 9. Verify:
 
