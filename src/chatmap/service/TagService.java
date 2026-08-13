@@ -4,18 +4,18 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.persistence.TagStore;
 import chatmap.domain.Chat;
 import chatmap.domain.Tag;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.TagRepository;
 
 /** Coordinates tag management without exposing SQL to callers. */
 public final class TagService {
 
-    private final TagRepository tags;
-    private final ChatRepository chats;
+    private final TagStore tags;
+    private final ChatStore chats;
 
-    public TagService(TagRepository tags, ChatRepository chats) {
+    public TagService(TagStore tags, ChatStore chats) {
         this.tags = tags;
         this.chats = chats;
     }

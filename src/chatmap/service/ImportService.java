@@ -10,15 +10,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.persistence.MessageStore;
+import chatmap.application.port.persistence.TransactionManager;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.importer.ChatGptJsonImporter;
 import chatmap.importer.ImportedChat;
 import chatmap.importer.MarkdownImporter;
 import chatmap.importer.PlainTextImporter;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.TransactionRunner;
 
 /** Imports selected files through format-specific importers, then persists normalized data. */
 public final class ImportService {
@@ -32,15 +32,15 @@ public final class ImportService {
     public record PersistResult(Chat chat, Outcome outcome) {
     }
 
-    private final ChatRepository chats;
-    private final MessageRepository messages;
-    private final TransactionRunner transactions;
+    private final ChatStore chats;
+    private final MessageStore messages;
+    private final TransactionManager transactions;
 
-    public ImportService(ChatRepository chats, MessageRepository messages) {
+    public ImportService(ChatStore chats, MessageStore messages) {
         this(chats, messages, chats.transactions());
     }
 
-    public ImportService(ChatRepository chats, MessageRepository messages, TransactionRunner transactions) {
+    public ImportService(ChatStore chats, MessageStore messages, TransactionManager transactions) {
         this.chats = chats;
         this.messages = messages;
         this.transactions = transactions;
@@ -97,7 +97,7 @@ public final class ImportService {
             insertMessages(storedChat.id(), imported.messages());
             return new PersistResult(storedChat, Outcome.inserted);
         } catch (SQLException e) {
-            if (!ChatRepository.isUniqueConstraintViolation(e)) {
+            if (!chats.isUniqueConstraintError(e)) {
                 throw e;
             }
             // chatsContentHashIndex backstop: another writer (e.g. ChatConsolidatorCli
@@ -124,7 +124,7 @@ public final class ImportService {
                 insertMessages(storedChat.id(), incomingMessages);
                 return new PersistResult(storedChat, Outcome.inserted);
             } catch (SQLException e) {
-                if (!ChatRepository.isUniqueConstraintViolation(e)) {
+                if (!chats.isUniqueConstraintError(e)) {
                     throw e;
                 }
                 // chatsExternalIdentityIndex backstop: another writer won this identity

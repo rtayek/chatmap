@@ -5,17 +5,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import chatmap.application.port.persistence.SearchStore;
 import chatmap.domain.Chat;
 import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
-import chatmap.storage.SearchRepository;
 
 /** Coordinates search without exposing SQL to callers. */
 public final class SearchService {
 
-    private final SearchRepository search;
+    private final SearchStore search;
 
-    public SearchService(SearchRepository search) {
+    public SearchService(SearchStore search) {
         this.search = search;
     }
 

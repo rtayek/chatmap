@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import chatmap.application.port.persistence.MessageStore;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 
@@ -20,7 +21,7 @@ import chatmap.domain.MessageRole;
  * The messageFts index is maintained by triggers in schema.sql; this class
  * never writes to messageFts directly.
  */
-public final class MessageRepository {
+public final class MessageRepository implements MessageStore {
 
     private final Connection conn;
 

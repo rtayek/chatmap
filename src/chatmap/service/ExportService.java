@@ -11,6 +11,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.persistence.MessageStore;
+import chatmap.application.port.persistence.ProjectStore;
+import chatmap.application.port.persistence.TagStore;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Project;
@@ -19,24 +23,20 @@ import chatmap.exporter.ChatExportModel;
 import chatmap.exporter.HandoffExporter;
 import chatmap.exporter.MarkdownExporter;
 import chatmap.exporter.ProjectHandoffModel;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.ProjectRepository;
-import chatmap.storage.TagRepository;
 
 /** Loads hydrated export models and leaves formatting to exporters. */
 public final class ExportService {
 
-    private final ChatRepository chats;
-    private final MessageRepository messages;
-    private final ProjectRepository projects;
-    private final TagRepository tags;
+    private final ChatStore chats;
+    private final MessageStore messages;
+    private final ProjectStore projects;
+    private final TagStore tags;
 
     public ExportService(
-            ChatRepository chats,
-            MessageRepository messages,
-            ProjectRepository projects,
-            TagRepository tags) {
+            ChatStore chats,
+            MessageStore messages,
+            ProjectStore projects,
+            TagStore tags) {
         this.chats = Objects.requireNonNull(chats, "chats");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.projects = Objects.requireNonNull(projects, "projects");

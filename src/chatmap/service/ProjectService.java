@@ -4,18 +4,18 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.persistence.ProjectStore;
 import chatmap.domain.Chat;
 import chatmap.domain.Project;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.ProjectRepository;
 
 /** Coordinates project management without exposing SQL to callers. */
 public final class ProjectService {
 
-    private final ProjectRepository projects;
-    private final ChatRepository chats;
+    private final ProjectStore projects;
+    private final ChatStore chats;
 
-    public ProjectService(ProjectRepository projects, ChatRepository chats) {
+    public ProjectService(ProjectStore projects, ChatStore chats) {
         this.projects = projects;
         this.chats = chats;
     }
@@ -24,7 +24,7 @@ public final class ProjectService {
         try {
             return projects.insert(project);
         } catch (SQLException e) {
-            if (ProjectRepository.isDuplicateNameViolation(e)) {
+            if (projects.isDuplicateNameError(e)) {
                 throw new IllegalArgumentException(
                         "A project named \"" + project.name() + "\" already exists.", e);
             }
@@ -47,7 +47,7 @@ public final class ProjectService {
         try {
             return projects.insert(new Project(0, name, description, timestamp, timestamp));
         } catch (SQLException e) {
-            if (!ProjectRepository.isDuplicateNameViolation(e)) {
+            if (!projects.isDuplicateNameError(e)) {
                 throw e;
             }
             return projects.findByName(name).orElseThrow(() -> e);

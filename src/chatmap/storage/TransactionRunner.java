@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 
+import chatmap.application.port.persistence.TransactionManager;
+
 /**
  * Runs service-level units of work without taking ownership of caller transactions.
  *
@@ -14,12 +16,7 @@ import java.sql.Savepoint;
  * inside the transaction work are fine. Callers above the storage layer must
  * not take this lock themselves.
  */
-public final class TransactionRunner {
-
-    @FunctionalInterface
-    public interface Work<T> {
-        T run() throws SQLException;
-    }
+public final class TransactionRunner implements TransactionManager {
 
     private final Connection conn;
     private final Object lock;
@@ -34,7 +31,8 @@ public final class TransactionRunner {
         this.lock = lock == null ? conn : lock;
     }
 
-    public <T> T inTransaction(Work<T> work) throws SQLException {
+    @Override
+    public <T> T inTransaction(TransactionManager.Work<T> work) throws SQLException {
         synchronized (lock) {
             if (!conn.getAutoCommit()) {
                 return inCallerTransaction(work);
@@ -54,7 +52,7 @@ public final class TransactionRunner {
         }
     }
 
-    private <T> T inCallerTransaction(Work<T> work) throws SQLException {
+    private <T> T inCallerTransaction(TransactionManager.Work<T> work) throws SQLException {
         Savepoint savepoint = conn.setSavepoint();
         try {
             T result = work.run();

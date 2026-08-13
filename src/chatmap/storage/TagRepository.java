@@ -11,10 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.TagStore;
 import chatmap.domain.Tag;
 
 /** CRUD for tags and chat/tag assignments. Holds a caller-owned Connection. */
-public final class TagRepository {
+public final class TagRepository implements TagStore {
 
     private final Connection conn;
 

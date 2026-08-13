@@ -6,10 +6,10 @@ import java.util.Optional;
 
 import org.slf4j.Logger;
 
+import chatmap.application.port.persistence.ChatStore;
 import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.importer.ImportedChat;
-import chatmap.storage.ChatRepository;
 import chatmap.util.Log;
 
 /**
@@ -45,10 +45,10 @@ public final class LiveChatFetchService {
 
     private final List<ChatProvider> providers;
     private final ImportService importService;
-    private final ChatRepository chats;
+    private final ChatStore chats;
 
     public LiveChatFetchService(List<ChatProvider> providers, ImportService importService,
-            ChatRepository chats) {
+            ChatStore chats) {
         this.providers = List.copyOf(providers);
         this.importService = importService;
         this.chats = chats;
@@ -84,7 +84,7 @@ public final class LiveChatFetchService {
 
     /**
      * The local fallback: the most recently imported chat.
-     * Delegates to {@link ChatRepository#findMostRecent()} for an O(1) query.
+     * Delegates to {@link ChatStore#findMostRecent()} for an O(1) query.
      */
     public Optional<Chat> mostRecentChat() throws SQLException {
         return chats.findMostRecent();

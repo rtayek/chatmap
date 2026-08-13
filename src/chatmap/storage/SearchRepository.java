@@ -9,13 +9,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import chatmap.application.port.persistence.SearchStore;
 import chatmap.domain.Chat;
 import chatmap.domain.SearchOptions;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 
 /** FTS-backed search queries over stored chats and messages. */
-public final class SearchRepository {
+public final class SearchRepository implements SearchStore {
 
     private final Connection conn;
 

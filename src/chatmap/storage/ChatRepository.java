@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ChatStore;
 import chatmap.domain.Chat;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
@@ -21,7 +22,7 @@ import chatmap.util.Locks;
  * CRUD for chats. Holds a Connection supplied by the caller; does not own it.
  * (Single shared connection also keeps :memory: test databases coherent.)
  */
-public final class ChatRepository {
+public final class ChatRepository implements ChatStore {
 
     private final Connection conn;
     private final TransactionRunner transactions;
@@ -252,7 +253,7 @@ public final class ChatRepository {
     }
 
     public static String identityKey(Source source, String externalConversationId) {
-        return source.dbValue() + "\u001f" + externalConversationId;
+        return ChatStore.identityKey(source, externalConversationId);
     }
 
     /**
@@ -267,6 +268,11 @@ public final class ChatRepository {
     public static boolean isUniqueConstraintViolation(SQLException e) {
         return e instanceof org.sqlite.SQLiteException sqliteException
                 && sqliteException.getResultCode() == org.sqlite.SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE;
+    }
+
+    @Override
+    public boolean isUniqueConstraintError(SQLException failure) {
+        return isUniqueConstraintViolation(failure);
     }
 
     public Optional<Chat> findBySourceAndContentHash(Source source, String contentHash)

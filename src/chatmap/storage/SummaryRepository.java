@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.SummaryStore;
 import chatmap.domain.ChatSummary;
 
 /**
@@ -16,7 +17,7 @@ import chatmap.domain.ChatSummary;
  * not own it. Summaries are purely additive: nothing here ever writes to
  * chats or messages.
  */
-public final class SummaryRepository {
+public final class SummaryRepository implements SummaryStore {
 
     private final Connection conn;
 

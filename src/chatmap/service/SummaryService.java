@@ -9,6 +9,11 @@ import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.persistence.MessageStore;
+import chatmap.application.port.persistence.SummaryStore;
+import chatmap.application.port.persistence.TagStore;
+import chatmap.application.port.persistence.TransactionManager;
 import chatmap.backend.ai.AiBackend;
 import chatmap.backend.ai.AiRequest;
 import chatmap.backend.ai.AiResponse;
@@ -16,11 +21,6 @@ import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.Tag;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.SummaryRepository;
-import chatmap.storage.TagRepository;
-import chatmap.storage.TransactionRunner;
 
 /**
  * Generates an AI summary and tags for an already-imported chat.
@@ -36,20 +36,20 @@ import chatmap.storage.TransactionRunner;
  */
 public final class SummaryService {
 
-    private final ChatRepository chats;
-    private final MessageRepository messages;
-    private final SummaryRepository summaries;
-    private final TagRepository tags;
+    private final ChatStore chats;
+    private final MessageStore messages;
+    private final SummaryStore summaries;
+    private final TagStore tags;
     private final AiBackend backend;
-    private final TransactionRunner transactions;
+    private final TransactionManager transactions;
 
-    public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
-            TagRepository tags, AiBackend backend) {
+    public SummaryService(ChatStore chats, MessageStore messages, SummaryStore summaries,
+            TagStore tags, AiBackend backend) {
         this(chats, messages, summaries, tags, backend, chats.transactions());
     }
 
-    public SummaryService(ChatRepository chats, MessageRepository messages, SummaryRepository summaries,
-            TagRepository tags, AiBackend backend, TransactionRunner transactions) {
+    public SummaryService(ChatStore chats, MessageStore messages, SummaryStore summaries,
+            TagStore tags, AiBackend backend, TransactionManager transactions) {
         this.chats = chats;
         this.messages = messages;
         this.summaries = summaries;

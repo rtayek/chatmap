@@ -7,20 +7,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import chatmap.application.port.persistence.ChatStore;
 import chatmap.backend.providers.ChatProvider;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.ConversationInventory;
 import chatmap.domain.InventoryEntry;
 import chatmap.domain.ProviderInventory;
-import chatmap.storage.ChatRepository;
 
 /** Read-only inventory of all conversations discoverable from configured providers. */
 public final class ConversationInventoryService {
 
     private final List<ChatProvider> providers;
-    private final ChatRepository chats;
+    private final ChatStore chats;
 
-    public ConversationInventoryService(List<ChatProvider> providers, ChatRepository chats) {
+    public ConversationInventoryService(List<ChatProvider> providers, ChatStore chats) {
         this.providers = List.copyOf(providers);
         this.chats = chats;
     }
@@ -42,7 +42,7 @@ public final class ConversationInventoryService {
                 Long importedChatId = null;
                 if (candidate.externalConversationId() != null
                         && !candidate.externalConversationId().isBlank()) {
-                    importedChatId = importedIds.get(ChatRepository.identityKey(
+                    importedChatId = importedIds.get(ChatStore.identityKey(
                             candidate.source(), candidate.externalConversationId()));
                 }
                 entries.add(new InventoryEntry(candidate, importedChatId));

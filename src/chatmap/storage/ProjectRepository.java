@@ -9,10 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import chatmap.application.port.persistence.ProjectStore;
 import chatmap.domain.Project;
 
 /** CRUD for projects. Holds a Connection supplied by the caller; does not own it. */
-public final class ProjectRepository {
+public final class ProjectRepository implements ProjectStore {
 
     private final Connection conn;
 
@@ -81,6 +82,11 @@ public final class ProjectRepository {
     public static boolean isDuplicateNameViolation(SQLException e) {
         return e instanceof org.sqlite.SQLiteException sqliteException
                 && sqliteException.getResultCode() == org.sqlite.SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE;
+    }
+
+    @Override
+    public boolean isDuplicateNameError(SQLException failure) {
+        return isDuplicateNameViolation(failure);
     }
 
     public List<Project> findAll() throws SQLException {
