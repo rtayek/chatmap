@@ -1,12 +1,18 @@
 package chatmap.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +27,9 @@ import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
+import chatmap.backend.ai.AiBackend;
+import chatmap.backend.ai.AiResponse;
+import chatmap.backend.ai.BackendId;
 import chatmap.backend.ai.ClaudeCliBackend;
 import chatmap.exporter.ChatExportModel;
 import chatmap.service.ExportService;
@@ -28,6 +37,8 @@ import chatmap.service.ConversationInventoryService;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
+import chatmap.service.PromptResult;
+import chatmap.service.PromptService;
 import chatmap.service.SearchService;
 import chatmap.service.SummaryService;
 import chatmap.service.TagService;
@@ -179,6 +190,37 @@ class ChatMapControllerTest {
         assertEquals(1, inventory.providers().size());
         assertEquals(stored.id(), inventory.providers().getFirst().conversations().getFirst().importedChatId());
         assertEquals(false, inventory.providers().getFirst().conversations().get(1).alreadyImported());
+    }
+
+    @Test
+    void executePromptThrowsWhenNotConfigured() {
+        assertThrows(IllegalStateException.class, () -> controller.executePrompt("fake", "hi"));
+    }
+
+    @Test
+    void executePromptDelegatesToConfiguredService() throws Exception {
+        AiBackend fakeBackend = request -> new AiResponse("pong", new BackendId("Fake"), Duration.ZERO);
+        PromptService promptService = new PromptService(
+                Map.of("fake", fakeBackend),
+                new ImportService(chats, messages),
+                Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC),
+                tempDir);
+        ChatMapController promptController = new ChatMapController(
+                new ImportService(chats, messages),
+                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn)),
+                new SearchService(new SearchRepository(conn)),
+                projectService,
+                tagService,
+                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
+                        new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
+                new LiveChatFetchService(List.of(), new ImportService(chats, messages), chats),
+                null,
+                null,
+                promptService);
+
+        PromptResult result = promptController.executePrompt("fake", "ping");
+
+        assertEquals("pong", result.response());
     }
 
     @Test

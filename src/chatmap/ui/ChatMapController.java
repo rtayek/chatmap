@@ -21,6 +21,8 @@ import chatmap.service.ConversationInventoryService;
 import chatmap.service.ImportService;
 import chatmap.service.LiveChatFetchService;
 import chatmap.service.ProjectService;
+import chatmap.service.PromptResult;
+import chatmap.service.PromptService;
 import chatmap.service.SearchService;
 import chatmap.service.ServiceGraph;
 import chatmap.service.SummaryService;
@@ -39,6 +41,7 @@ public final class ChatMapController {
     private final LiveChatFetchService liveChatFetchService;
     private final ChatGptArchiveImportService archiveImportService;
     private final ConversationInventoryService conversationInventoryService;
+    private final PromptService promptService;
     private final ChatListState listState;
     
     /**
@@ -86,6 +89,22 @@ public final class ChatMapController {
             LiveChatFetchService liveChatFetchService,
             ChatGptArchiveImportService archiveImportService,
             ConversationInventoryService conversationInventoryService) {
+        this(importService, exportService, searchService, projectService, tagService,
+                summaryService, liveChatFetchService, archiveImportService,
+                conversationInventoryService, null);
+    }
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService,
+            ConversationInventoryService conversationInventoryService,
+            PromptService promptService) {
         this.importService = importService;
         this.exportService = exportService;
         this.searchService = searchService;
@@ -95,6 +114,7 @@ public final class ChatMapController {
         this.liveChatFetchService = liveChatFetchService;
         this.archiveImportService = archiveImportService;
         this.conversationInventoryService = conversationInventoryService;
+        this.promptService = promptService;
         listState = new ChatListState();
     }
 
@@ -103,7 +123,7 @@ public final class ChatMapController {
         this(services.importService(), services.exportService(), services.searchService(),
                 services.projectService(), services.tagService(), services.summaryService(),
                 services.liveChatFetchService(), services.archiveImportService(),
-                services.conversationInventoryService());
+                services.conversationInventoryService(), services.promptService());
     }
 
     public ChatFilterCriteria filterCriteria() {
@@ -157,6 +177,13 @@ public final class ChatMapController {
             throw new IllegalStateException("Conversation inventory is not configured.");
         }
         return conversationInventoryService.inventory();
+    }
+
+    public PromptResult executePrompt(String backendName, String prompt) throws SQLException {
+        if (promptService == null) {
+            throw new IllegalStateException("Prompt service is not configured.");
+        }
+        return promptService.submit(backendName, prompt);
     }
 
     public ChatListState.Snapshot selectChat(long chatId) {
