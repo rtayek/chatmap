@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import chatmap.backend.providers.ChatProvider;
-import chatmap.backend.providers.DefaultChatProviders;
-import chatmap.backend.web.CdpWebChatProvider;
+import chatmap.application.port.provider.ChatProvider;
+import chatmap.infrastructure.provider.DefaultChatProviders;
+import chatmap.infrastructure.provider.web.CdpWebChatProvider;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
-import chatmap.importer.ImportedChat;
+import chatmap.application.model.ImportedChat;
 
 /** Prints the latest prompt and response visible from each configured chat source. */
 public final class LiveSourceExchanges {

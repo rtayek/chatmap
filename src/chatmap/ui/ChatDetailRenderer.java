@@ -2,7 +2,7 @@ package chatmap.ui;
 
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
-import chatmap.exporter.ChatExportModel;
+import chatmap.application.model.ChatExportModel;
 
 /** Formats the selected chat detail panel. */
 final class ChatDetailRenderer {

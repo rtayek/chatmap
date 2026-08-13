@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.config.LoggingBootstrap;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
+import chatmap.infrastructure.persistence.sqlite.ChatRepository;
+import chatmap.infrastructure.persistence.sqlite.Database;
 
 final class ImportChatGptArchiveCliTest {
 

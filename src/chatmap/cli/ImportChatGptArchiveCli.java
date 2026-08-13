@@ -4,7 +4,7 @@ import java.nio.file.Path;
 
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
+import chatmap.application.service.ChatGptArchiveImportService.BulkImportResult;
 
 /** Imports a ChatGPT export ZIP into the same database used by the JavaFX app. */
 public final class ImportChatGptArchiveCli {

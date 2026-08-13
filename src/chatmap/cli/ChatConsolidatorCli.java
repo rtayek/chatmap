@@ -18,10 +18,10 @@ import java.util.stream.Stream;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.domain.Chat;
 import chatmap.domain.Project;
-import chatmap.service.ExportService;
-import chatmap.service.ImportService;
-import chatmap.service.ProjectService;
-import chatmap.storage.ChatRepository;
+import chatmap.application.service.ExportService;
+import chatmap.application.service.ImportService;
+import chatmap.application.service.ProjectService;
+import chatmap.application.port.persistence.ChatStore;
 
 /**
  * Command-line tool for scanning workspace projects, importing all chat logs and transcripts,
@@ -48,7 +48,7 @@ public final class ChatConsolidatorCli {
         System.out.println();
 
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
-            ChatRepository chats = context.services().chats();
+            ChatStore chats = context.services().chats();
             ProjectService projectService = context.services().projectService();
 
             ImportService importService = context.services().importService();

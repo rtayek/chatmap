@@ -4,8 +4,8 @@ import java.sql.Connection;
 
 import chatmap.app.DefaultServiceIntegrations;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
-import chatmap.service.ServiceGraph;
-import chatmap.service.ServiceGraph.Integrations;
+import chatmap.app.ServiceGraph;
+import chatmap.app.ServiceGraph.Integrations;
 
 /** Builds a {@link ChatMapController} from the shared {@link ServiceGraph} wiring. */
 public final class ChatMapControllerFactory {

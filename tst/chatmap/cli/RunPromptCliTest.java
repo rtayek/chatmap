@@ -19,17 +19,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.backend.ai.AiBackend;
-import chatmap.backend.ai.AiResponse;
-import chatmap.backend.ai.BackendId;
-import chatmap.backend.ai.DefaultAiBackends;
+import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.BackendId;
+import chatmap.infrastructure.ai.DefaultAiBackends;
 import chatmap.config.LoggingBootstrap;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
-import chatmap.service.PromptResult;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
+import chatmap.application.service.PromptResult;
+import chatmap.infrastructure.persistence.sqlite.ChatRepository;
+import chatmap.infrastructure.persistence.sqlite.Database;
+import chatmap.infrastructure.persistence.sqlite.MessageRepository;
 
 class RunPromptCliTest {
 

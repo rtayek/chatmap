@@ -28,11 +28,11 @@ class ArchitectureBoundaryTest {
 
     @Test
     void persistenceDoesNotDependOnApplicationOrPresentation() throws IOException {
-        List<SourceFile> persistenceSources = sourcesIn("chatmap.storage");
+        List<SourceFile> persistenceSources = sourcesIn("chatmap.infrastructure.persistence.sqlite");
 
-        assertFalse(persistenceSources.isEmpty(), "No chatmap.storage sources were found");
+        assertFalse(persistenceSources.isEmpty(), "No chatmap.infrastructure.persistence.sqlite sources were found");
         for (SourceFile source : persistenceSources) {
-            assertFalse(source.text().contains("import chatmap.service."),
+            assertFalse(source.text().contains("import chatmap.application.service."),
                     () -> source.path() + " makes persistence depend on application services");
             assertFalse(source.text().contains("import chatmap.ui."),
                     () -> source.path() + " makes persistence depend on presentation");
@@ -40,6 +40,23 @@ class ArchitectureBoundaryTest {
                     () -> source.path() + " makes persistence depend on CLI presentation");
             assertFalse(source.text().contains("import chatmap.app."),
                     () -> source.path() + " makes persistence depend on the composition root");
+        }
+    }
+
+    @Test
+    void applicationDoesNotDependOnInfrastructureOrPresentation() throws IOException {
+        List<SourceFile> applicationSources = sourcesIn("chatmap.application");
+
+        assertFalse(applicationSources.isEmpty(), "No chatmap.application sources were found");
+        for (SourceFile source : applicationSources) {
+            assertFalse(source.text().contains("import chatmap.infrastructure."),
+                    () -> source.path() + " makes application depend on infrastructure");
+            assertFalse(source.text().contains("import chatmap.presentation."),
+                    () -> source.path() + " makes application depend on presentation");
+            assertFalse(source.text().contains("import chatmap.ui."),
+                    () -> source.path() + " makes application depend on legacy UI presentation");
+            assertFalse(source.text().contains("import chatmap.cli."),
+                    () -> source.path() + " makes application depend on legacy CLI presentation");
         }
     }
 

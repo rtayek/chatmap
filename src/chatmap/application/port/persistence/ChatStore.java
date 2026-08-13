@@ -19,6 +19,8 @@ public interface ChatStore {
 
     Optional<Chat> findById(long id) throws SQLException;
 
+    List<Chat> findAll() throws SQLException;
+
     Optional<Chat> findMostRecent() throws SQLException;
 
     void assignProject(long id, Long projectId) throws SQLException;

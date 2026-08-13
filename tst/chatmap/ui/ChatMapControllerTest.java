@@ -27,28 +27,28 @@ import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
-import chatmap.backend.ai.AiBackend;
-import chatmap.backend.ai.AiResponse;
-import chatmap.backend.ai.BackendId;
-import chatmap.backend.ai.ClaudeCliBackend;
-import chatmap.exporter.ChatExportModel;
-import chatmap.service.ExportService;
-import chatmap.service.ConversationInventoryService;
-import chatmap.service.ImportService;
-import chatmap.service.LiveChatFetchService;
-import chatmap.service.ProjectService;
-import chatmap.service.PromptResult;
-import chatmap.service.PromptService;
-import chatmap.service.SearchService;
-import chatmap.service.SummaryService;
-import chatmap.service.TagService;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.ProjectRepository;
-import chatmap.storage.SearchRepository;
-import chatmap.storage.SummaryRepository;
-import chatmap.storage.TagRepository;
+import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.BackendId;
+import chatmap.infrastructure.ai.ClaudeCliBackend;
+import chatmap.application.model.ChatExportModel;
+import chatmap.application.service.ExportService;
+import chatmap.application.service.ConversationInventoryService;
+import chatmap.application.service.ImportService;
+import chatmap.application.service.LiveChatFetchService;
+import chatmap.application.service.ProjectService;
+import chatmap.application.service.PromptResult;
+import chatmap.application.service.PromptService;
+import chatmap.application.service.SearchService;
+import chatmap.application.service.SummaryService;
+import chatmap.application.service.TagService;
+import chatmap.infrastructure.persistence.sqlite.ChatRepository;
+import chatmap.infrastructure.persistence.sqlite.Database;
+import chatmap.infrastructure.persistence.sqlite.MessageRepository;
+import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
+import chatmap.infrastructure.persistence.sqlite.SearchRepository;
+import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
+import chatmap.infrastructure.persistence.sqlite.TagRepository;
 
 class ChatMapControllerTest {
 
@@ -71,7 +71,7 @@ class ChatMapControllerTest {
         TagRepository tags = new TagRepository(conn);
         projectService = new ProjectService(projects, chats);
         tagService = new TagService(tags, chats);
-        ImportService importService = new ImportService(chats, messages);
+        ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), tags,
                 new ClaudeCliBackend(java.time.Duration.ofMinutes(3)));
@@ -79,7 +79,7 @@ class ChatMapControllerTest {
                 new LiveChatFetchService(java.util.List.of(), importService, chats);
         controller = new ChatMapController(
                 importService,
-                new ExportService(chats, messages, projects, tags),
+                new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,
@@ -116,7 +116,7 @@ class ChatMapControllerTest {
                 ChatMapControllerFactory.defaultIntegrations()
                         .chatProviders()
                         .stream()
-                        .map(chatmap.backend.providers.ChatProvider::name)
+                        .map(chatmap.application.port.provider.ChatProvider::name)
                         .toList());
     }
 
@@ -153,14 +153,14 @@ class ChatMapControllerTest {
                 null, null, "2026-07-08T00:00:00Z", false,
                 new chatmap.domain.ImportMetadata("stored-id", "source://stored",
                         null, null, null)));
-        chatmap.backend.providers.ChatProvider provider = new chatmap.backend.providers.ChatProvider() {
+        chatmap.application.port.provider.ChatProvider provider = new chatmap.application.port.provider.ChatProvider() {
             @Override
             public String name() {
                 return "Codex (CLI)";
             }
 
             @Override
-            public java.util.Optional<chatmap.importer.ImportedChat> latestChat() {
+            public java.util.Optional<chatmap.application.model.ImportedChat> latestChat() {
                 return java.util.Optional.empty();
             }
 
@@ -174,14 +174,14 @@ class ChatMapControllerTest {
             }
         };
         ChatMapController inventoryController = new ChatMapController(
-                new ImportService(chats, messages),
-                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn)),
+                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
+                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn), new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,
                 new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
                         new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
-                new LiveChatFetchService(List.of(provider), new ImportService(chats, messages), chats),
+                new LiveChatFetchService(List.of(provider), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
                 null,
                 new ConversationInventoryService(List.of(provider), chats));
 
@@ -202,18 +202,18 @@ class ChatMapControllerTest {
         AiBackend fakeBackend = request -> new AiResponse("pong", new BackendId("Fake"), Duration.ZERO);
         PromptService promptService = new PromptService(
                 Map.of("fake", fakeBackend),
-                new ImportService(chats, messages),
+                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
                 Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC),
                 tempDir);
         ChatMapController promptController = new ChatMapController(
-                new ImportService(chats, messages),
-                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn)),
+                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
+                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn), new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,
                 new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
                         new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
-                new LiveChatFetchService(List.of(), new ImportService(chats, messages), chats),
+                new LiveChatFetchService(List.of(), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
                 null,
                 null,
                 promptService);
@@ -314,34 +314,34 @@ class ChatMapControllerTest {
         java.util.concurrent.CountDownLatch slowProviderStarted = new java.util.concurrent.CountDownLatch(1);
         java.util.concurrent.CountDownLatch slowProviderCanFinish = new java.util.concurrent.CountDownLatch(1);
 
-        chatmap.backend.providers.ChatProvider slowProvider = new chatmap.backend.providers.ChatProvider() {
+        chatmap.application.port.provider.ChatProvider slowProvider = new chatmap.application.port.provider.ChatProvider() {
             @Override
             public String name() {
                 return "Slow Test Provider";
             }
 
             @Override
-            public java.util.Optional<chatmap.importer.ImportedChat> latestChat()
-                    throws chatmap.backend.providers.ChatProviderException {
+            public java.util.Optional<chatmap.application.model.ImportedChat> latestChat()
+                    throws chatmap.application.port.provider.ChatProviderException {
                 slowProviderStarted.countDown();
                 boolean completed;
                 try {
                     completed = slowProviderCanFinish.await(5, java.util.concurrent.TimeUnit.SECONDS);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
-                    throw new chatmap.backend.providers.ChatProviderException("Interrupted", interrupted);
+                    throw new chatmap.application.port.provider.ChatProviderException("Interrupted", interrupted);
                 }
                 if (!completed) {
-                    throw new chatmap.backend.providers.ChatProviderException("Slow provider await timed out");
+                    throw new chatmap.application.port.provider.ChatProviderException("Slow provider await timed out");
                 }
                 return java.util.Optional.empty();
             }
         };
 
-        LiveChatFetchService slowFetchService = new LiveChatFetchService(List.of(slowProvider), new ImportService(chats, messages), chats);
+        LiveChatFetchService slowFetchService = new LiveChatFetchService(List.of(slowProvider), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats);
         ChatMapController asyncController = new ChatMapController(
-                new ImportService(chats, messages),
-                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn)),
+                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
+                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn), new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,

@@ -2,10 +2,10 @@ package chatmap.app;
 
 import java.time.Duration;
 
-import chatmap.backend.ai.ClaudeCliBackend;
-import chatmap.backend.ai.DefaultAiBackends;
-import chatmap.backend.providers.DefaultChatProviders;
-import chatmap.service.ServiceGraph.Integrations;
+import chatmap.infrastructure.ai.ClaudeCliBackend;
+import chatmap.infrastructure.ai.DefaultAiBackends;
+import chatmap.infrastructure.provider.DefaultChatProviders;
+import chatmap.app.ServiceGraph.Integrations;
 
 /** Default optional integrations used by interactive entry points. */
 public final class DefaultServiceIntegrations {

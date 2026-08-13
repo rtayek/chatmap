@@ -13,23 +13,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.backend.ai.ClaudeCliBackend;
+import chatmap.infrastructure.ai.ClaudeCliBackend;
 import chatmap.domain.Project;
 import chatmap.domain.Tag;
-import chatmap.service.ExportService;
-import chatmap.service.ImportService;
-import chatmap.service.LiveChatFetchService;
-import chatmap.service.ProjectService;
-import chatmap.service.SearchService;
-import chatmap.service.SummaryService;
-import chatmap.service.TagService;
-import chatmap.storage.ChatRepository;
-import chatmap.storage.Database;
-import chatmap.storage.MessageRepository;
-import chatmap.storage.ProjectRepository;
-import chatmap.storage.SearchRepository;
-import chatmap.storage.SummaryRepository;
-import chatmap.storage.TagRepository;
+import chatmap.application.service.ExportService;
+import chatmap.application.service.ImportService;
+import chatmap.application.service.LiveChatFetchService;
+import chatmap.application.service.ProjectService;
+import chatmap.application.service.SearchService;
+import chatmap.application.service.SummaryService;
+import chatmap.application.service.TagService;
+import chatmap.infrastructure.persistence.sqlite.ChatRepository;
+import chatmap.infrastructure.persistence.sqlite.Database;
+import chatmap.infrastructure.persistence.sqlite.MessageRepository;
+import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
+import chatmap.infrastructure.persistence.sqlite.SearchRepository;
+import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
+import chatmap.infrastructure.persistence.sqlite.TagRepository;
 
 class ChatMapMvpWorkflowTest {
 
@@ -46,7 +46,7 @@ class ChatMapMvpWorkflowTest {
         MessageRepository messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
-        ImportService importService = new ImportService(chats, messages);
+        ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), tags,
                 new ClaudeCliBackend(java.time.Duration.ofMinutes(3)));
@@ -54,7 +54,7 @@ class ChatMapMvpWorkflowTest {
                 new LiveChatFetchService(List.of(), importService, chats);
         controller = new ChatMapController(
                 importService,
-                new ExportService(chats, messages, projects, tags),
+                new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
                 new SearchService(new SearchRepository(conn)),
                 new ProjectService(projects, chats),
                 new TagService(tags, chats),

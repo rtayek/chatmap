@@ -12,7 +12,7 @@ import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Source;
-import chatmap.exporter.ChatExportModel;
+import chatmap.application.model.ChatExportModel;
 
 final class ChatDetailRendererTest {
 

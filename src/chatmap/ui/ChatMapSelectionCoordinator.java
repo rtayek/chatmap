@@ -2,7 +2,7 @@ package chatmap.ui;
 
 import chatmap.domain.ChatSummary;
 import chatmap.domain.SearchResult;
-import chatmap.exporter.ChatExportModel;
+import chatmap.application.model.ChatExportModel;
 import javafx.collections.FXCollections;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;

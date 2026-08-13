@@ -13,20 +13,20 @@ import chatmap.domain.ConversationInventory;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
-import chatmap.exporter.ChatExportModel;
-import chatmap.service.ExportService;
-import chatmap.service.ChatGptArchiveImportService;
-import chatmap.service.ChatGptArchiveImportService.BulkImportResult;
-import chatmap.service.ConversationInventoryService;
-import chatmap.service.ImportService;
-import chatmap.service.LiveChatFetchService;
-import chatmap.service.ProjectService;
-import chatmap.service.PromptResult;
-import chatmap.service.PromptService;
-import chatmap.service.SearchService;
-import chatmap.service.ServiceGraph;
-import chatmap.service.SummaryService;
-import chatmap.service.TagService;
+import chatmap.application.model.ChatExportModel;
+import chatmap.application.service.ExportService;
+import chatmap.application.service.ChatGptArchiveImportService;
+import chatmap.application.service.ChatGptArchiveImportService.BulkImportResult;
+import chatmap.application.service.ConversationInventoryService;
+import chatmap.application.service.ImportService;
+import chatmap.application.service.LiveChatFetchService;
+import chatmap.application.service.ProjectService;
+import chatmap.application.service.PromptResult;
+import chatmap.application.service.PromptService;
+import chatmap.application.service.SearchService;
+import chatmap.app.ServiceGraph;
+import chatmap.application.service.SummaryService;
+import chatmap.application.service.TagService;
 import chatmap.util.Locks;
 
 /** Coordinates application operations without depending on JavaFX widgets. */
@@ -336,4 +336,3 @@ public final class ChatMapController {
         return count + plural;
     }
 }
-

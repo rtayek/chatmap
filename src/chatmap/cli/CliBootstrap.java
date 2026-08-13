@@ -9,8 +9,8 @@ import java.util.function.IntConsumer;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.config.LoggingBootstrap;
-import chatmap.service.ServiceGraph;
-import chatmap.storage.Database;
+import chatmap.app.ServiceGraph;
+import chatmap.infrastructure.persistence.sqlite.Database;
 
 /** Shared bootstrapping helper for CLI entry points. */
 public final class CliBootstrap {

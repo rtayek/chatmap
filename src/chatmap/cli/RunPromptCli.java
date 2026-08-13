@@ -4,11 +4,11 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.backend.ai.AiBackend;
-import chatmap.backend.ai.DefaultAiBackends;
+import chatmap.application.port.ai.AiBackend;
+import chatmap.infrastructure.ai.DefaultAiBackends;
 import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.service.PromptResult;
-import chatmap.service.PromptService;
+import chatmap.application.service.PromptResult;
+import chatmap.application.service.PromptService;
 
 /** Executable CLI entry point for running prompts against AI backends and recording chats in SQLite. */
 public final class RunPromptCli {
@@ -53,7 +53,7 @@ public final class RunPromptCli {
             if (!promptService.hasBackend(promptArguments.backendId())) {
                 throw new IllegalArgumentException("Unknown backend '" + promptArguments.backendId()
                         + "'. Available backends: "
-                        + promptService.backends().stream().map(chatmap.service.BackendDescriptor::id).toList());
+                        + promptService.backends().stream().map(chatmap.application.service.BackendDescriptor::id).toList());
             }
 
             return promptService.submit(

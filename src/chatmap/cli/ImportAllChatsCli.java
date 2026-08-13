@@ -4,16 +4,16 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.backend.providers.ChatProvider;
-import chatmap.backend.providers.ChatProviderException;
-import chatmap.backend.providers.DefaultChatProviders;
-import chatmap.backend.providers.NoImportableContentException;
+import chatmap.application.port.provider.ChatProvider;
+import chatmap.application.port.provider.ChatProviderException;
+import chatmap.infrastructure.provider.DefaultChatProviders;
+import chatmap.application.port.provider.NoImportableContentException;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.domain.ConversationCandidate;
-import chatmap.importer.ImportedChat;
-import chatmap.service.ImportService;
-import chatmap.service.ServiceGraph;
-import chatmap.storage.ChatRepository;
+import chatmap.application.model.ImportedChat;
+import chatmap.application.service.ImportService;
+import chatmap.app.ServiceGraph;
+import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 
 /**
  * Imports every chat discoverable from the configured providers (all six by

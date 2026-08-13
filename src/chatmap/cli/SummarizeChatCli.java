@@ -4,7 +4,7 @@ import chatmap.app.DefaultServiceIntegrations;
 import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.domain.ChatSummary;
-import chatmap.service.LiveChatFetchService;
+import chatmap.application.service.LiveChatFetchService;
 
 /**
  * Command-line entry point for the one deliberate extra step: summarize and

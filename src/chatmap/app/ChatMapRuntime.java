@@ -13,8 +13,8 @@ import chatmap.config.ChatMapPaths;
 import chatmap.config.ChatMapPaths.ParsedArguments;
 import chatmap.config.ChatMapPaths.ResolvedPaths;
 import chatmap.config.LoggingBootstrap;
-import chatmap.service.ServiceGraph;
-import chatmap.storage.Database;
+import chatmap.app.ServiceGraph;
+import chatmap.infrastructure.persistence.sqlite.Database;
 import chatmap.ui.ChatMapController;
 import chatmap.util.Log;
 

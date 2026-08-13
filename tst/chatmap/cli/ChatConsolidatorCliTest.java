@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.config.LoggingBootstrap;
-import chatmap.storage.Database;
-import chatmap.storage.ProjectRepository;
+import chatmap.infrastructure.persistence.sqlite.Database;
+import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
 
 class ChatConsolidatorCliTest {
 
