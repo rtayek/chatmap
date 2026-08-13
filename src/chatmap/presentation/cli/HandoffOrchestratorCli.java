@@ -25,14 +25,23 @@ import chatmap.application.service.HandoffRunResult;
  * Push is off by default ({@code --auto-push} to enable): every run commits
  * locally in whichever repos it touches but leaves pushing for a human to
  * trigger deliberately, until that's been watched to work correctly.
+ *
+ * {@code --inbox}/{@code --registry} may be omitted if
+ * {@value #DEFAULT_CONFIG} (relative to the working directory, gitignored
+ * and machine-specific) supplies {@code inbox}/{@code registry}/
+ * {@code interval}/{@code autoPush} defaults -- explicit CLI flags still
+ * override it field by field, so {@code gradle handoffOrchestrator} works
+ * with no {@code -Pargs} for the common case.
  */
 public final class HandoffOrchestratorCli {
 
+    private static final String DEFAULT_CONFIG = ".chatmap-local/handoff-orchestrator.properties";
     private static final String USAGE = "Usage: handoffOrchestrator --inbox <dir> --registry <projects.properties> "
-            + "[--interval <seconds>] [--auto-push]";
+            + "[--interval <seconds>] [--auto-push]\n"
+            + "(or supply inbox/registry/interval/autoPush defaults in " + DEFAULT_CONFIG + ")";
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        Options options = parse(args);
+        Options options = parse(args, loadDefaultConfig());
         if (options == null) {
             System.err.println(USAGE);
             System.exit(1);
@@ -85,11 +94,36 @@ public final class HandoffOrchestratorCli {
         return registry;
     }
 
-    private static Options parse(String[] args) {
-        Path inbox = null;
-        Path registry = null;
-        Long intervalSeconds = null;
-        boolean autoPush = false;
+    /**
+     * Loads {@value #DEFAULT_CONFIG} if present, or returns empty defaults.
+     * A missing config file is not an error -- explicit {@code --inbox}/
+     * {@code --registry} flags are always a valid way to run this tool.
+     */
+    private static Options loadDefaultConfig() throws IOException {
+        Path configFile = Path.of(DEFAULT_CONFIG);
+        if (!java.nio.file.Files.isRegularFile(configFile)) {
+            return new Options(null, null, null, false);
+        }
+        Properties properties = new Properties();
+        try (InputStream in = java.nio.file.Files.newInputStream(configFile)) {
+            properties.load(in);
+        }
+        String inbox = properties.getProperty("inbox");
+        String registry = properties.getProperty("registry");
+        String interval = properties.getProperty("interval");
+        return new Options(
+                inbox == null ? null : Path.of(inbox),
+                registry == null ? null : Path.of(registry),
+                interval == null ? null : Long.parseLong(interval),
+                Boolean.parseBoolean(properties.getProperty("autoPush", "false")));
+    }
+
+    /** Parses CLI flags, falling back field-by-field to {@code defaults} for anything not given explicitly. */
+    static Options parse(String[] args, Options defaults) {
+        Path inbox = defaults.inbox();
+        Path registry = defaults.registry();
+        Long intervalSeconds = defaults.intervalSeconds();
+        boolean autoPush = defaults.autoPush();
 
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
@@ -116,6 +150,6 @@ public final class HandoffOrchestratorCli {
         return args[index];
     }
 
-    private record Options(Path inbox, Path registry, Long intervalSeconds, boolean autoPush) {
+    record Options(Path inbox, Path registry, Long intervalSeconds, boolean autoPush) {
     }
 }
