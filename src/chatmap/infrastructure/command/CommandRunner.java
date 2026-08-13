@@ -39,8 +39,8 @@ public final class CommandRunner implements CommandExecutor {
         }
 
         try (ExecutorService streamReaders = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream()));
-            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream()));
+            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream(), System.out));
+            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream(), System.err));
 
             boolean timedOut = false;
             int exitCode = -1;
@@ -75,12 +75,18 @@ public final class CommandRunner implements CommandExecutor {
         }
     }
 
-    private static String readUtf8(InputStream inputStream) throws IOException {
+    private static String readUtf8(InputStream inputStream, java.io.PrintStream teeStream) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        inputStream.transferTo(output);
+        byte[] buffer = new byte[8192];
+        int bytesRead;
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            output.write(buffer, 0, bytesRead);
+            teeStream.write(buffer, 0, bytesRead);
+            teeStream.flush();
+        }
         return output.toString(StandardCharsets.UTF_8);
     }
-
+    
     private static void terminate(Process process) {
         try {
             process.descendants().forEach(ProcessHandle::destroy);
