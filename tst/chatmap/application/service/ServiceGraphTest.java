@@ -21,7 +21,7 @@ import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
 import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
 import chatmap.application.port.provider.ChatProvider;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
+import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;

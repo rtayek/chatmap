@@ -27,7 +27,7 @@ import chatmap.application.service.PromptService;
 import chatmap.application.service.SearchService;
 import chatmap.application.service.SummaryService;
 import chatmap.application.service.TagService;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
+import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.infrastructure.exporter.HandoffExporter;
 import chatmap.infrastructure.exporter.MarkdownExporter;
 import chatmap.application.service.ChatGptArchiveImportService;

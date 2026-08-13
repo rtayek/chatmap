@@ -1,7 +1,11 @@
 package chatmap.app;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
+import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.provider.ChatProvider;
 import chatmap.infrastructure.ai.ClaudeCliBackend;
 import chatmap.infrastructure.ai.DefaultAiBackends;
 import chatmap.infrastructure.provider.DefaultChatProviders;
@@ -15,8 +19,16 @@ public final class DefaultServiceIntegrations {
 
     public static Integrations create() {
         return new Integrations(
-                DefaultChatProviders.ordered(),
+                chatProviders(),
                 new ClaudeCliBackend(Duration.ofMinutes(3)),
-                DefaultAiBackends.defaults());
+                promptBackends());
+    }
+
+    public static List<ChatProvider> chatProviders() {
+        return DefaultChatProviders.ordered();
+    }
+
+    public static Map<String, AiBackend> promptBackends() {
+        return DefaultAiBackends.defaults();
     }
 }

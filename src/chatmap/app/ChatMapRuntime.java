@@ -9,14 +9,14 @@ import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 
-import chatmap.config.ChatMapPaths;
-import chatmap.config.ChatMapPaths.ParsedArguments;
-import chatmap.config.ChatMapPaths.ResolvedPaths;
-import chatmap.config.LoggingBootstrap;
+import chatmap.app.bootstrap.ChatMapPaths;
+import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
+import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
+import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.app.ServiceGraph;
 import chatmap.infrastructure.persistence.sqlite.Database;
-import chatmap.ui.ChatMapController;
-import chatmap.util.Log;
+import chatmap.presentation.ui.ChatMapController;
+import chatmap.application.support.Log;
 
 /**
  * Owns application paths, database/service wiring, background work, and shutdown.

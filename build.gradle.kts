@@ -58,7 +58,7 @@ javafx {
 }
 
 application {
-    mainClass.set("chatmap.ui.ChatMapLauncher")
+    mainClass.set("chatmap.presentation.ui.ChatMapLauncher")
     applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
 }
 
@@ -69,7 +69,7 @@ tasks.named<JavaExec>("run") {
 tasks.register<JavaExec>("consolidateChats") {
     group = "application"
     description = "Scans workspace projects and consolidates chats into project handoffs."
-    mainClass.set("chatmap.cli.ChatConsolidatorCli")
+    mainClass.set("chatmap.presentation.cli.ChatConsolidatorCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -79,7 +79,7 @@ tasks.register<JavaExec>("consolidateChats") {
 tasks.register<JavaExec>("summarizeChat") {
     group = "application"
     description = "Summarizes and tags one already-imported chat by id. Usage: -Pargs=<chatId>"
-    mainClass.set("chatmap.cli.SummarizeChatCli")
+    mainClass.set("chatmap.presentation.cli.SummarizeChatCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -91,7 +91,7 @@ tasks.register<JavaExec>("summarizeChat") {
 tasks.register<JavaExec>("importChatGptArchive") {
     group = "application"
     description = "Imports a ChatGPT export ZIP. Usage: -Pargs=<chatgpt-export.zip>"
-    mainClass.set("chatmap.cli.ImportChatGptArchiveCli")
+    mainClass.set("chatmap.presentation.cli.ImportChatGptArchiveCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -103,7 +103,7 @@ tasks.register<JavaExec>("importChatGptArchive") {
 tasks.register<JavaExec>("conversationInventory") {
     group = "application"
     description = "Lists all discoverable conversations from configured ChatMap sources."
-    mainClass.set("chatmap.cli.ConversationInventoryCli")
+    mainClass.set("chatmap.presentation.cli.ConversationInventoryCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -115,7 +115,7 @@ tasks.register<JavaExec>("conversationInventory") {
 tasks.register<JavaExec>("importAllChats") {
     group = "application"
     description = "Imports every chat discoverable from the configured ChatMap sources."
-    mainClass.set("chatmap.cli.ImportAllChatsCli")
+    mainClass.set("chatmap.presentation.cli.ImportAllChatsCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")
@@ -127,7 +127,7 @@ tasks.register<JavaExec>("importAllChats") {
 tasks.register<JavaExec>("runPrompt") {
     group = "application"
     description = "Submits a prompt to an AI backend and stores the result. Usage: -Pargs='<backendId> <prompt>'"
-    mainClass.set("chatmap.cli.RunPromptCli")
+    mainClass.set("chatmap.presentation.cli.RunPromptCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     jvmArgs("--enable-native-access=ALL-UNNAMED")

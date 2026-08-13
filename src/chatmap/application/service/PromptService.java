@@ -22,7 +22,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.domain.Source;
 import chatmap.application.model.ImportedChat;
-import chatmap.util.Log;
+import chatmap.application.support.Log;
 
 public final class PromptService {
     private static final Logger LOG = Log.of(PromptService.class);

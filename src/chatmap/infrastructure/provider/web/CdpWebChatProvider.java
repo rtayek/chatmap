@@ -118,8 +118,13 @@ public abstract class CdpWebChatProvider implements ChatProvider {
         return Optional.of(reason == null || reason.isBlank() ? inventoryDiagnostic : reason);
     }
 
-    public Optional<String> lastUnavailableReason() {
+    @Override
+    public Optional<String> unavailableReason() {
         return adapter.lastUnavailableReason();
+    }
+
+    public Optional<String> lastUnavailableReason() {
+        return unavailableReason();
     }
 
     // Package-private for testing

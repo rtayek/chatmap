@@ -10,7 +10,7 @@ import chatmap.application.port.persistence.ChatStore;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.application.model.ImportedChat;
-import chatmap.util.Log;
+import chatmap.application.support.Log;
 
 /**
  * Chooses which chat to act on, shared by the CLI and the JavaFX app so the two

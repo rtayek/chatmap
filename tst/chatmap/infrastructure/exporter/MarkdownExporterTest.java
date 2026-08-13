@@ -98,6 +98,6 @@ class MarkdownExporterTest {
     }
 
     private static String golden(String name) throws Exception {
-        return Files.readString(Path.of("tst", "chatmap", "exporter", "golden", name));
+        return Files.readString(Path.of("tst", "chatmap", "infrastructure", "exporter", "golden", name));
     }
 }

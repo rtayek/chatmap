@@ -34,9 +34,9 @@ class ArchitectureBoundaryTest {
         for (SourceFile source : persistenceSources) {
             assertFalse(source.text().contains("import chatmap.application.service."),
                     () -> source.path() + " makes persistence depend on application services");
-            assertFalse(source.text().contains("import chatmap.ui."),
+            assertFalse(source.text().contains("import chatmap.presentation.ui."),
                     () -> source.path() + " makes persistence depend on presentation");
-            assertFalse(source.text().contains("import chatmap.cli."),
+            assertFalse(source.text().contains("import chatmap.presentation.cli."),
                     () -> source.path() + " makes persistence depend on CLI presentation");
             assertFalse(source.text().contains("import chatmap.app."),
                     () -> source.path() + " makes persistence depend on the composition root");
@@ -53,10 +53,6 @@ class ArchitectureBoundaryTest {
                     () -> source.path() + " makes application depend on infrastructure");
             assertFalse(source.text().contains("import chatmap.presentation."),
                     () -> source.path() + " makes application depend on presentation");
-            assertFalse(source.text().contains("import chatmap.ui."),
-                    () -> source.path() + " makes application depend on legacy UI presentation");
-            assertFalse(source.text().contains("import chatmap.cli."),
-                    () -> source.path() + " makes application depend on legacy CLI presentation");
         }
     }
 
@@ -66,10 +62,20 @@ class ArchitectureBoundaryTest {
             if (!source.text().contains("import javafx.")) {
                 continue;
             }
-            assertTrue(source.packageName().startsWith("chatmap.ui")
-                            || source.packageName().startsWith("chatmap.presentation.ui")
+            assertTrue(source.packageName().startsWith("chatmap.presentation.ui")
                             || source.packageName().startsWith("chatmap.app"),
                     () -> source.path() + " introduces JavaFX outside presentation or composition");
+        }
+    }
+
+    @Test
+    void presentationDoesNotConstructInfrastructureAdapters() throws IOException {
+        List<SourceFile> presentationSources = sourcesIn("chatmap.presentation");
+
+        assertFalse(presentationSources.isEmpty(), "No chatmap.presentation sources were found");
+        for (SourceFile source : presentationSources) {
+            assertFalse(source.text().contains("import chatmap.infrastructure."),
+                    () -> source.path() + " bypasses the application or composition boundary");
         }
     }
 

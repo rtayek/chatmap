@@ -60,4 +60,9 @@ public interface ChatProvider {
     default Optional<String> inventoryDiagnostic() {
         return Optional.empty();
     }
+
+    /** Last provider-specific reason a live transcript could not be read. */
+    default Optional<String> unavailableReason() {
+        return Optional.empty();
+    }
 }

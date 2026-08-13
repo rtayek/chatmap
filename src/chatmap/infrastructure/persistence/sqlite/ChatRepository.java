@@ -16,7 +16,7 @@ import chatmap.application.port.persistence.ChatStore;
 import chatmap.domain.Chat;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.Source;
-import chatmap.util.Locks;
+import chatmap.application.support.Locks;
 
 /**
  * CRUD for chats. Holds a Connection supplied by the caller; does not own it.

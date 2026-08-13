@@ -22,7 +22,7 @@
         </encoder>
     </appender>
 
-    <logger name="chatmap.config.LoggingBootstrap" level="ERROR" additivity="false">
+    <logger name="chatmap.app.bootstrap.LoggingBootstrap" level="ERROR" additivity="false">
         <appender-ref ref="FILE" />
     </logger>
 

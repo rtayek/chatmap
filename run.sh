@@ -17,4 +17,4 @@ java \
   --add-modules javafx.controls \
   --enable-native-access=ALL-UNNAMED,javafx.graphics \
   -cp "$cp" \
-  chatmap.ui.ChatMapLauncher
+  chatmap.presentation.ui.ChatMapLauncher

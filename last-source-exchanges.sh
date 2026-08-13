@@ -19,4 +19,4 @@ esac
 
 cp=".gradle-build/classes/java/main${cpsep}.gradle-build/resources/main${cpsep}lib/gson-2.11.0.jar"
 
-java -cp "$cp" chatmap.cli.LiveSourceExchanges
+java -cp "$cp" chatmap.presentation.cli.LiveSourceExchanges
