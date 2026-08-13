@@ -115,7 +115,7 @@ public final class HandoffOrchestratorCli {
                 inbox == null ? null : Path.of(inbox),
                 registry == null ? null : Path.of(registry),
                 interval == null ? null : Long.parseLong(interval),
-                Boolean.parseBoolean(properties.getProperty("autoPush", "false")));
+                Boolean.parseBoolean(properties.getProperty("autoPush", "true"))); // hack: set to true for initial testing
     }
 
     /** Parses CLI flags, falling back field-by-field to {@code defaults} for anything not given explicitly. */
