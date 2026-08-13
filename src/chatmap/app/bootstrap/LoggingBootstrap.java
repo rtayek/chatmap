@@ -16,6 +16,7 @@ import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 
 /** Establishes the logging destination before any application logger is created. */
 public final class LoggingBootstrap {
+    // Smoke test verification
     public static final String LOG_DIRECTORY_PROPERTY = "chatmap.log.dir";
 
     private LoggingBootstrap() {
