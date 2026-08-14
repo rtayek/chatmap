@@ -178,6 +178,140 @@ class HandoffOrchestratorServiceTest {
     }
 
     @Test
+    void gitPullFailureAbortsWithoutProcessingAnyTasks() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git pull", new CommandResult(1, "", "conflict", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        assertTrue(results.isEmpty());
+        assertFalse(executor.calledWithPrefix("git worktree"), "no task should be touched if the inbox pull fails");
+    }
+
+    @Test
+    void worktreeCommitFailureIsReportedAsFailureWithoutArchivingTheTask() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(" M file.txt\n"));
+        executor.respond("git commit -m Handoff:",
+                new CommandResult(1, "", "no user.email configured", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        HandoffRunResult result = results.get(0);
+        assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
+        assertTrue(result.detail().contains("git commit failed in worktree"), result.detail());
+        assertTrue(Files.exists(task), "the agent's work wasn't safely committed, so the task must not be archived away");
+    }
+
+    @Test
+    void failedPushWithAutoPushLeavesPushPendingTrue() throws IOException {
+        projectDir("chatmap");
+        Path chatmapDir = inbox.resolve("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(" M file.txt\n"));
+        executor.respond("git push -u origin feature-x",
+                new CommandResult(1, "", "auth failed", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, true);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        assertTrue(results.get(0).pushPending(), "a failed push must still surface as pending, even with autoPush=true");
+    }
+
+    @Test
+    void resultFileAndFailureReportHandleUppercaseMdExtension() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "TASK1.MD", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        executor.respond("claude -p", ok("done"));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        service.processInboxOnce(inbox);
+
+        assertTrue(Files.exists(chatmapDir.resolve(".archive").resolve("TASK1.result.md")),
+                "the .MD extension should be stripped case-insensitively, not left as a double extension");
+    }
+
+    @Test
+    void addWorktreeSkipsDashBWhenBranchAlreadyExists() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git show-ref --verify --quiet refs/heads/feature-x", ok());
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        service.processInboxOnce(inbox);
+
+        assertTrue(executor.calls().stream().anyMatch(c -> c.command().size() >= 3
+                && c.command().get(0).equals("git") && c.command().get(1).equals("worktree")
+                && c.command().get(2).equals("add") && !c.command().contains("-b")));
+        assertFalse(executor.calls().stream().anyMatch(c -> c.command().contains("-b")));
+    }
+
+    @Test
+    void addWorktreeUsesDashBWhenBranchDoesNotExist() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git show-ref --verify --quiet refs/heads/feature-x",
+                new CommandResult(1, "", "", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        service.processInboxOnce(inbox);
+
+        assertTrue(executor.calls().stream().anyMatch(c -> c.command().contains("-b")));
+    }
+
+    @Test
+    void archiveFailureIsReportedAsFailureInsteadOfCrashingTheRun() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        Files.writeString(chatmapDir.resolve(".archive"), "not a directory");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        HandoffRunResult result = results.get(0);
+        assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
+        assertTrue(result.detail().contains("Could not finalize handoff task"), result.detail());
+        assertTrue(Files.exists(task), "archiving failed, so the original task file should remain");
+    }
+
+    @Test
+    void resultFileWriteFailureDoesNotPreventSuccessOrCrashTheRun() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        Files.createDirectories(chatmapDir.resolve(".archive").resolve("task1.result.md"));
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        HandoffRunResult result = results.get(0);
+        assertEquals(HandoffRunResult.Outcome.success, result.outcome(),
+                "a result-file write failure must not fail the whole task, since the agent's work already succeeded");
+    }
+
+    @Test
     void autoPushTrueActuallyPushesBothRepos() throws IOException {
         projectDir("chatmap");
         Path chatmapDir = inbox.resolve("chatmap");

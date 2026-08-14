@@ -91,11 +91,20 @@ public final class HandoffOrchestratorService {
         this.autoPush = autoPush;
     }
 
-    /** Pulls the inbox, finds every eligible task file, and processes each one in turn. */
+    /**
+     * Pulls the inbox, finds every eligible task file, and processes each one
+     * in turn. Aborts (returning no results) if the pull itself fails --
+     * scanning and committing against a stale or conflicted inbox tree would
+     * risk baking a bad merge state into the next commit.
+     */
     public List<HandoffRunResult> processInboxOnce(Path inboxRepo) {
         Objects.requireNonNull(inboxRepo, "inboxRepo");
         LOG.info("Executing handoff orchestrator check on {}", inboxRepo);
-        git(inboxRepo, "pull");
+        CommandResult pullResult = git(inboxRepo, "pull");
+        if (pullResult.exitCode() != 0) {
+            LOG.warn("git pull failed for inbox {}: {}", inboxRepo, pullResult.standardError().strip());
+            return List.of();
+        }
 
         List<Path> taskFiles = scanForTaskFiles(inboxRepo);
         LOG.info("Found {} handoff task file(s) in {}", taskFiles.size(), inboxRepo);
@@ -210,6 +219,10 @@ public final class HandoffOrchestratorService {
             LOG.warn("Could not run {} for {}: {}", task.agent(), file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not run " + task.agent() + ": " + executionFailure.getMessage());
+        } catch (UncheckedIoOrchestratorException archiveFailure) {
+            LOG.warn("Could not finalize handoff task {}: {}", file, archiveFailure.getMessage());
+            return recordFailure(inboxRepo, file, projectKey,
+                    "Could not finalize handoff task: " + archiveFailure.getMessage());
         } finally {
             removeWorktree(targetRepo, worktree);
             LOG.debug("Removed worktree {}", worktree);
@@ -255,9 +268,9 @@ public final class HandoffOrchestratorService {
     }
 
     private CommandResult addWorktree(Path targetRepo, Path worktree, String branch) {
-        CommandResult existingBranch = git(targetRepo, "worktree", "add", worktree.toString(), branch);
-        if (existingBranch.exitCode() == 0) {
-            return existingBranch;
+        CommandResult branchExists = git(targetRepo, "show-ref", "--verify", "--quiet", "refs/heads/" + branch);
+        if (branchExists.exitCode() == 0) {
+            return git(targetRepo, "worktree", "add", worktree.toString(), branch);
         }
         return git(targetRepo, "worktree", "add", "-b", branch, worktree.toString());
     }
@@ -287,9 +300,17 @@ public final class HandoffOrchestratorService {
         boolean pushPending = false;
         if (worktreeHasChanges) {
             git(worktree, "add", "-A");
-            git(worktree, "commit", "-m", "Handoff: " + task.branch());
+            CommandResult commitResult = git(worktree, "commit", "-m", "Handoff: " + task.branch());
+            if (commitResult.exitCode() != 0) {
+                // Nothing has been archived yet, so `file` is still the real source
+                // path -- safe to route through the normal failure path.
+                return recordFailure(inboxRepo, file, task.projectKey(),
+                        "git commit failed in worktree for branch " + task.branch() + ": "
+                                + commitResult.standardError().strip());
+            }
             if (autoPush) {
-                git(worktree, "push", "-u", "origin", task.branch());
+                CommandResult pushResult = git(worktree, "push", "-u", "origin", task.branch());
+                pushPending = pushResult.exitCode() != 0;
             } else {
                 pushPending = true;
             }
@@ -298,17 +319,33 @@ public final class HandoffOrchestratorService {
         Path archived = archive(file);
         writeResultFile(archived, task, agentResult);
         git(inboxRepo, "add", "-A");
-        git(inboxRepo, "commit", "-m", "Archive completed handoff: " + relativeName(inboxRepo, archived));
-        if (autoPush) {
-            git(inboxRepo, "push");
+        CommandResult archiveCommitResult = git(inboxRepo, "commit", "-m",
+                "Archive completed handoff: " + relativeName(inboxRepo, archived));
+        boolean archiveCommitFailed = archiveCommitResult.exitCode() != 0;
+        if (archiveCommitFailed) {
+            // The task file is already moved on disk with no clean way to undo that,
+            // so this stays a success -- but flag it loudly rather than silently
+            // leaving an uncommitted archive sitting in the inbox working tree.
+            pushPending = true;
+        } else if (autoPush) {
+            CommandResult pushResult = git(inboxRepo, "push");
+            pushPending = pushPending || pushResult.exitCode() != 0;
         } else {
             pushPending = true;
         }
 
-        String detail = worktreeHasChanges
-                ? "Agent completed and committed changes on branch " + task.branch() + "."
-                : "Agent completed successfully but left no changes to commit.";
-        LOG.info("Handoff task {} succeeded ({})", file, detail);
+        String detail;
+        if (archiveCommitFailed) {
+            detail = "Agent completed and task archived to " + relativeName(inboxRepo, archived)
+                    + ", but committing the archive to the inbox failed: "
+                    + archiveCommitResult.standardError().strip();
+            LOG.warn("Handoff task {} partially succeeded ({})", file, detail);
+        } else {
+            detail = worktreeHasChanges
+                    ? "Agent completed and committed changes on branch " + task.branch() + "."
+                    : "Agent completed successfully but left no changes to commit.";
+            LOG.info("Handoff task {} succeeded ({})", file, detail);
+        }
         return new HandoffRunResult(file, task.projectKey(), HandoffRunResult.Outcome.success, detail, pushPending);
     }
 
@@ -331,13 +368,15 @@ public final class HandoffOrchestratorService {
         try {
             Files.writeString(resultPath, content);
         } catch (IOException failure) {
-            throw new UncheckedIoOrchestratorException("Could not write agent result file " + resultPath, failure);
+            // Best-effort: the task itself already succeeded, so a result-file write
+            // failure shouldn't take down the whole poll run -- log and move on.
+            LOG.warn("Could not write agent result file {}: {}", resultPath, failure.getMessage());
         }
     }
 
     private static Path resultFilePath(Path archivedTaskFile) {
         Path fileName = archivedTaskFile.getFileName();
-        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("\\.md$", "");
+        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("(?i)\\.md$", "");
         return archivedTaskFile.resolveSibling(baseName + ".result.md");
     }
 
@@ -372,8 +411,8 @@ public final class HandoffOrchestratorService {
         git(inboxRepo, "commit", "-m", "Add failure report for: " + relativeName(inboxRepo, file));
         boolean pushPending = true;
         if (autoPush) {
-            git(inboxRepo, "push");
-            pushPending = false;
+            CommandResult pushResult = git(inboxRepo, "push");
+            pushPending = pushResult.exitCode() != 0;
         }
         return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure, reason, pushPending);
     }
@@ -381,7 +420,7 @@ public final class HandoffOrchestratorService {
     private Path failureReportPath(Path taskFile) {
         String stamp = TIMESTAMP.format(clock.instant().atZone(java.time.ZoneOffset.UTC));
         Path fileName = taskFile.getFileName();
-        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("\\.md$", "");
+        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("(?i)\\.md$", "");
         return taskFile.resolveSibling("failure-report-" + baseName + "-" + stamp + ".md");
     }
 
