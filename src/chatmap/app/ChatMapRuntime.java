@@ -29,6 +29,7 @@ import chatmap.application.support.Log;
  * thread for correctness -- this only removes the queueing they forced on each other
  * by sharing one thread.
  */
+// am a duck.
 public final class ChatMapRuntime implements AutoCloseable {
     private static final Duration shutdownTimeout = Duration.ofSeconds(5);
 
