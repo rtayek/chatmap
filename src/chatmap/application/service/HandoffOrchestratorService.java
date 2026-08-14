@@ -72,7 +72,7 @@ public final class HandoffOrchestratorService {
     private static final Logger LOG = Log.of(HandoffOrchestratorService.class);
     private static final Duration GIT_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration AGENT_TIMEOUT = Duration.ofMinutes(30);
-    private static final String ARCHIVE_SUBDIR = "archive";
+    private static final String ARCHIVE_SUBDIR = ".archive";
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private final CommandExecutor commandExecutor;
@@ -117,6 +117,7 @@ public final class HandoffOrchestratorService {
      * by path) so a run's processing order doesn't depend on filesystem
      * iteration order.
      */
+    
     static List<Path> scanForTaskFiles(Path inboxRepo) {
         try (var projectDirs = Files.list(inboxRepo)) {
             List<Path> files = new ArrayList<>();
@@ -147,16 +148,17 @@ public final class HandoffOrchestratorService {
         return name != null && !name.toString().startsWith(".");
     }
 
-    private static boolean isEligibleTaskFile(Path file) {
-        Path fileName = file.getFileName();
+    private static boolean isEligibleTaskFile(Path path) {
+        Path fileName = path.getFileName();
         if (fileName == null) {
             return false;
         }
         String name = fileName.toString();
         return name.toLowerCase(Locale.ROOT).endsWith(".md")
-                && !name.equalsIgnoreCase("template.md");
+                && !name.equalsIgnoreCase("template.md")
+                && !name.startsWith("failure-report-");
     }
-
+    
     private HandoffRunResult processOne(Path inboxRepo, Path file) {
         String projectKey = projectKeyOf(file);
         LOG.info("Processing handoff task {} (project={})", file, projectKey);

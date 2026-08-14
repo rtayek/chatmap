@@ -62,7 +62,7 @@ class HandoffOrchestratorServiceTest {
         Files.writeString(inbox.resolve(".git/config"), "not a task");
         Path a = writeTask(chatmapDir, "a.md", "claude", "b1", "body");
         writeTask(chatmapDir, "Template.md", "claude", "b1", "body");
-        Path archiveDir = chatmapDir.resolve("archive");
+        Path archiveDir = chatmapDir.resolve(".archive");
         Files.createDirectories(archiveDir);
         Files.writeString(archiveDir.resolve("old.md"), "---\nagent: claude\nbranch: b\n---\nold\n");
         Path b = writeTask(other, "b.md", "codex", "b2", "body");
@@ -73,6 +73,18 @@ class HandoffOrchestratorServiceTest {
                 .sorted(java.util.Comparator.comparing(Path::toString)).toList(), found);
     }
 
+    @Test
+    void scanIgnoresFailureReportsAndTemplates() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        Path validTask = writeTask(chatmapDir, "task1.md", "claude", "b1", "body");
+        Files.writeString(chatmapDir.resolve("failure-report-test.md"), "some failure report content");
+        Files.writeString(chatmapDir.resolve("template.md"), "template content");
+
+        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox);
+
+        assertEquals(List.of(validTask), found);
+    }
+    
     @Test
     void successfulTaskWithChangesArchivesFileAndCommitsWorktreeChanges() throws IOException {
         Path chatmapDir = projectDir("chatmap");
@@ -92,7 +104,7 @@ class HandoffOrchestratorServiceTest {
         assertTrue(result.detail().contains("committed changes"), result.detail());
 
         assertFalse(Files.exists(task), "original task file should have been archived away");
-        assertTrue(Files.exists(chatmapDir.resolve("archive").resolve("task1.md")));
+        assertTrue(Files.exists(chatmapDir.resolve(".archive").resolve("task1.md")));
 
         assertTrue(executor.calledWithPrefix("git worktree add"));
         assertTrue(executor.calledWithPrefix("git commit -m Handoff: feature-x"));
@@ -117,7 +129,7 @@ class HandoffOrchestratorServiceTest {
         assertFalse(executor.calledWithPrefix("git commit -m Handoff:"),
                 "no worktree changes means no worktree commit, even though the inbox archive commit still happens");
         assertTrue(executor.calledWithPrefix("git commit -m Archive completed handoff"));
-        assertTrue(Files.exists(chatmapDir.resolve("archive").resolve("task1.md")));
+        assertTrue(Files.exists(chatmapDir.resolve(".archive").resolve("task1.md")));
     }
 
     @Test
