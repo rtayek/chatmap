@@ -28,13 +28,14 @@ class HandoffOrchestratorServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
-    void claudeAgentCommandIncludesSkipPermissions() {
-        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions"),
+    void claudeAgentCommandIncludesSkipPermissionsAndStreamJsonOutput() {
+        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions",
+                        "--output-format", "stream-json", "--verbose"),
                 HandoffOrchestratorService.agentCommand("claude"));
     }
 
     @Test
-    void otherAgentsDoNotGetTheSkipPermissionsFlag() {
+    void otherAgentsDoNotGetTheSkipPermissionsOrFormatFlags() {
         assertEquals(List.of("codex", "-p"), HandoffOrchestratorService.agentCommand("codex"));
         assertEquals(List.of("gemini", "-p"), HandoffOrchestratorService.agentCommand("gemini"));
     }
@@ -130,6 +131,50 @@ class HandoffOrchestratorServiceTest {
                 "no worktree changes means no worktree commit, even though the inbox archive commit still happens");
         assertTrue(executor.calledWithPrefix("git commit -m Archive completed handoff"));
         assertTrue(Files.exists(chatmapDir.resolve(".archive").resolve("task1.md")));
+    }
+
+    @Test
+    void successfulTaskWritesResultFileWithAgentStdoutBesideArchivedTask() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        executor.respond("claude -p", ok("agent did the thing\nline two\n"));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        service.processInboxOnce(inbox);
+
+        Path resultFile = chatmapDir.resolve(".archive").resolve("task1.result.md");
+        assertTrue(Files.exists(resultFile), "result file should be archived alongside the task");
+        String content = Files.readString(resultFile);
+        assertTrue(content.contains("agent did the thing\nline two"), content);
+        assertTrue(content.contains("Agent: claude"), content);
+        assertTrue(content.contains("Branch: feature-x"), content);
+        assertTrue(content.contains("Exit code: 0"), content);
+    }
+
+    @Test
+    void agentFailureReportIncludesAgentStdoutWhenAvailable() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("claude -p",
+                new CommandResult(1, "partial output before failure", "boom", Duration.ofSeconds(1), false));
+        HandoffOrchestratorService service = new HandoffOrchestratorService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+
+        service.processInboxOnce(inbox);
+
+        try (var files = Files.list(chatmapDir)) {
+            Path report = files.filter(p -> {
+                Path name = p.getFileName();
+                return name != null && name.toString().startsWith("failure-report-");
+            }).findFirst().orElseThrow();
+            String content = Files.readString(report);
+            assertTrue(content.contains("## Agent Output"), content);
+            assertTrue(content.contains("partial output before failure"), content);
+        }
     }
 
     @Test

@@ -195,16 +195,17 @@ public final class HandoffOrchestratorService {
             if (agentResult.timedOut()) {
                 LOG.warn("{} timed out after {} on {}", task.agent(), AGENT_TIMEOUT, file);
                 return recordFailure(inboxRepo, file, projectKey,
-                        task.agent() + " timed out after " + AGENT_TIMEOUT);
+                        task.agent() + " timed out after " + AGENT_TIMEOUT, agentResult);
             }
             if (agentResult.exitCode() != 0) {
                 LOG.warn("{} exited with status {} on {}", task.agent(), agentResult.exitCode(), file);
                 return recordFailure(inboxRepo, file, projectKey,
                         task.agent() + " exited with status " + agentResult.exitCode()
-                        + (agentResult.standardError().isBlank() ? "" : ": " + agentResult.standardError().strip()));
+                        + (agentResult.standardError().isBlank() ? "" : ": " + agentResult.standardError().strip()),
+                        agentResult);
             }
 
-            return recordSuccess(inboxRepo, file, task, worktree);
+            return recordSuccess(inboxRepo, file, task, worktree, agentResult);
         } catch (CommandExecutionException executionFailure) {
             LOG.warn("Could not run {} for {}: {}", task.agent(), file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
@@ -232,14 +233,19 @@ public final class HandoffOrchestratorService {
      * 2026-08-12 that without it, {@code claude -p} runs and exits 0 but
      * makes no file edits at all (every prior task "succeeded" with zero
      * changes), so the task is otherwise unable to do anything besides talk.
-     * Deliberately scoped to {@code claude} only: the flag name and
-     * semantics for other agents (codex, gemini, ...) haven't been verified,
-     * and passing an unrecognized flag to a different CLI would just trade
-     * one silent no-op failure mode for a loud one.
+     * It also requests {@code --output-format stream-json}, which requires
+     * {@code --verbose} or the CLI rejects the invocation outright.
+     * Deliberately scoped to {@code claude} only: the flag names and
+     * semantics for other agents (codex, antigravity, ...) haven't been
+     * verified against their {@code --help} output for the invocation shape
+     * used here ({@code <agent> -p}), and passing an unrecognized flag to a
+     * different CLI would just trade one silent no-op failure mode for a
+     * loud one.
      */
     static List<String> agentCommand(String agent) {
         if ("claude".equals(agent)) {
-            return List.of(agent, "-p", "--dangerously-skip-permissions");
+            return List.of(agent, "-p", "--dangerously-skip-permissions",
+                    "--output-format", "stream-json", "--verbose");
         }
         return List.of(agent, "-p");
     }
@@ -275,7 +281,8 @@ public final class HandoffOrchestratorService {
         }
     }
 
-    private HandoffRunResult recordSuccess(Path inboxRepo, Path file, HandoffTask task, Path worktree) {
+    private HandoffRunResult recordSuccess(Path inboxRepo, Path file, HandoffTask task, Path worktree,
+            CommandResult agentResult) {
         boolean worktreeHasChanges = hasChanges(worktree);
         boolean pushPending = false;
         if (worktreeHasChanges) {
@@ -289,6 +296,7 @@ public final class HandoffOrchestratorService {
         }
 
         Path archived = archive(file);
+        writeResultFile(archived, task, agentResult);
         git(inboxRepo, "add", "-A");
         git(inboxRepo, "commit", "-m", "Archive completed handoff: " + relativeName(inboxRepo, archived));
         if (autoPush) {
@@ -304,7 +312,41 @@ public final class HandoffOrchestratorService {
         return new HandoffRunResult(file, task.projectKey(), HandoffRunResult.Outcome.success, detail, pushPending);
     }
 
+    /**
+     * Writes the agent's full stdout as a sibling of the archived task file
+     * (e.g. {@code test-6.md} -&gt; {@code test-6.result.md} in the same
+     * {@value #ARCHIVE_SUBDIR} folder), so the task and its result archive
+     * and sync together.
+     */
+    private void writeResultFile(Path archivedTaskFile, HandoffTask task, CommandResult agentResult) {
+        Path resultPath = resultFilePath(archivedTaskFile);
+        String content = "# Agent Result: " + archivedTaskFile.getFileName() + "\n\n"
+                + "- Project: " + task.projectKey() + "\n"
+                + "- Agent: " + task.agent() + "\n"
+                + "- Branch: " + task.branch() + "\n"
+                + "- Timestamp: " + clock.instant() + "\n"
+                + "- Exit code: " + agentResult.exitCode() + "\n\n"
+                + "## Output\n\n"
+                + agentResult.standardOutput();
+        try {
+            Files.writeString(resultPath, content);
+        } catch (IOException failure) {
+            throw new UncheckedIoOrchestratorException("Could not write agent result file " + resultPath, failure);
+        }
+    }
+
+    private static Path resultFilePath(Path archivedTaskFile) {
+        Path fileName = archivedTaskFile.getFileName();
+        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("\\.md$", "");
+        return archivedTaskFile.resolveSibling(baseName + ".result.md");
+    }
+
     private HandoffRunResult recordFailure(Path inboxRepo, Path file, String projectKey, String reason) {
+        return recordFailure(inboxRepo, file, projectKey, reason, null);
+    }
+
+    private HandoffRunResult recordFailure(Path inboxRepo, Path file, String projectKey, String reason,
+            CommandResult agentResult) {
         LOG.warn("Handoff task {} failed: {}", file, reason);
         Path reportPath = failureReportPath(file);
         String report = "# Handoff Failure Report\n\n"
@@ -313,6 +355,9 @@ public final class HandoffOrchestratorService {
                 + "- Timestamp: " + clock.instant() + "\n\n"
                 + "## Reason\n\n"
                 + reason + "\n";
+        if (agentResult != null) {
+            report += "\n## Agent Output\n\n" + agentResult.standardOutput() + "\n";
+        }
         try {
             Files.writeString(reportPath, report);
         } catch (IOException writeFailure) {
