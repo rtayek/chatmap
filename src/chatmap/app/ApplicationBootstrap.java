@@ -31,4 +31,7 @@ public final class ApplicationBootstrap {
             throw failure;
         }
     }
+
+    public static void foo() {
+    }
 }
