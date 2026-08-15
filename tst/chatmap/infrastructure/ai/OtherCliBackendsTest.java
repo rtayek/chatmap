@@ -3,6 +3,8 @@ package chatmap.infrastructure.ai;
 import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.OutputFormat;
+import chatmap.application.port.ai.PermissionMode;
 
 import chatmap.application.port.command.CommandResult;
 
@@ -91,6 +93,25 @@ final class OtherCliBackendsTest {
         // No importer produces plainText from an AI backend; Ollama previously fell through
         // to AiBackend's default source() (plainText), colliding with real .txt file imports.
         assertEquals(Source.ollamaPrompt, backend.source());
+    }
+
+    @Test
+    void codexAndAgyIgnorePermissionModeAndOutputFormatRequests() {
+        CodexCliBackend codex = new CodexCliBackend(executor, Duration.ofSeconds(5));
+        executor.result = new CommandResult(0, "ok", "", Duration.ofMillis(5), false);
+
+        // Unlike claude, neither flag's semantics have been verified for these CLIs, so a
+        // request for either capability must be a silent no-op rather than an unrecognized flag.
+        codex.askWithResult(AiRequest.of("hello")
+                .withPermissionMode(PermissionMode.unrestricted)
+                .withOutputFormat(OutputFormat.streamJson));
+        assertEquals(List.of("codex", "-p"), executor.request.command());
+
+        AgyCliBackend agy = new AgyCliBackend(executor, Duration.ofSeconds(5));
+        agy.askWithResult(AiRequest.of("hello")
+                .withPermissionMode(PermissionMode.unrestricted)
+                .withOutputFormat(OutputFormat.streamJson));
+        assertEquals(List.of("agy", "-p"), executor.request.command());
     }
 
     @Test

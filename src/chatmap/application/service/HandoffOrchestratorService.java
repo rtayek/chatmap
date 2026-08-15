@@ -16,6 +16,12 @@ import java.util.Objects;
 
 import org.slf4j.Logger;
 
+import chatmap.application.port.ai.AiBackendExecutionException;
+import chatmap.application.port.ai.AiBackendStartupException;
+import chatmap.application.port.ai.AiRequest;
+import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.OutputFormat;
+import chatmap.application.port.ai.PermissionMode;
 import chatmap.application.port.command.CommandExecutionException;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
@@ -54,39 +60,42 @@ import chatmap.domain.HandoffTask;
  *   its same project folder in the inbox repo (matching this project's own
  *   {@code handoffs/archive/} convention) rather than deleted outright, so a
  *   processed task remains auditable.</li>
- *   <li><b>Agent invocation shape.</b> Mirrors the existing
- *   {@code StandardCliBackend} convention: {@code <agent> -p} with the task
- *   body piped as standard input, run inside the worktree directory. For
- *   {@code claude} specifically, also passes
- *   {@code --dangerously-skip-permissions} -- confirmed live that without
- *   it, {@code claude -p} exits 0 and makes zero file edits (every task
- *   "succeeds" but does nothing), which defeats the entire feature. This
- *   trades a real security boundary (interactive permission prompts) for
- *   the worktree's isolation instead: a task file landing in the inbox now
- *   gets unrestricted tool access, contained only in that a disposable
- *   branch/worktree is what it can affect, not that its actions are
- *   individually confirmed. See {@link #agentCommand}.</li>
+ *   <li><b>Agent invocation goes through {@link CommandBackedAiBackend}.</b>
+ *   The task body is piped as the prompt, with {@code workingDirectory} set
+ *   to the worktree and {@code permissionMode} set to
+ *   {@link PermissionMode#unrestricted unrestricted} -- confirmed live that
+ *   without an unattended-permissions flag, {@code claude -p} exits 0 and
+ *   makes zero file edits (every task "succeeds" but does nothing), which
+ *   defeats the entire feature. This trades a real security boundary
+ *   (interactive permission prompts) for the worktree's isolation instead:
+ *   a task file landing in the inbox now gets unrestricted tool access,
+ *   contained only in that a disposable branch/worktree is what it can
+ *   affect, not that its actions are individually confirmed. Exactly which
+ *   flags that translates to is each backend's own concern -- see
+ *   {@code StandardCliBackend#commandFor}.</li>
  * </ul>
  */
 public final class HandoffOrchestratorService {
 
     private static final Logger LOG = Log.of(HandoffOrchestratorService.class);
     private static final Duration GIT_TIMEOUT = Duration.ofSeconds(60);
-    private static final Duration AGENT_TIMEOUT = Duration.ofMinutes(30);
     private static final String ARCHIVE_SUBDIR = ".archive";
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private final CommandExecutor commandExecutor;
+    private final Map<String, CommandBackedAiBackend> agentBackends;
     private final Map<String, Path> projectRegistry;
     private final Clock clock;
     private final boolean autoPush;
 
     public HandoffOrchestratorService(
             CommandExecutor commandExecutor,
+            Map<String, CommandBackedAiBackend> agentBackends,
             Map<String, Path> projectRegistry,
             Clock clock,
             boolean autoPush) {
         this.commandExecutor = Objects.requireNonNull(commandExecutor, "commandExecutor");
+        this.agentBackends = Map.copyOf(Objects.requireNonNull(agentBackends, "agentBackends"));
         this.projectRegistry = Map.copyOf(Objects.requireNonNull(projectRegistry, "projectRegistry"));
         this.clock = Objects.requireNonNull(clock, "clock");
         this.autoPush = autoPush;
@@ -200,20 +209,29 @@ public final class HandoffOrchestratorService {
                         "git worktree add failed: " + worktreeResult.standardError().strip());
             }
 
-            LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
-            CommandResult agentResult = commandExecutor.run(new CommandRequest(
-                    agentCommand(task.agent()), task.body(), AGENT_TIMEOUT, worktree));
-            if (agentResult.timedOut()) {
-                LOG.warn("{} timed out after {} on {}", task.agent(), AGENT_TIMEOUT, file);
+            CommandBackedAiBackend backend = agentBackends.get(task.agent());
+            if (backend == null) {
+                LOG.warn("No configured AI backend for agent '{}'", task.agent());
                 return recordFailure(inboxRepo, file, projectKey,
-                        task.agent() + " timed out after " + AGENT_TIMEOUT, agentResult);
+                        "No configured AI backend for agent '" + task.agent() + "'.");
             }
-            if (agentResult.exitCode() != 0) {
-                LOG.warn("{} exited with status {} on {}", task.agent(), agentResult.exitCode(), file);
+
+            LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
+            AiRequest request = AiRequest.of(task.body())
+                    .withWorkingDirectory(worktree)
+                    .withPermissionMode(PermissionMode.unrestricted)
+                    .withOutputFormat(OutputFormat.streamJson);
+            CommandResult agentResult;
+            try {
+                agentResult = backend.askWithResult(request).commandResult();
+            } catch (AiBackendExecutionException executionFailure) {
+                LOG.warn("{} for {}: {}", task.agent(), file, executionFailure.getMessage());
+                return recordFailure(inboxRepo, file, projectKey, executionFailure.getMessage(),
+                        executionFailure.commandResult().orElse(null));
+            } catch (AiBackendStartupException startupFailure) {
+                LOG.warn("Could not run {} for {}: {}", task.agent(), file, startupFailure.getMessage());
                 return recordFailure(inboxRepo, file, projectKey,
-                        task.agent() + " exited with status " + agentResult.exitCode()
-                        + (agentResult.standardError().isBlank() ? "" : ": " + agentResult.standardError().strip()),
-                        agentResult);
+                        "Could not run " + task.agent() + ": " + startupFailure.getMessage());
             }
 
             return recordSuccess(inboxRepo, file, task, worktree, agentResult);
@@ -224,9 +242,9 @@ public final class HandoffOrchestratorService {
             return recordFailure(inboxRepo, file, projectKey,
                     commitFailure.getMessage() + " Worktree preserved at " + worktree + " for manual recovery.");
         } catch (CommandExecutionException executionFailure) {
-            LOG.warn("Could not run {} for {}: {}", task.agent(), file, executionFailure.getMessage());
+            LOG.warn("Could not run a required git command for {}: {}", file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
-                    "Could not run " + task.agent() + ": " + executionFailure.getMessage());
+                    "Could not run a required git command: " + executionFailure.getMessage());
         } catch (UncheckedIoOrchestratorException archiveFailure) {
             LOG.warn("Could not finalize handoff task {}: {}", file, archiveFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
@@ -251,29 +269,6 @@ public final class HandoffOrchestratorService {
         } catch (IOException failure) {
             throw new UncheckedIoOrchestratorException("Could not allocate a worktree path", failure);
         }
-    }
-
-    /**
-     * The CLI invocation for a task's agent. For {@code claude} this adds
-     * {@code --dangerously-skip-permissions} -- confirmed live on
-     * 2026-08-12 that without it, {@code claude -p} runs and exits 0 but
-     * makes no file edits at all (every prior task "succeeded" with zero
-     * changes), so the task is otherwise unable to do anything besides talk.
-     * It also requests {@code --output-format stream-json}, which requires
-     * {@code --verbose} or the CLI rejects the invocation outright.
-     * Deliberately scoped to {@code claude} only: the flag names and
-     * semantics for other agents (codex, antigravity, ...) haven't been
-     * verified against their {@code --help} output for the invocation shape
-     * used here ({@code <agent> -p}), and passing an unrecognized flag to a
-     * different CLI would just trade one silent no-op failure mode for a
-     * loud one.
-     */
-    static List<String> agentCommand(String agent) {
-        if ("claude".equals(agent)) {
-            return List.of(agent, "-p", "--dangerously-skip-permissions",
-                    "--output-format", "stream-json", "--verbose");
-        }
-        return List.of(agent, "-p");
     }
 
     private static String sanitize(String branch) {

@@ -1,6 +1,4 @@
-package chatmap.infrastructure.ai;
-
-import chatmap.application.port.ai.AiResponse;
+package chatmap.application.port.ai;
 
 import chatmap.application.port.command.CommandResult;
 

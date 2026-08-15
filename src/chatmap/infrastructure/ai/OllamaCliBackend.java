@@ -6,6 +6,8 @@ import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.CommandBackedRun;
 
 import chatmap.application.port.command.CommandExecutionException;
 
@@ -58,7 +60,8 @@ public final class OllamaCliBackend implements CommandBackedAiBackend {
         List<String> command = commandFor(request);
         CommandResult result;
         try {
-            result = commandExecutor.run(new CommandRequest(command, request.effectivePrompt(), timeout));
+            result = commandExecutor.run(new CommandRequest(
+                    command, request.effectivePrompt(), timeout, request.workingDirectory().orElse(null)));
         } catch (CommandExecutionException exception) {
             throw new AiBackendStartupException(
                     "Could not start " + backendId + ": " + exception.getMessage(), backendId, exception);

@@ -3,7 +3,11 @@ package chatmap.infrastructure.ai;
 import chatmap.application.port.ai.AiBackendException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.OutputFormat;
+import chatmap.application.port.ai.PermissionMode;
 import chatmap.application.port.ai.PromptProfile;
+
+import chatmap.application.port.command.CommandExecutionException;
 
 import chatmap.application.port.command.CommandResult;
 
@@ -13,6 +17,7 @@ import chatmap.application.port.command.CommandExecutor;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
@@ -20,6 +25,7 @@ import chatmap.domain.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -109,13 +115,88 @@ final class ClaudeCliBackendTest {
         assertEquals("provider error", exception.commandResult().orElseThrow().standardError());
     }
 
+    @Test
+    void unrestrictedPermissionModeAddsSkipPermissionsFlag() {
+        executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
+
+        backend.askWithResult(AiRequest.of("hello").withPermissionMode(PermissionMode.unrestricted));
+
+        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions"), executor.request.command());
+    }
+
+    @Test
+    void streamJsonOutputFormatRequiresVerboseFlag() {
+        executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
+
+        backend.askWithResult(AiRequest.of("hello").withOutputFormat(OutputFormat.streamJson));
+
+        assertEquals(List.of("claude", "-p", "--output-format", "stream-json", "--verbose"), executor.request.command());
+    }
+
+    @Test
+    void defaultPermissionModeAndOutputFormatAddNoExtraFlags() {
+        executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
+
+        backend.ask(AiRequest.of("hello"));
+
+        assertEquals(List.of("claude", "-p"), executor.request.command());
+    }
+
+    @Test
+    void workingDirectoryIsPassedThroughToTheCommandRequest() {
+        executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
+        Path worktree = Path.of("some", "worktree");
+
+        backend.askWithResult(AiRequest.of("hello").withWorkingDirectory(worktree));
+
+        assertEquals(worktree, executor.request.workingDirectory());
+    }
+
+    @Test
+    void noWorkingDirectoryRequestLeavesItNull() {
+        executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
+
+        backend.ask(AiRequest.of("hello"));
+
+        assertNull(executor.request.workingDirectory());
+    }
+
+    @Test
+    void listSessionsReturnsEmptyListForGenuinelyNoSessions() {
+        executor.result = new CommandResult(0, "", "", Duration.ofMillis(1), false);
+
+        assertEquals(List.of(), backend.listSessions());
+    }
+
+    @Test
+    void listSessionsThrowsInsteadOfSwallowingANonzeroExit() {
+        executor.result = new CommandResult(1, "", "not authenticated", Duration.ofMillis(1), false);
+
+        AiBackendException exception = assertThrows(AiBackendException.class, backend::listSessions);
+
+        assertTrue(exception.getMessage().contains("not authenticated"), exception.getMessage());
+    }
+
+    @Test
+    void listSessionsThrowsInsteadOfSwallowingAStartupFailure() {
+        executor.toThrow = new CommandExecutionException("claude not found on PATH");
+
+        AiBackendException exception = assertThrows(AiBackendException.class, backend::listSessions);
+
+        assertTrue(exception.getMessage().contains("claude not found on PATH"), exception.getMessage());
+    }
+
     private static final class CapturingExecutor implements CommandExecutor {
         CommandRequest request;
         CommandResult result;
+        CommandExecutionException toThrow;
 
         @Override
         public CommandResult run(CommandRequest request) {
             this.request = request;
+            if (toThrow != null) {
+                throw toThrow;
+            }
             return result;
         }
     }

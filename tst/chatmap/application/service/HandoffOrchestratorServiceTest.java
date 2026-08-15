@@ -19,25 +19,22 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import chatmap.application.port.ai.CommandBackedAiBackend;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
+import chatmap.infrastructure.ai.ClaudeCliBackend;
 
 class HandoffOrchestratorServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC);
 
-    @Test
-    void claudeAgentCommandIncludesSkipPermissionsAndStreamJsonOutput() {
-        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions",
-                        "--output-format", "stream-json", "--verbose"),
-                HandoffOrchestratorService.agentCommand("claude"));
-    }
-
-    @Test
-    void otherAgentsDoNotGetTheSkipPermissionsOrFormatFlags() {
-        assertEquals(List.of("codex", "-p"), HandoffOrchestratorService.agentCommand("codex"));
-        assertEquals(List.of("gemini", "-p"), HandoffOrchestratorService.agentCommand("gemini"));
+    /** Wraps executor in a real ClaudeCliBackend, since agent invocation now goes through AiBackend. */
+    private static HandoffOrchestratorService newService(
+            FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
+        Map<String, CommandBackedAiBackend> agentBackends = Map.of(
+                "claude", new ClaudeCliBackend(executor, Duration.ofMinutes(30)));
+        return new HandoffOrchestratorService(executor, agentBackends, registry, CLOCK, autoPush);
     }
 
     @TempDir
@@ -92,8 +89,8 @@ class HandoffOrchestratorServiceTest {
         Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(" M file.txt\n"));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -119,8 +116,8 @@ class HandoffOrchestratorServiceTest {
         writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(""));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -140,8 +137,8 @@ class HandoffOrchestratorServiceTest {
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(""));
         executor.respond("claude -p", ok("agent did the thing\nline two\n"));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         service.processInboxOnce(inbox);
 
@@ -161,8 +158,8 @@ class HandoffOrchestratorServiceTest {
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("claude -p",
                 new CommandResult(1, "partial output before failure", "boom", Duration.ofSeconds(1), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         service.processInboxOnce(inbox);
 
@@ -183,8 +180,8 @@ class HandoffOrchestratorServiceTest {
         writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git pull", new CommandResult(1, "", "conflict", Duration.ofMillis(10), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -200,8 +197,8 @@ class HandoffOrchestratorServiceTest {
         executor.respond("git status --porcelain", ok(" M file.txt\n"));
         executor.respond("git commit -m Handoff:",
                 new CommandResult(1, "", "no user.email configured", Duration.ofMillis(10), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -223,8 +220,8 @@ class HandoffOrchestratorServiceTest {
         executor.respond("git status --porcelain", ok(" M file.txt\n"));
         executor.respond("git push -u origin feature-x",
                 new CommandResult(1, "", "auth failed", Duration.ofMillis(10), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, true);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), true);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -238,8 +235,8 @@ class HandoffOrchestratorServiceTest {
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(""));
         executor.respond("claude -p", ok("done"));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         service.processInboxOnce(inbox);
 
@@ -253,8 +250,8 @@ class HandoffOrchestratorServiceTest {
         writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git show-ref --verify --quiet refs/heads/feature-x", ok());
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         service.processInboxOnce(inbox);
 
@@ -271,8 +268,8 @@ class HandoffOrchestratorServiceTest {
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git show-ref --verify --quiet refs/heads/feature-x",
                 new CommandResult(1, "", "", Duration.ofMillis(10), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         service.processInboxOnce(inbox);
 
@@ -286,8 +283,8 @@ class HandoffOrchestratorServiceTest {
         Files.writeString(chatmapDir.resolve(".archive"), "not a directory");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(""));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -304,8 +301,8 @@ class HandoffOrchestratorServiceTest {
         Files.createDirectories(chatmapDir.resolve(".archive").resolve("task1.result.md"));
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(""));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -321,8 +318,8 @@ class HandoffOrchestratorServiceTest {
         writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git status --porcelain", ok(" M file.txt\n"));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, true);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), true);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -337,8 +334,8 @@ class HandoffOrchestratorServiceTest {
         Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("claude -p", new CommandResult(1, "", "boom", Duration.ofSeconds(1), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -364,8 +361,8 @@ class HandoffOrchestratorServiceTest {
         writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
         executor.respond("git worktree add", new CommandResult(1, "", "not a repo", Duration.ofMillis(10), false));
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -380,8 +377,8 @@ class HandoffOrchestratorServiceTest {
         Path chatmapDir = projectDir("chatmap");
         writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
         FakeCommandExecutor executor = new FakeCommandExecutor();
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of(), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of(), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -396,8 +393,8 @@ class HandoffOrchestratorServiceTest {
         Path chatmapDir = projectDir("chatmap");
         Files.writeString(chatmapDir.resolve("bad.md"), "---\nagent: claude\n---\nno branch field\n");
         FakeCommandExecutor executor = new FakeCommandExecutor();
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
@@ -412,8 +409,8 @@ class HandoffOrchestratorServiceTest {
         writeTask(chatmapDir, "template.md", "claude", "x", "should never run");
         writeTask(chatmapDir, "real-task.md", "claude", "feature-y", "do it");
         FakeCommandExecutor executor = new FakeCommandExecutor();
-        HandoffOrchestratorService service = new HandoffOrchestratorService(
-                executor, Map.of("chatmap", Path.of("fake-target-repo")), CLOCK, false);
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
 
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 

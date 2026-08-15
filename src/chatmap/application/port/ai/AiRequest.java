@@ -1,27 +1,46 @@
 package chatmap.application.port.ai;
 
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * A prompt plus the small set of provider-agnostic capabilities a backend's
+ * {@code commandFor()} may interpret in its own CLI's flag names --
+ * {@code workingDirectory}, {@code permissionMode}, and {@code outputFormat}
+ * exist so callers with unusual needs (e.g. running inside an isolated
+ * worktree, skipping permission prompts) go through {@link AiBackend}
+ * instead of building a command themselves.
+ */
 public record AiRequest(
         String prompt,
         Optional<String> systemPrompt,
         PromptProfile profile,
-        Optional<String> sessionId
+        Optional<String> sessionId,
+        Optional<Path> workingDirectory,
+        PermissionMode permissionMode,
+        OutputFormat outputFormat
 ) {
+    public AiRequest {
+        Objects.requireNonNull(prompt, "prompt");
+        Objects.requireNonNull(systemPrompt, "systemPrompt");
+        Objects.requireNonNull(profile, "profile");
+        Objects.requireNonNull(sessionId, "sessionId");
+        Objects.requireNonNull(workingDirectory, "workingDirectory");
+        Objects.requireNonNull(permissionMode, "permissionMode");
+        Objects.requireNonNull(outputFormat, "outputFormat");
+    }
+
+    public AiRequest(String prompt, Optional<String> systemPrompt, PromptProfile profile, Optional<String> sessionId) {
+        this(prompt, systemPrompt, profile, sessionId, Optional.empty(), PermissionMode.standard, OutputFormat.text);
+    }
+
     public AiRequest(String prompt, Optional<String> systemPrompt, PromptProfile profile) {
         this(prompt, systemPrompt, profile, Optional.empty());
     }
 
     public AiRequest(String prompt, Optional<String> systemPrompt) {
         this(prompt, systemPrompt, PromptProfile.general, Optional.empty());
-    }
-
-    public AiRequest {
-        Objects.requireNonNull(prompt, "prompt");
-        Objects.requireNonNull(systemPrompt, "systemPrompt");
-        Objects.requireNonNull(profile, "profile");
-        Objects.requireNonNull(sessionId, "sessionId");
     }
 
     public static AiRequest of(String prompt) {
@@ -46,5 +65,23 @@ public record AiRequest(
 
     public String effectivePrompt() {
         return profile.applyTo(prompt);
+    }
+
+    /** Copy requesting the backend's CLI be invoked inside {@code workingDirectory}. */
+    public AiRequest withWorkingDirectory(Path workingDirectory) {
+        return new AiRequest(prompt, systemPrompt, profile, sessionId, Optional.ofNullable(workingDirectory),
+                permissionMode, outputFormat);
+    }
+
+    /** Copy requesting a different permission mode from the backend. */
+    public AiRequest withPermissionMode(PermissionMode permissionMode) {
+        return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,
+                Objects.requireNonNull(permissionMode, "permissionMode"), outputFormat);
+    }
+
+    /** Copy requesting a different output format from the backend. */
+    public AiRequest withOutputFormat(OutputFormat outputFormat) {
+        return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,
+                permissionMode, Objects.requireNonNull(outputFormat, "outputFormat"));
     }
 }

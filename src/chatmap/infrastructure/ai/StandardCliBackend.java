@@ -7,6 +7,10 @@ import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.CommandBackedRun;
+import chatmap.application.port.ai.OutputFormat;
+import chatmap.application.port.ai.PermissionMode;
 
 import chatmap.application.port.command.CommandExecutionException;
 
@@ -18,6 +22,7 @@ import chatmap.application.port.command.CommandExecutor;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -64,22 +69,37 @@ public class StandardCliBackend implements CommandBackedAiBackend {
         return source;
     }
 
+    /**
+     * Distinguishes "genuinely zero sessions" (empty output, exit 0) from
+     * "could not find out" (CLI missing, unauthenticated, nonzero exit) by
+     * throwing on the latter instead of returning an empty list for both --
+     * an empty list here used to be indistinguishable from a real failure.
+     */
     @Override
     public List<String> listSessions() {
+        CommandResult result;
         try {
-            CommandResult result = commandExecutor.run(new CommandRequest(
+            result = commandExecutor.run(new CommandRequest(
                     List.of(binaryName, "--list-sessions"), "", Duration.ofSeconds(10)));
-            if (result.exitCode() != 0 || result.standardOutput().isBlank()) {
-                return List.of();
-            }
-            return result.standardOutput().lines()
-                    .map(String::trim)
-                    .filter(line -> !line.isEmpty())
-                    .distinct()
-                    .toList();
-        } catch (RuntimeException failure) {
+        } catch (CommandExecutionException exception) {
+            throw new AiBackendStartupException(
+                    "Could not list sessions for " + backendId.value() + ": " + exception.getMessage(),
+                    backendId, exception);
+        }
+        if (result.exitCode() != 0) {
+            throw new AiBackendExecutionException(
+                    backendId.value() + " --list-sessions exited with status " + result.exitCode()
+                            + (result.standardError().isBlank() ? "" : ": " + result.standardError().strip()),
+                    backendId, result);
+        }
+        if (result.standardOutput().isBlank()) {
             return List.of();
         }
+        return result.standardOutput().lines()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .distinct()
+                .toList();
     }
 
     @Override
@@ -100,13 +120,39 @@ public class StandardCliBackend implements CommandBackedAiBackend {
         return false;
     }
 
+    /**
+     * {@code permissionMode}/{@code outputFormat} only translate to flags for
+     * {@code claude} -- confirmed live that {@code --dangerously-skip-permissions}
+     * is what makes {@code claude -p} actually edit files instead of exiting 0
+     * with no changes, and {@code --output-format stream-json} requires
+     * {@code --verbose} or the CLI rejects the invocation outright. The flag
+     * names and semantics for other agents (codex, agy, ...) haven't been
+     * verified for this {@code <binary> -p} invocation shape, so a request for
+     * either capability is silently a no-op there rather than passing an
+     * unrecognized flag -- one silent no-op failure mode is preferable to
+     * trading it for a loud one on an unverified CLI.
+     */
     @Override
     public List<String> commandFor(AiRequest request) {
         Objects.requireNonNull(request, "request");
+        List<String> command = new ArrayList<>();
+        command.add(binaryName);
         if (request.sessionId().isPresent() && !request.sessionId().get().isBlank()) {
-            return List.of(binaryName, "--resume", request.sessionId().get(), "-p");
+            command.add("--resume");
+            command.add(request.sessionId().get());
         }
-        return List.of(binaryName, "-p");
+        command.add("-p");
+        if ("claude".equals(binaryName)) {
+            if (request.permissionMode() == PermissionMode.unrestricted) {
+                command.add("--dangerously-skip-permissions");
+            }
+            if (request.outputFormat() == OutputFormat.streamJson) {
+                command.add("--output-format");
+                command.add("stream-json");
+                command.add("--verbose");
+            }
+        }
+        return command;
     }
 
     @Override
@@ -120,7 +166,8 @@ public class StandardCliBackend implements CommandBackedAiBackend {
         List<String> command = commandFor(request);
         CommandResult result;
         try {
-            result = commandExecutor.run(new CommandRequest(command, request.effectivePrompt(), timeout));
+            result = commandExecutor.run(new CommandRequest(
+                    command, request.effectivePrompt(), timeout, request.workingDirectory().orElse(null)));
         } catch (CommandExecutionException exception) {
             throw new AiBackendStartupException(
                     "Could not start " + backendId.value() + ": " + exception.getMessage(), backendId, exception);
