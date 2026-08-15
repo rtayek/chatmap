@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.infrastructure.ai.ClaudeCliBackend;
+import chatmap.infrastructure.ai.StandardCliBackend;
 import chatmap.domain.Project;
 import chatmap.domain.Tag;
 import chatmap.application.service.ExportService;
@@ -49,7 +49,7 @@ class ChatMapMvpWorkflowTest {
         ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), tags,
-                new ClaudeCliBackend(java.time.Duration.ofMinutes(3)));
+                StandardCliBackend.claude(java.time.Duration.ofMinutes(3)));
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(List.of(), importService, chats);
         controller = new ChatMapController(

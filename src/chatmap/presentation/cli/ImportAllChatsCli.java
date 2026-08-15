@@ -73,6 +73,10 @@ public final class ImportAllChatsCli {
                 System.out.println();
                 System.out.println("== " + provider.name() + " ==");
 
+                // Local CLI-history providers throw here on a genuine I/O failure; live web
+                // providers never do (see ChatProvider#listChats) -- their unavailability
+                // shows up below instead, as an empty list plus inventoryComplete()/
+                // inventoryDiagnostic(), so both branches matter for full coverage.
                 List<ConversationCandidate> candidates;
                 try {
                     candidates = provider.listChats();

@@ -6,8 +6,8 @@ import java.util.Map;
 
 import chatmap.application.port.ai.AiBackend;
 import chatmap.application.port.provider.ChatProvider;
-import chatmap.infrastructure.ai.ClaudeCliBackend;
 import chatmap.infrastructure.ai.DefaultAiBackends;
+import chatmap.infrastructure.ai.StandardCliBackend;
 import chatmap.infrastructure.provider.DefaultChatProviders;
 import chatmap.app.ServiceGraph.Integrations;
 
@@ -20,7 +20,7 @@ public final class DefaultServiceIntegrations {
     public static Integrations create() {
         return new Integrations(
                 chatProviders(),
-                new ClaudeCliBackend(Duration.ofMinutes(3)),
+                StandardCliBackend.claude(Duration.ofMinutes(3)),
                 promptBackends());
     }
 

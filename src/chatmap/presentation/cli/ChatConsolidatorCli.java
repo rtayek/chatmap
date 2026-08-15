@@ -1,19 +1,11 @@
 package chatmap.presentation.cli;
 
-import java.io.IOException;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
 
 import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
 import chatmap.domain.Chat;
@@ -21,6 +13,7 @@ import chatmap.domain.Project;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ImportService;
 import chatmap.application.service.ProjectService;
+import chatmap.application.service.WorkspaceScanService;
 import chatmap.application.port.persistence.ChatStore;
 
 /**
@@ -28,11 +21,6 @@ import chatmap.application.port.persistence.ChatStore;
  * and consolidating them into project-level Markdown handoff summaries.
  */
 public final class ChatConsolidatorCli {
-
-    private static final Set<String> IGNORE_DIRS = Set.of(
-            ".git", ".gradle", ".settings", ".venv", "__pycache__", "node_modules",
-            ".pytest_cache", ".ruff_cache", "build", "bin", "target", ".metadata", "gradle"
-    );
 
     public static void main(String[] args) {
         ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, usage());
@@ -54,7 +42,7 @@ public final class ChatConsolidatorCli {
             ImportService importService = context.services().importService();
             ExportService exportService = context.services().exportService();
 
-            Map<String, List<Path>> projectFiles = scanWorkspace(rootPath);
+            Map<String, List<Path>> projectFiles = WorkspaceScanService.scanWorkspace(rootPath);
 
             if (projectFiles.isEmpty()) {
                 System.out.println("⚠️ No chat files found in workspace.");
@@ -108,116 +96,5 @@ public final class ChatConsolidatorCli {
 
     private static String usage() {
         return "Usage: chatConsolidator [--home <directory>] [<root>] [<outputDir>]";
-    }
-
-    static Map<String, List<Path>> scanWorkspace(Path root) throws IOException {
-        Map<String, List<Path>> map = new HashMap<>();
-
-        if (!Files.exists(root) || !Files.isDirectory(root)) {
-            return map;
-        }
-
-        try (Stream<Path> stream = Files.list(root)) {
-            stream.filter(Files::isDirectory)
-                  .filter(p -> !isIgnoredDirName(p.getFileName().toString()))
-                  .forEach(projDir -> {
-                      List<Path> found = findChatFiles(projDir);
-                      if (!found.isEmpty()) {
-                          map.put(projDir.getFileName().toString(), found);
-                      }
-                  });
-        }
-        return map;
-    }
-
-    static List<Path> findChatFiles(Path dir) {
-        List<Path> list = new ArrayList<>();
-        try {
-            Files.walkFileTree(dir, new SimpleFileVisitor<>() {
-                @Override
-                public FileVisitResult preVisitDirectory(Path subDir, BasicFileAttributes attrs) {
-                    // Prune ignored/hidden subtrees instead of walking into them: faster,
-                    // and avoids errors from unreadable dirs like .git or node_modules.
-                    Path fn = subDir.getFileName();
-                    String name = (fn != null) ? fn.toString() : "";
-                    if (!subDir.equals(dir) && isIgnoredDirName(name)) {
-                        return FileVisitResult.SKIP_SUBTREE;
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (isCandidateChatFile(file)) {
-                        list.add(file);
-                    }
-                    return FileVisitResult.CONTINUE;
-                }
-
-                @Override
-                public FileVisitResult visitFileFailed(Path file, IOException exc) {
-                    return FileVisitResult.CONTINUE; // skip anything we cannot read
-                }
-            });
-        } catch (IOException ignored) {
-            // ignore inaccessible roots
-        }
-        return list;
-    }
-
-    /**
-     * True for directory names we never descend into. Matches the ignore list
-     * and dot-prefixed hidden dirs (.git, .claude, ...), but explicitly not the
-     * path-traversal segments "." and "..", which are not hidden directories --
-     * treating ".." as hidden was what made a relative root like ".." match
-     * nothing.
-     */
-    static boolean isIgnoredDirName(String name) {
-        if (name.equals(".") || name.equals("..")) {
-            return false;
-        }
-        return IGNORE_DIRS.contains(name) || name.startsWith(".");
-    }
-
-    static boolean isCandidateChatFile(Path file) {
-        Path fn = file.getFileName();
-        String name = (fn != null) ? fn.toString().toLowerCase() : "";
-        if (name.endsWith(".java") || name.endsWith(".class") || name.endsWith(".jar")
-                || name.endsWith(".gradle") || name.endsWith(".xml") || name.endsWith(".properties")) {
-            return false;
-        }
-        // Source/script files whose names happen to contain a keyword (e.g.
-        // "chatgpt-web-SESSIONS.sh") are not transcripts; exclude them.
-        if (name.endsWith(".sh") || name.endsWith(".bat") || name.endsWith(".ps1")
-                || name.endsWith(".py") || name.endsWith(".js") || name.endsWith(".ts")
-                || name.endsWith(".kt") || name.endsWith(".go") || name.endsWith(".rb")) {
-            return false;
-        }
-        // Binary/image files whose names happen to contain a keyword (e.g. "weCHAT_qr.png")
-        // are not transcripts; exclude them so they are never fed to a text importer.
-        if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg")
-                || name.endsWith(".gif") || name.endsWith(".webp") || name.endsWith(".svg")
-                || name.endsWith(".pdf") || name.endsWith(".zip") || name.endsWith(".gz")) {
-            return false;
-        }
-        // Our own consolidated output must never be re-ingested (feedback loop).
-        if (name.endsWith("_consolidated.md")) {
-            return false;
-        }
-
-        if (name.endsWith("conversations.json") || name.contains("chat") || name.contains("session") || name.contains("handoff") || name.contains("transcript")) {
-            return true;
-        }
-
-        Path parent = file.getParent();
-        if (parent != null) {
-            Path pFn = parent.getFileName();
-            String pName = (pFn != null) ? pFn.toString().toLowerCase() : "";
-            if (pName.equals("chats") || pName.equals("runs")) {
-                return name.endsWith(".md") || name.endsWith(".txt") || name.endsWith(".json");
-            }
-        }
-
-        return false;
     }
 }

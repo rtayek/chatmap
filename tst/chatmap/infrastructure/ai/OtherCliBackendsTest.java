@@ -28,7 +28,7 @@ final class OtherCliBackendsTest {
 
     @Test
     void codexCliBackendConstructsCorrectCommand() {
-        CodexCliBackend backend = new CodexCliBackend(executor, Duration.ofSeconds(5));
+        StandardCliBackend backend = StandardCliBackend.codex(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false);
 
         AiResponse response = backend.ask(AiRequest.of("Explain recursion"));
@@ -45,7 +45,7 @@ final class OtherCliBackendsTest {
 
     @Test
     void codexCliBackendSupportsResumeSession() {
-        CodexCliBackend backend = new CodexCliBackend(executor, Duration.ofSeconds(5));
+        StandardCliBackend backend = StandardCliBackend.codex(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Resumed", "", Duration.ofMillis(5), false);
 
         backend.ask(AiRequest.withSession("Next step", "codex-sess-1"));
@@ -56,7 +56,7 @@ final class OtherCliBackendsTest {
 
     @Test
     void agyCliBackendConstructsCorrectCommand() {
-        AgyCliBackend backend = new AgyCliBackend(executor, Duration.ofSeconds(5));
+        StandardCliBackend backend = StandardCliBackend.agy(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Agy answer", "", Duration.ofMillis(15), false);
 
         AiResponse response = backend.ask(AiRequest.of("Hello Antigravity"));
@@ -70,7 +70,7 @@ final class OtherCliBackendsTest {
 
     @Test
     void agyCliBackendSupportsResumeSession() {
-        AgyCliBackend backend = new AgyCliBackend(executor, Duration.ofSeconds(5));
+        StandardCliBackend backend = StandardCliBackend.agy(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Resumed", "", Duration.ofMillis(5), false);
 
         backend.ask(AiRequest.withSession("Resume task", "agy-sess-99"));
@@ -97,7 +97,7 @@ final class OtherCliBackendsTest {
 
     @Test
     void codexAndAgyIgnorePermissionModeAndOutputFormatRequests() {
-        CodexCliBackend codex = new CodexCliBackend(executor, Duration.ofSeconds(5));
+        StandardCliBackend codex = StandardCliBackend.codex(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "ok", "", Duration.ofMillis(5), false);
 
         // Unlike claude, neither flag's semantics have been verified for these CLIs, so a
@@ -107,7 +107,7 @@ final class OtherCliBackendsTest {
                 .withOutputFormat(OutputFormat.streamJson));
         assertEquals(List.of("codex", "-p"), executor.request.command());
 
-        AgyCliBackend agy = new AgyCliBackend(executor, Duration.ofSeconds(5));
+        StandardCliBackend agy = StandardCliBackend.agy(executor, Duration.ofSeconds(5));
         agy.askWithResult(AiRequest.of("hello")
                 .withPermissionMode(PermissionMode.unrestricted)
                 .withOutputFormat(OutputFormat.streamJson));

@@ -23,9 +23,9 @@ public final class DefaultAiBackends {
 
     public static Map<String, AiBackend> defaults(CommandExecutor executor, Duration timeout) {
         return Map.of(
-                "claude", new ClaudeCliBackend(executor, timeout),
-                "codex", new CodexCliBackend(executor, timeout),
-                "agy", new AgyCliBackend(executor, timeout),
+                "claude", StandardCliBackend.claude(executor, timeout),
+                "codex", StandardCliBackend.codex(executor, timeout),
+                "agy", StandardCliBackend.agy(executor, timeout),
                 "ollama", new OllamaCliBackend(executor, timeout, "llama3"),
                 "jshell", new JShellBackend()
         );

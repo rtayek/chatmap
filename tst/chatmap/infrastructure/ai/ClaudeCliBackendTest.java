@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class ClaudeCliBackendTest {
     private final CapturingExecutor executor = new CapturingExecutor();
-    private final ClaudeCliBackend backend = new ClaudeCliBackend(executor, Duration.ofSeconds(5));
+    private final StandardCliBackend backend = StandardCliBackend.claude(executor, Duration.ofSeconds(5));
 
     @Test
     void sourceIsDistinctFromImportedClaudeCodeTranscripts() {

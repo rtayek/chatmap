@@ -27,15 +27,20 @@ import java.util.List;
 import java.util.Objects;
 
 import chatmap.domain.Source;
+import chatmap.infrastructure.command.CommandRunner;
 
 /**
- * Common base class for CLI-backed AI execution models (e.g. claude, codex, agy).
+ * CLI-backed AI execution model for a locally installed agent binary
+ * (claude, codex, agy). The three agents differ only in binary name,
+ * {@link Source}, and (for claude) which {@link AiRequest} capabilities
+ * {@link #commandFor} translates into flags -- construct via {@link #claude},
+ * {@link #codex}, or {@link #agy} rather than subclassing.
  */
-public class StandardCliBackend implements CommandBackedAiBackend {
+public final class StandardCliBackend implements CommandBackedAiBackend {
 
-    static final BackendId CLAUDE_BACKEND_ID = new BackendId("Claude CLI");
-    static final BackendId CODEX_BACKEND_ID = new BackendId("Codex CLI");
-    static final BackendId AGY_BACKEND_ID = new BackendId("Antigravity CLI");
+    private static final BackendId CLAUDE_BACKEND_ID = new BackendId("Claude CLI");
+    private static final BackendId CODEX_BACKEND_ID = new BackendId("Codex CLI");
+    private static final BackendId AGY_BACKEND_ID = new BackendId("Antigravity CLI");
 
     private final BackendId backendId;
     private final String binaryName;
@@ -54,6 +59,23 @@ public class StandardCliBackend implements CommandBackedAiBackend {
         this.commandExecutor = Objects.requireNonNull(commandExecutor, "commandExecutor");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
         this.source = Objects.requireNonNull(source, "source");
+    }
+
+    public static StandardCliBackend claude(CommandExecutor commandExecutor, Duration timeout) {
+        return new StandardCliBackend(CLAUDE_BACKEND_ID, "claude", commandExecutor, timeout, Source.claudeCliPrompt);
+    }
+
+    /** Convenience for callers that don't need to share a {@link CommandExecutor}. */
+    public static StandardCliBackend claude(Duration timeout) {
+        return claude(new CommandRunner(), timeout);
+    }
+
+    public static StandardCliBackend codex(CommandExecutor commandExecutor, Duration timeout) {
+        return new StandardCliBackend(CODEX_BACKEND_ID, "codex", commandExecutor, timeout, Source.codexCliPrompt);
+    }
+
+    public static StandardCliBackend agy(CommandExecutor commandExecutor, Duration timeout) {
+        return new StandardCliBackend(AGY_BACKEND_ID, "agy", commandExecutor, timeout, Source.agyCliPrompt);
     }
 
     public BackendId backendId() {
@@ -116,10 +138,6 @@ public class StandardCliBackend implements CommandBackedAiBackend {
         }
     }
 
-    boolean supportsSystemPrompt() {
-        return false;
-    }
-
     /**
      * {@code permissionMode}/{@code outputFormat} only translate to flags for
      * {@code claude} -- confirmed live that {@code --dangerously-skip-permissions}
@@ -157,13 +175,24 @@ public class StandardCliBackend implements CommandBackedAiBackend {
 
     @Override
     public CommandBackedRun askWithResult(AiRequest request) {
+        return execute(commandExecutor, backendId, timeout, request, commandFor(request));
+    }
+
+    /**
+     * Shared subprocess execution and result/error mapping for every
+     * command-backed AI backend (claude/codex/agy here, and
+     * {@link OllamaCliBackend}) -- none currently support a system prompt,
+     * so that's rejected unconditionally rather than through a per-backend
+     * override no implementation ever set to {@code true}.
+     */
+    static CommandBackedRun execute(CommandExecutor commandExecutor, BackendId backendId, Duration timeout,
+            AiRequest request, List<String> command) {
         Objects.requireNonNull(request, "request");
-        if (request.systemPrompt().isPresent() && !supportsSystemPrompt()) {
+        if (request.systemPrompt().isPresent()) {
             throw new AiBackendUnsupportedRequestException(
                     backendId.value() + " backend does not support system prompts yet.", backendId);
         }
 
-        List<String> command = commandFor(request);
         CommandResult result;
         try {
             result = commandExecutor.run(new CommandRequest(
@@ -177,18 +206,14 @@ public class StandardCliBackend implements CommandBackedAiBackend {
             throw new AiBackendExecutionException(backendId.value() + " timed out after " + timeout, backendId, result);
         }
         if (result.exitCode() != 0) {
-            throw new AiBackendExecutionException(nonzeroExitMessage(result), backendId, result);
+            throw new AiBackendExecutionException(nonzeroExitMessage(backendId, result), backendId, result);
         }
 
-        AiResponse response = new AiResponse(
-                result.standardOutput(),
-                backendId,
-                result.duration()
-        );
+        AiResponse response = new AiResponse(result.standardOutput(), backendId, result.duration());
         return new CommandBackedRun(response, result, command);
     }
 
-    private String nonzeroExitMessage(CommandResult result) {
+    private static String nonzeroExitMessage(BackendId backendId, CommandResult result) {
         String message = backendId.value() + " exited with status " + result.exitCode();
         if (!result.standardError().isBlank()) {
             return message + ": " + result.standardError().strip();

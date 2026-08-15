@@ -23,18 +23,21 @@ import chatmap.application.port.ai.CommandBackedAiBackend;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
-import chatmap.infrastructure.ai.ClaudeCliBackend;
+import chatmap.application.port.handoff.HandoffFileStore;
+import chatmap.infrastructure.ai.StandardCliBackend;
+import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
 class HandoffOrchestratorServiceTest {
 
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC);
+    private static final HandoffFileStore FILE_STORE = new FileSystemHandoffFileStore();
 
-    /** Wraps executor in a real ClaudeCliBackend, since agent invocation now goes through AiBackend. */
+    /** Wraps executor in a real claude StandardCliBackend, since agent invocation now goes through AiBackend. */
     private static HandoffOrchestratorService newService(
             FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
         Map<String, CommandBackedAiBackend> agentBackends = Map.of(
-                "claude", new ClaudeCliBackend(executor, Duration.ofMinutes(30)));
-        return new HandoffOrchestratorService(executor, agentBackends, registry, CLOCK, autoPush);
+                "claude", StandardCliBackend.claude(executor, Duration.ofMinutes(30)));
+        return new HandoffOrchestratorService(executor, agentBackends, FILE_STORE, registry, CLOCK, autoPush);
     }
 
     @TempDir
@@ -65,7 +68,7 @@ class HandoffOrchestratorServiceTest {
         Files.writeString(archiveDir.resolve("old.md"), "---\nagent: claude\nbranch: b\n---\nold\n");
         Path b = writeTask(other, "b.md", "codex", "b2", "body");
 
-        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox);
+        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox, FILE_STORE);
 
         assertEquals(List.of(a, b).stream()
                 .sorted(java.util.Comparator.comparing(Path::toString)).toList(), found);
@@ -78,7 +81,7 @@ class HandoffOrchestratorServiceTest {
         Files.writeString(chatmapDir.resolve("failure-report-test.md"), "some failure report content");
         Files.writeString(chatmapDir.resolve("template.md"), "template content");
 
-        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox);
+        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox, FILE_STORE);
 
         assertEquals(List.of(validTask), found);
     }

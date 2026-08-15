@@ -1,9 +1,5 @@
 package chatmap.application.service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
@@ -13,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.nio.file.Path;
 
 import org.slf4j.Logger;
 
@@ -26,6 +23,8 @@ import chatmap.application.port.command.CommandExecutionException;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
+import chatmap.application.port.handoff.HandoffFileStore;
+import chatmap.application.port.handoff.HandoffFileStoreException;
 import chatmap.application.support.Log;
 import chatmap.domain.HandoffTask;
 
@@ -84,6 +83,7 @@ public final class HandoffOrchestratorService {
 
     private final CommandExecutor commandExecutor;
     private final Map<String, CommandBackedAiBackend> agentBackends;
+    private final HandoffFileStore fileStore;
     private final Map<String, Path> projectRegistry;
     private final Clock clock;
     private final boolean autoPush;
@@ -91,11 +91,13 @@ public final class HandoffOrchestratorService {
     public HandoffOrchestratorService(
             CommandExecutor commandExecutor,
             Map<String, CommandBackedAiBackend> agentBackends,
+            HandoffFileStore fileStore,
             Map<String, Path> projectRegistry,
             Clock clock,
             boolean autoPush) {
         this.commandExecutor = Objects.requireNonNull(commandExecutor, "commandExecutor");
         this.agentBackends = Map.copyOf(Objects.requireNonNull(agentBackends, "agentBackends"));
+        this.fileStore = Objects.requireNonNull(fileStore, "fileStore");
         this.projectRegistry = Map.copyOf(Objects.requireNonNull(projectRegistry, "projectRegistry"));
         this.clock = Objects.requireNonNull(clock, "clock");
         this.autoPush = autoPush;
@@ -116,7 +118,7 @@ public final class HandoffOrchestratorService {
             return List.of();
         }
 
-        List<Path> taskFiles = scanForTaskFiles(inboxRepo);
+        List<Path> taskFiles = scanForTaskFiles(inboxRepo, fileStore);
         LOG.info("Found {} handoff task file(s) in {}", taskFiles.size(), inboxRepo);
 
         List<HandoffRunResult> results = new ArrayList<>();
@@ -137,22 +139,16 @@ public final class HandoffOrchestratorService {
      * iteration order.
      */
     
-    static List<Path> scanForTaskFiles(Path inboxRepo) {
-        try (var projectDirs = Files.list(inboxRepo)) {
-            List<Path> files = new ArrayList<>();
-            for (Path projectDir : projectDirs.filter(Files::isDirectory)
-                    .filter(HandoffOrchestratorService::isNotHidden).toList()) {
-                try (var entries = Files.list(projectDir)) {
-                    entries.filter(Files::isRegularFile)
-                            .filter(HandoffOrchestratorService::isEligibleTaskFile)
-                            .forEach(files::add);
-                }
-            }
-            files.sort(Comparator.comparing(Path::toString));
-            return files;
-        } catch (IOException failure) {
-            throw new UncheckedIoOrchestratorException("Could not scan inbox " + inboxRepo, failure);
+    static List<Path> scanForTaskFiles(Path inboxRepo, HandoffFileStore fileStore) {
+        List<Path> files = new ArrayList<>();
+        for (Path projectDir : fileStore.listDirectories(inboxRepo).stream()
+                .filter(HandoffOrchestratorService::isNotHidden).toList()) {
+            fileStore.listFiles(projectDir).stream()
+                    .filter(HandoffOrchestratorService::isEligibleTaskFile)
+                    .forEach(files::add);
         }
+        files.sort(Comparator.comparing(Path::toString));
+        return files;
     }
 
     /** Every file passed here comes from {@link #scanForTaskFiles}, so both levels always exist in practice. */
@@ -184,8 +180,8 @@ public final class HandoffOrchestratorService {
 
         HandoffTask task;
         try {
-            task = HandoffTaskParser.parse(file, projectKey, Files.readString(file));
-        } catch (HandoffTaskParseException | IOException parseFailure) {
+            task = HandoffTaskParser.parse(file, projectKey, fileStore.readString(file));
+        } catch (HandoffTaskParseException | HandoffFileStoreException parseFailure) {
             LOG.warn("Could not parse handoff file {}: {}", file, parseFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not parse handoff file: " + parseFailure.getMessage());
@@ -198,7 +194,7 @@ public final class HandoffOrchestratorService {
                     "No configured target project path for project key '" + projectKey + "'.");
         }
 
-        Path worktree = allocateWorktreePath(task.branch());
+        Path worktree = fileStore.allocateWorktreeDirectory(task.branch());
         LOG.debug("Allocated worktree {} for branch {} of {}", worktree, task.branch(), targetRepo);
         boolean preserveWorktree = false;
         try {
@@ -245,7 +241,7 @@ public final class HandoffOrchestratorService {
             LOG.warn("Could not run a required git command for {}: {}", file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not run a required git command: " + executionFailure.getMessage());
-        } catch (UncheckedIoOrchestratorException archiveFailure) {
+        } catch (HandoffFileStoreException archiveFailure) {
             LOG.warn("Could not finalize handoff task {}: {}", file, archiveFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not finalize handoff task: " + archiveFailure.getMessage());
@@ -260,21 +256,6 @@ public final class HandoffOrchestratorService {
         }
     }
 
-    private Path allocateWorktreePath(String branch) {
-        try {
-            Path placeholder = Files.createTempDirectory("chatmap-handoff-" + sanitize(branch) + "-");
-            // git worktree add requires the target path not already exist.
-            Files.delete(placeholder);
-            return placeholder;
-        } catch (IOException failure) {
-            throw new UncheckedIoOrchestratorException("Could not allocate a worktree path", failure);
-        }
-    }
-
-    private static String sanitize(String branch) {
-        return branch.replaceAll("[^A-Za-z0-9._-]", "-");
-    }
-
     private CommandResult addWorktree(Path targetRepo, Path worktree, String branch) {
         CommandResult branchExists = git(targetRepo, "show-ref", "--verify", "--quiet", "refs/heads/" + branch);
         if (branchExists.exitCode() == 0) {
@@ -285,21 +266,7 @@ public final class HandoffOrchestratorService {
 
     private void removeWorktree(Path targetRepo, Path worktree) {
         git(targetRepo, "worktree", "remove", "--force", worktree.toString());
-        try {
-            if (Files.exists(worktree)) {
-                deleteRecursively(worktree);
-            }
-        } catch (IOException ignored) {
-            // Best-effort: a leftover temp directory is not worth failing the run over.
-        }
-    }
-
-    private static void deleteRecursively(Path root) throws IOException {
-        try (var paths = Files.walk(root)) {
-            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(path);
-            }
-        }
+        fileStore.deleteRecursively(worktree);
     }
 
     private HandoffRunResult recordSuccess(Path inboxRepo, Path file, HandoffTask task, Path worktree,
@@ -321,7 +288,7 @@ public final class HandoffOrchestratorService {
             }
         }
 
-        Path archived = archive(file);
+        Path archived = fileStore.archive(file, ARCHIVE_SUBDIR);
         writeResultFile(archived, task, agentResult);
         git(inboxRepo, "add", "-A");
         CommandResult archiveCommitResult = git(inboxRepo, "commit", "-m",
@@ -371,8 +338,8 @@ public final class HandoffOrchestratorService {
                 + "## Output\n\n"
                 + agentResult.standardOutput();
         try {
-            Files.writeString(resultPath, content);
-        } catch (IOException failure) {
+            fileStore.writeString(resultPath, content);
+        } catch (HandoffFileStoreException failure) {
             // Best-effort: the task itself already succeeded, so a result-file write
             // failure shouldn't take down the whole poll run -- log and move on.
             LOG.warn("Could not write agent result file {}: {}", resultPath, failure.getMessage());
@@ -403,8 +370,8 @@ public final class HandoffOrchestratorService {
             report += "\n## Agent Output\n\n" + agentResult.standardOutput() + "\n";
         }
         try {
-            Files.writeString(reportPath, report);
-        } catch (IOException writeFailure) {
+            fileStore.writeString(reportPath, report);
+        } catch (HandoffFileStoreException writeFailure) {
             // The failure report itself couldn't be written; the original reason is still
             // the useful signal here, so surface both rather than throwing past the caller.
             return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure,
@@ -429,25 +396,6 @@ public final class HandoffOrchestratorService {
         return taskFile.resolveSibling("failure-report-" + baseName + "-" + stamp + ".md");
     }
 
-    private Path archive(Path file) {
-        Path parent = file.getParent();
-        Path fileName = file.getFileName();
-        if (parent == null || fileName == null) {
-            throw new UncheckedIoOrchestratorException(
-                    "File has no parent directory or file name to archive: " + file,
-                    new IOException("not archivable: " + file));
-        }
-        try {
-            Path archiveDir = parent.resolve(ARCHIVE_SUBDIR);
-            Files.createDirectories(archiveDir);
-            Path destination = archiveDir.resolve(fileName);
-            Files.move(file, destination, StandardCopyOption.REPLACE_EXISTING);
-            return destination;
-        } catch (IOException failure) {
-            throw new UncheckedIoOrchestratorException("Could not archive " + file, failure);
-        }
-    }
-
     private static String relativeName(Path root, Path file) {
         try {
             return root.relativize(file).toString().replace('\\', '/');
@@ -466,13 +414,6 @@ public final class HandoffOrchestratorService {
         command.add("git");
         command.addAll(List.of(args));
         return commandExecutor.run(new CommandRequest(command, "", GIT_TIMEOUT, workingDirectory));
-    }
-
-    /** Wraps an unexpected {@link IOException} from filesystem scanning/cleanup as unchecked. */
-    static final class UncheckedIoOrchestratorException extends RuntimeException {
-        UncheckedIoOrchestratorException(String message, IOException cause) {
-            super(message, cause);
-        }
     }
 
     /** Signals a worktree commit failure so {@link #processOne} can preserve the worktree instead of destroying it. */

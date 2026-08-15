@@ -33,6 +33,18 @@ public interface ChatProvider {
     /**
      * Metadata-only conversation discovery. Implementations should avoid reading
      * full transcripts here; failures are isolated by the inventory service.
+     *
+     * <p>Two signaling styles coexist here, both deliberate: local CLI-history
+     * providers throw {@link ChatProviderException} on a genuine I/O failure
+     * (e.g. session files unreadable), since there's nothing else useful to
+     * report. Live web providers never throw from here -- an unreachable CDP
+     * endpoint or an incomplete scroll returns an empty list instead, with the
+     * reason surfaced through {@link #inventoryComplete()} and
+     * {@link #inventoryDiagnostic()} rather than an exception, since those
+     * already carry a richer "how much of the history did we actually see"
+     * signal that a thrown exception would only replace with less
+     * information. Callers that want to catch every unavailability case, not
+     * just the local-CLI kind, must check both.</p>
      */
     default List<ConversationCandidate> listChats() throws ChatProviderException {
         return latestChat()
@@ -51,12 +63,23 @@ public interface ChatProvider {
                 new NoImportableContentException("Provider has no fetchable chat for " + candidate));
     }
 
-    /** Whether {@link #listChats()} is known to cover the provider's complete history. */
+    /**
+     * Whether {@link #listChats()} is known to cover the provider's complete
+     * history. For live web providers this is also how an unreachable
+     * endpoint surfaces (see {@link #listChats()}) -- {@code false} here plus
+     * a reason in {@link #inventoryDiagnostic()} may mean "incomplete scroll"
+     * or "couldn't connect at all," not just "more chats exist than we saw."
+     */
     default boolean inventoryComplete() {
         return true;
     }
 
-    /** Concise provider-specific limitation or last unavailable reason for inventory reports. */
+    /**
+     * Concise provider-specific limitation or last unavailable reason for
+     * inventory reports; read this alongside {@link #inventoryComplete()}
+     * for the live web providers that signal unavailability this way instead
+     * of throwing from {@link #listChats()}.
+     */
     default Optional<String> inventoryDiagnostic() {
         return Optional.empty();
     }

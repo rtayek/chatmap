@@ -30,7 +30,7 @@ import chatmap.domain.Tag;
 import chatmap.application.port.ai.AiBackend;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
-import chatmap.infrastructure.ai.ClaudeCliBackend;
+import chatmap.infrastructure.ai.StandardCliBackend;
 import chatmap.application.model.ChatExportModel;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ConversationInventoryService;
@@ -74,7 +74,7 @@ class ChatMapControllerTest {
         ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), tags,
-                new ClaudeCliBackend(java.time.Duration.ofMinutes(3)));
+                StandardCliBackend.claude(java.time.Duration.ofMinutes(3)));
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(java.util.List.of(), importService, chats);
         controller = new ChatMapController(
@@ -180,7 +180,7 @@ class ChatMapControllerTest {
                 projectService,
                 tagService,
                 new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
-                        new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
+                        StandardCliBackend.claude(java.time.Duration.ofMinutes(3))),
                 new LiveChatFetchService(List.of(provider), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
                 null,
                 new ConversationInventoryService(List.of(provider), chats));
@@ -212,7 +212,7 @@ class ChatMapControllerTest {
                 projectService,
                 tagService,
                 new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
-                        new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
+                        StandardCliBackend.claude(java.time.Duration.ofMinutes(3))),
                 new LiveChatFetchService(List.of(), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
                 null,
                 null,
@@ -345,7 +345,7 @@ class ChatMapControllerTest {
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,
-                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn), new ClaudeCliBackend(java.time.Duration.ofMinutes(3))),
+                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn), StandardCliBackend.claude(java.time.Duration.ofMinutes(3))),
                 slowFetchService);
 
         java.util.concurrent.CompletableFuture<ChatListState.Snapshot> fetchTask =
