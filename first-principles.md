@@ -336,7 +336,7 @@ Everything else exists to support that goal.
 
 # One Sentence Summary
 
-ChatMap exists to transform transient conversations into durable, connected, reviewable knowledge while preserving the provenance of every idea.
+ChatMap is in the business of mining scattered conversations for the durable, connected, reviewable knowledge buried inside them, while preserving the provenance of every idea.
 
 ---
 
@@ -353,3 +353,40 @@ every capability itself.
 
 This principle keeps the direction flexible without committing the project to
 any particular external implementation, rewrite, or platform.
+
+---
+
+# Principle 17
+
+## ChatMap is in the Business of Content Mining
+
+Storing and organizing conversations is necessary, but it is substrate, not
+the purpose.
+
+The purpose is mining: finding and extracting the structure, decisions, and
+connections buried inside scattered conversations.
+
+This reframes earlier principles under one identity rather than a list of
+unrelated features:
+
+- extracting atomic knowledge units (Principle 3) is mining within a single
+  conversation
+- discovering relationships between knowledge (Principle 11) is mining across
+  conversations
+- recognizing that two chats are really one conversation, continued in a
+  different tool, is also mining across conversations
+
+Future work should be evaluated by which of two roles it plays:
+
+```text
+Substrate  — stores or organizes what has already been found
+             (chats, messages, tags, facets, projects)
+
+Capability — finds or extracts structure that was not already explicit
+             (facet suggestion, cross-chat link detection, semantic
+             extraction)
+```
+
+Substrate work is often a prerequisite for capability work, but it is not a
+substitute for it. A growing pile of well-organized transcripts is not, by
+itself, progress toward the mining goal.
