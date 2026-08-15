@@ -32,5 +32,7 @@ public class Facets {
 		for (Facet facet : chat.facets) {
 			System.out.println(facet.getClass().getSimpleName() + "." + facet);
 		}
+		
+		System.out.println(chat.chat);
 	}
 }
