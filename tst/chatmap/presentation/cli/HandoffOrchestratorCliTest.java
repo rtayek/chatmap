@@ -1,10 +1,12 @@
 package chatmap.presentation.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.util.Properties;
 
 import org.junit.jupiter.api.Test;
 
@@ -65,5 +67,38 @@ class HandoffOrchestratorCliTest {
     void unknownFlagReturnsNull() {
         assertNull(HandoffOrchestratorCli.parse(
                 new String[] {"--inbox", "in", "--registry", "reg", "--bogus"}, NO_DEFAULTS));
+    }
+
+    @Test
+    void autoPushDefaultsToTrueWhenNotSpecifiedInProperties() {
+        Properties properties = new Properties();
+        properties.setProperty("inbox", "in");
+        properties.setProperty("registry", "reg.properties");
+
+        Options options = HandoffOrchestratorCli.optionsFromProperties(properties);
+
+        assertTrue(options.autoPush());
+    }
+
+    @Test
+    void autoPushExplicitFalseInPropertiesIsHonored() {
+        Properties properties = new Properties();
+        properties.setProperty("inbox", "in");
+        properties.setProperty("registry", "reg.properties");
+        properties.setProperty("autoPush", "false");
+
+        Options options = HandoffOrchestratorCli.optionsFromProperties(properties);
+
+        assertFalse(options.autoPush());
+    }
+
+    @Test
+    void autoPushExplicitTrueInPropertiesIsHonored() {
+        Properties properties = new Properties();
+        properties.setProperty("autoPush", "true");
+
+        Options options = HandoffOrchestratorCli.optionsFromProperties(properties);
+
+        assertTrue(options.autoPush());
     }
 }

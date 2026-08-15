@@ -208,7 +208,10 @@ class HandoffOrchestratorServiceTest {
         HandoffRunResult result = results.get(0);
         assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
         assertTrue(result.detail().contains("git commit failed in worktree"), result.detail());
+        assertTrue(result.detail().contains("preserved"), result.detail());
         assertTrue(Files.exists(task), "the agent's work wasn't safely committed, so the task must not be archived away");
+        assertFalse(executor.calledWithPrefix("git worktree remove"),
+                "the worktree must be preserved for manual recovery, not force-removed, when its commit fails");
     }
 
     @Test

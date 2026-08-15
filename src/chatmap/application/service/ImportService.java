@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import chatmap.application.port.persistence.ChatStore;
@@ -70,6 +72,43 @@ public final class ImportService {
 
     public PersistResult persist(ImportedChat imported) throws SQLException {
         return transactions.inTransaction(() -> persistInTransaction(imported));
+    }
+
+    /**
+     * Appends {@code newMessages} to the chat already identified by
+     * {@code (chatTemplate.source(), chatTemplate.externalConversationId())},
+     * preserving its existing messages and title. Unlike {@link #persist},
+     * which replaces the whole message set whenever the incoming content hash
+     * differs (correct for a re-imported file that IS the full transcript
+     * each time), this is for incrementally building up one conversation
+     * turn by turn. Creates a new chat via {@link #persist} if none exists
+     * yet for that identity.
+     */
+    public PersistResult appendToConversation(Chat chatTemplate, List<Message> newMessages) throws SQLException {
+        return transactions.inTransaction(() -> appendInTransaction(chatTemplate, newMessages));
+    }
+
+    private PersistResult appendInTransaction(Chat chatTemplate, List<Message> newMessages) throws SQLException {
+        String externalConversationId = Objects.requireNonNull(chatTemplate.externalConversationId(),
+                "chatTemplate must carry an externalConversationId");
+        Optional<Chat> existing = chats.findByExternalIdentity(chatTemplate.source(), externalConversationId);
+        if (existing.isEmpty()) {
+            return persistInTransaction(new ImportedChat(chatTemplate, newMessages));
+        }
+
+        Chat stored = existing.get();
+        int nextSequence = messages.findByChat(stored.id()).stream().mapToInt(Message::sequence).max().orElse(-1) + 1;
+        List<Message> sequenced = new ArrayList<>();
+        for (int i = 0; i < newMessages.size(); i++) {
+            Message m = newMessages.get(i);
+            sequenced.add(new Message(0, 0, m.role(), m.text(), nextSequence + i, m.timestamp(), m.rawJson()));
+        }
+        insertMessages(stored.id(), sequenced);
+
+        String touchedAt = sequenced.isEmpty() ? stored.updatedAt() : sequenced.getLast().timestamp();
+        Chat updated = chats.updateImportMetadata(stored.id(), stored.title(), stored.sourceUri(),
+                stored.contentHash(), touchedAt, touchedAt);
+        return new PersistResult(updated, Outcome.updated);
     }
 
     private PersistResult persistInTransaction(ImportedChat imported) throws SQLException {

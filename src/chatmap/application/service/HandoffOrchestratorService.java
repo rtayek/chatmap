@@ -33,21 +33,22 @@ import chatmap.domain.HandoffTask;
  * <p><b>Design decisions made without further confirmation, per this
  * feature's own "decide and document" instruction:</b>
  * <ul>
- *   <li><b>Push is opt-in.</b> {@code autoPush=false} (the constructor
- *   default used by the CLI) commits locally in both the target project's
- *   worktree and the inbox repo but never runs {@code git push} anywhere,
- *   including for failure reports. This was chosen as the most literal
- *   reading of "I'll ask before any push." The practical cost: until
- *   {@code autoPush} is enabled (or pushes are flushed some other way),
- *   failure reports do not reach GitHub and therefore do not sync to the
- *   phone -- the notification loop this feature exists for is inert by
- *   default. Each {@link HandoffRunResult#pushPending()} flags this so a
- *   caller can surface it clearly rather than silently.</li>
+ *   <li><b>Push follows the caller's {@code autoPush} flag.</b> The CLI
+ *   defaults this to on when driven by its properties-file config (opt
+ *   back out with {@code autoPush=false} there), and to off for explicit
+ *   runs without {@code --auto-push}. Either way, every run commits
+ *   locally in both the target project's worktree and the inbox repo
+ *   regardless of the push setting. Each {@link HandoffRunResult#pushPending()}
+ *   flags whether that commit still needs pushing, so a caller can
+ *   surface it clearly rather than silently.</li>
  *   <li><b>Worktree branch handling.</b> {@code git worktree add} is tried
- *   first assuming the branch already exists; on failure it is retried with
- *   {@code -b} to create the branch fresh off the target repo's current
- *   HEAD, since the inbox template's {@code branch: feature-} suggests
- *   branches are typically new, per-task names.</li>
+ *   first assuming the branch already exists (checked via
+ *   {@code git show-ref}); otherwise it's created fresh off the target
+ *   repo's current HEAD with {@code -b}, since the inbox template's
+ *   {@code branch: feature-} suggests branches are typically new,
+ *   per-task names. If the worktree's own commit fails, the worktree is
+ *   preserved on disk (not force-removed) so the agent's uncommitted work
+ *   can be recovered manually.</li>
  *   <li><b>"Remove or archive the source handoff file" -&gt; archive.</b> On
  *   success the task file is moved to an {@code archive/} subfolder inside
  *   its same project folder in the inbox repo (matching this project's own
@@ -190,6 +191,7 @@ public final class HandoffOrchestratorService {
 
         Path worktree = allocateWorktreePath(task.branch());
         LOG.debug("Allocated worktree {} for branch {} of {}", worktree, task.branch(), targetRepo);
+        boolean preserveWorktree = false;
         try {
             CommandResult worktreeResult = addWorktree(targetRepo, worktree, task.branch());
             if (worktreeResult.exitCode() != 0) {
@@ -215,6 +217,12 @@ public final class HandoffOrchestratorService {
             }
 
             return recordSuccess(inboxRepo, file, task, worktree, agentResult);
+        } catch (WorktreeCommitFailedException commitFailure) {
+            // The agent's edits are sitting uncommitted in the worktree -- force-removing
+            // it here would destroy them permanently, so leave it for manual recovery.
+            preserveWorktree = true;
+            return recordFailure(inboxRepo, file, projectKey,
+                    commitFailure.getMessage() + " Worktree preserved at " + worktree + " for manual recovery.");
         } catch (CommandExecutionException executionFailure) {
             LOG.warn("Could not run {} for {}: {}", task.agent(), file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
@@ -224,8 +232,13 @@ public final class HandoffOrchestratorService {
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not finalize handoff task: " + archiveFailure.getMessage());
         } finally {
-            removeWorktree(targetRepo, worktree);
-            LOG.debug("Removed worktree {}", worktree);
+            if (preserveWorktree) {
+                LOG.warn("Preserving worktree {} instead of removing it so the commit failure can be recovered manually",
+                        worktree);
+            } else {
+                removeWorktree(targetRepo, worktree);
+                LOG.debug("Removed worktree {}", worktree);
+            }
         }
     }
 
@@ -302,11 +315,8 @@ public final class HandoffOrchestratorService {
             git(worktree, "add", "-A");
             CommandResult commitResult = git(worktree, "commit", "-m", "Handoff: " + task.branch());
             if (commitResult.exitCode() != 0) {
-                // Nothing has been archived yet, so `file` is still the real source
-                // path -- safe to route through the normal failure path.
-                return recordFailure(inboxRepo, file, task.projectKey(),
-                        "git commit failed in worktree for branch " + task.branch() + ": "
-                                + commitResult.standardError().strip());
+                throw new WorktreeCommitFailedException("git commit failed in worktree for branch "
+                        + task.branch() + ": " + commitResult.standardError().strip());
             }
             if (autoPush) {
                 CommandResult pushResult = git(worktree, "push", "-u", "origin", task.branch());
@@ -467,6 +477,13 @@ public final class HandoffOrchestratorService {
     static final class UncheckedIoOrchestratorException extends RuntimeException {
         UncheckedIoOrchestratorException(String message, IOException cause) {
             super(message, cause);
+        }
+    }
+
+    /** Signals a worktree commit failure so {@link #processOne} can preserve the worktree instead of destroying it. */
+    static final class WorktreeCommitFailedException extends RuntimeException {
+        WorktreeCommitFailedException(String message) {
+            super(message);
         }
     }
 }

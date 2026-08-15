@@ -22,9 +22,11 @@ import chatmap.application.service.HandoffRunResult;
  * other CLI here, this tool has nothing to do with ChatMap's own database or
  * {@code CHATMAP_HOME}; it drives arbitrary other project repositories.
  *
- * Push is off by default ({@code --auto-push} to enable): every run commits
- * locally in whichever repos it touches but leaves pushing for a human to
- * trigger deliberately, until that's been watched to work correctly.
+ * Push defaults to on when driven by {@value #DEFAULT_CONFIG} (set
+ * {@code autoPush=false} there to opt back out); with no config file, an
+ * explicit run needs {@code --auto-push} to enable it. Either way, every
+ * run commits locally in whichever repos it touches regardless of the
+ * push setting.
  *
  * {@code --inbox}/{@code --registry} may be omitted if
  * {@value #DEFAULT_CONFIG} (relative to the working directory, gitignored
@@ -108,6 +110,11 @@ public final class HandoffOrchestratorCli {
         try (InputStream in = java.nio.file.Files.newInputStream(configFile)) {
             properties.load(in);
         }
+        return optionsFromProperties(properties);
+    }
+
+    /** Package-private for direct testing without touching the filesystem. */
+    static Options optionsFromProperties(Properties properties) {
         String inbox = properties.getProperty("inbox");
         String registry = properties.getProperty("registry");
         String interval = properties.getProperty("interval");
@@ -115,7 +122,7 @@ public final class HandoffOrchestratorCli {
                 inbox == null ? null : Path.of(inbox),
                 registry == null ? null : Path.of(registry),
                 interval == null ? null : Long.parseLong(interval),
-/*hack*/        true); //Boolean.parseBoolean(properties.getProperty("autoPush", "false")));
+                Boolean.parseBoolean(properties.getProperty("autoPush", "true")));
     }
 
     /** Parses CLI flags, falling back field-by-field to {@code defaults} for anything not given explicitly. */

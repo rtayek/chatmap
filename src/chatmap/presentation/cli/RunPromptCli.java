@@ -13,20 +13,25 @@ import chatmap.application.service.PromptService;
 /** Executable CLI entry point for running prompts against AI backends and recording chats in SQLite. */
 public final class RunPromptCli {
 
+    private static final String USAGE = "Usage: runPrompt [--home <directory>] <backendId> [--session <id>] <prompt>";
+
     public static void main(String[] args) {
+        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);
+        RunPromptArguments promptArguments;
         try {
-            ParsedArguments parsedArguments = CliBootstrap.parse(args);
-            RunPromptArguments promptArguments = parsePromptArguments(parsedArguments);
+            promptArguments = parsePromptArguments(parsedArguments);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            CliBootstrap.exitWithUsage(USAGE);
+            return;
+        }
+        try {
             PromptResult result = execute(
                     parsedArguments, promptArguments, DefaultServiceIntegrations.promptBackends(), Clock.systemUTC());
             System.out.println("Backend: " + result.backendLabel());
             result.transcript().ifPresent(path -> System.out.println("Transcript: " + path));
             System.out.println("----------------------------------------");
             System.out.println(result.response());
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            printUsage();
-            System.exit(1);
         } catch (Exception e) {
             System.err.println("Could not run prompt: " + e.getMessage());
             System.exit(1);
@@ -64,7 +69,7 @@ public final class RunPromptCli {
     private static RunPromptArguments parsePromptArguments(ParsedArguments parsedArguments) {
         List<String> remaining = parsedArguments.remainingArgs();
         if (remaining.size() < 2) {
-            throw new IllegalArgumentException("Usage: runPrompt [--home <directory>] <backendId> [--session <id>] <prompt>");
+            throw new IllegalArgumentException("Expected a backend id and a prompt.");
         }
 
         String backendId = remaining.get(0);
@@ -78,10 +83,6 @@ public final class RunPromptCli {
             prompt = String.join(" ", remaining.subList(1, remaining.size()));
         }
         return new RunPromptArguments(backendId, sessionId, prompt);
-    }
-
-    private static void printUsage() {
-        System.err.println("Usage: runPrompt [--home <directory>] <backendId> [--session <id>] <prompt>");
     }
 
     private record RunPromptArguments(String backendId, String sessionId, String prompt) {

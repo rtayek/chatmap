@@ -114,23 +114,35 @@ public final class PromptService {
         String backendId = response.backendId().value();
 
         if (importService != null) {
-            recordInDatabase(backend, prompt, responseText, started);
+            recordInDatabase(backend, prompt, responseText, started, sessionId);
         }
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
         return new PromptResult(backendId, responseText, transcriptPath);
     }
 
-    private void recordInDatabase(AiBackend backend, String prompt, String responseText, Instant started)
-            throws SQLException {
+    /**
+     * Records the exchange. When {@code sessionId} is present, appends to the
+     * chat already identified by {@code (source, sessionId)} so repeated
+     * turns in one provider session extend a single chat instead of each
+     * becoming its own; with no session id, every call still creates a new
+     * chat, since there is no external session to key on.
+     */
+    private void recordInDatabase(AiBackend backend, String prompt, String responseText, Instant started,
+            String sessionId) throws SQLException {
         String now = started.toString();
         Source source = backend != null ? backend.source() : Source.plainText;
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
         Chat chat = new Chat(0L, null, source, title, now, now, now, false, chatmap.domain.ChatOrigin.generated);
         Message userMsg = new Message(0L, 0L, chatmap.domain.MessageRole.user, prompt, 0, now, null);
         Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);
+        List<Message> messages = List.of(userMsg, assistantMsg);
 
-        importService.persist(new ImportedChat(chat, List.of(userMsg, assistantMsg)));
+        if (sessionId != null && !sessionId.isBlank()) {
+            importService.appendToConversation(chat.toBuilder().externalConversationId(sessionId).build(), messages);
+        } else {
+            importService.persist(new ImportedChat(chat, messages));
+        }
     }
 
     private Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {

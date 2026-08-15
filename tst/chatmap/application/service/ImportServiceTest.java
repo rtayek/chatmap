@@ -140,6 +140,46 @@ class ImportServiceTest {
     }
 
     @Test
+    void appendToConversationCreatesNewChatWhenIdentityDoesNotExistYet() throws Exception {
+        Chat template = providerChat(Source.claudeCliPrompt, "session-new", null, "First turn",
+                List.of()).chat();
+        List<Message> firstTurn = List.of(
+                new Message(0, 0, MessageRole.user, "First turn", 0, null, null),
+                new Message(0, 0, MessageRole.assistant, "First answer", 1, null, null));
+
+        PersistResult result = importService.appendToConversation(template, firstTurn);
+
+        assertEquals(Outcome.inserted, result.outcome());
+        assertEquals(1, chats.findAll().size());
+        assertEquals(List.of("First turn", "First answer"), messageTexts(result.chat().id()));
+    }
+
+    @Test
+    void appendToConversationPreservesExistingMessagesAndTitleOnSecondTurn() throws Exception {
+        Chat template = providerChat(Source.claudeCliPrompt, "session-existing", null, "First turn",
+                List.of()).chat();
+        List<Message> firstTurn = List.of(
+                new Message(0, 0, MessageRole.user, "First turn", 0, null, null),
+                new Message(0, 0, MessageRole.assistant, "First answer", 1, null, null));
+        PersistResult first = importService.appendToConversation(template, firstTurn);
+
+        Chat secondTemplate = providerChat(Source.claudeCliPrompt, "session-existing", null, "Second turn",
+                List.of()).chat();
+        List<Message> secondTurn = List.of(
+                new Message(0, 0, MessageRole.user, "Second turn", 0, null, null),
+                new Message(0, 0, MessageRole.assistant, "Second answer", 1, null, null));
+        PersistResult second = importService.appendToConversation(secondTemplate, secondTurn);
+
+        assertEquals(Outcome.updated, second.outcome());
+        assertEquals(first.chat().id(), second.chat().id());
+        assertEquals(1, chats.findAll().size());
+        assertEquals("First turn", chats.findById(first.chat().id()).orElseThrow().title(),
+                "the second turn's title must not overwrite the first turn's");
+        assertEquals(List.of("First turn", "First answer", "Second turn", "Second answer"),
+                messageTexts(first.chat().id()));
+    }
+
+    @Test
     void titleOnlyProviderRefreshKeepsMessagesAndReportsUnchanged() throws Exception {
         PersistResult first = importService.persist(providerChat(Source.claudeWeb, "claude-title",
                 "https://claude.ai/chat/claude-title", "Old source title", List.of("same text")));
