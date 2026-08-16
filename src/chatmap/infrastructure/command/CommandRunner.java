@@ -39,8 +39,8 @@ public final class CommandRunner implements CommandExecutor {
         }
 
         try (ExecutorService streamReaders = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream(), System.out));
-            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream(), System.err));
+            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream(), request.stdoutTee()));
+            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream(), request.stderrTee()));
 
             boolean timedOut = false;
             int exitCode = -1;
@@ -79,10 +79,26 @@ public final class CommandRunner implements CommandExecutor {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         byte[] buffer = new byte[8192];
         int bytesRead;
+        int totalInMemory = 0;
+        int memoryLimit = 4 * 1024 * 1024; // 4MB maximum string length in memory
+        boolean truncated = false;
+        
         while ((bytesRead = inputStream.read(buffer)) != -1) {
-            output.write(buffer, 0, bytesRead);
-            teeStream.write(buffer, 0, bytesRead);
-            teeStream.flush();
+            if (totalInMemory < memoryLimit) {
+                int toWrite = Math.min(bytesRead, memoryLimit - totalInMemory);
+                output.write(buffer, 0, toWrite);
+                totalInMemory += toWrite;
+                if (totalInMemory >= memoryLimit) {
+                    truncated = true;
+                }
+            }
+            if (teeStream != null) {
+                teeStream.write(buffer, 0, bytesRead);
+                teeStream.flush();
+            }
+        }
+        if (truncated) {
+            output.write("\n... [output truncated in memory to prevent OutOfMemoryError]\n".getBytes(StandardCharsets.UTF_8));
         }
         return output.toString(StandardCharsets.UTF_8);
     }
