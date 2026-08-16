@@ -9,8 +9,7 @@ public record CommandRequest(
         List<String> command,
         String standardInput,
         Duration timeout,
-        Path workingDirectory,
-        Path outputSink
+        Path workingDirectory
 ) {
     public CommandRequest {
         Objects.requireNonNull(command, "command");
@@ -25,12 +24,8 @@ public record CommandRequest(
         }
     }
 
-    public CommandRequest(List<String> command, String standardInput, Duration timeout, Path workingDirectory) {
-        this(command, standardInput, timeout, workingDirectory, null);
-    }
-
     /** Runs in the current process's own working directory, same as before this field existed. */
     public CommandRequest(List<String> command, String standardInput, Duration timeout) {
-        this(command, standardInput, timeout, null, null);
+        this(command, standardInput, timeout, null);
     }
 }

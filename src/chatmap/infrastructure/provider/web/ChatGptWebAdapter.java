@@ -316,15 +316,17 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
     private static long retryDelayMillis(JsonObject response, int retry) {
         String retryAfter = stringField(response, "retryAfter");
         if (retryAfter != null) {
+            boolean retryAfterWasMalformed = false;
             try {
                 double seconds = Double.parseDouble(retryAfter.strip());
                 long delay = (long) Math.ceil(seconds * 1000);
                 if (delay >= 0 && delay <= MAX_RETRY_DELAY_MILLIS) {
                     return delay;
                 }
-            } catch (NumberFormatException ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
-        }
+                retryAfterWasMalformed = true;
+            } catch (NumberFormatException notDeltaSeconds) {
+                retryAfterWasMalformed = true;
+            }
             try {
                 long delay = java.time.ZonedDateTime.parse(
                         retryAfter, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
@@ -332,9 +334,13 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
                 if (delay >= 0 && delay <= MAX_RETRY_DELAY_MILLIS) {
                     return delay;
                 }
-            } catch (java.time.DateTimeException ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
-        }
+                retryAfterWasMalformed = true;
+            } catch (java.time.DateTimeException notHttpDate) {
+                retryAfterWasMalformed = true;
+            }
+            if (retryAfterWasMalformed) {
+                LOG.trace("Ignoring malformed or unreasonable Retry-After value: {}", retryAfter);
+            }
         }
         return Math.min(PAGE_DELAY_MILLIS * (1L << Math.min(retry, 3)), MAX_RETRY_DELAY_MILLIS);
     }

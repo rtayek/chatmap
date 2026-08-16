@@ -39,8 +39,8 @@ public final class CommandRunner implements CommandExecutor {
         }
 
         try (ExecutorService streamReaders = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream(), System.out, request.outputSink()));
-            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream(), System.err, null));
+            Future<String> stdout = streamReaders.submit(() -> readUtf8(process.getInputStream(), System.out));
+            Future<String> stderr = streamReaders.submit(() -> readUtf8(process.getErrorStream(), System.err));
 
             boolean timedOut = false;
             int exitCode = -1;
@@ -75,39 +75,14 @@ public final class CommandRunner implements CommandExecutor {
         }
     }
 
-    private static String readUtf8(InputStream inputStream, java.io.PrintStream teeStream, java.nio.file.Path outputSink) throws IOException {
+    private static String readUtf8(InputStream inputStream, java.io.PrintStream teeStream) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        java.io.OutputStream fileOut = outputSink != null ? java.nio.file.Files.newOutputStream(outputSink) : null;
-        try {
-            byte[] buffer = new byte[8192];
-            int bytesRead;
-            int totalInMemory = 0;
-            int memoryLimit = 64 * 1024; // 64KB max in memory if streaming to file
-            
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                if (fileOut != null) {
-                    fileOut.write(buffer, 0, bytesRead);
-                }
-                
-                // If streaming to file, bound the memory usage to avoid OOM
-                if (fileOut == null || totalInMemory < memoryLimit) {
-                    int toWrite = fileOut == null ? bytesRead : Math.min(bytesRead, memoryLimit - totalInMemory);
-                    if (toWrite > 0) {
-                        output.write(buffer, 0, toWrite);
-                        totalInMemory += toWrite;
-                    }
-                }
-                
-                teeStream.write(buffer, 0, bytesRead);
-                teeStream.flush();
-            }
-            if (fileOut != null && totalInMemory >= memoryLimit) {
-                output.write("\n... [output truncated in memory, see transcript file for full output]\n".getBytes(StandardCharsets.UTF_8));
-            }
-        } finally {
-            if (fileOut != null) {
-                fileOut.close();
-            }
+        byte[] buffer = new byte[8192];
+        int bytesRead;
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            output.write(buffer, 0, bytesRead);
+            teeStream.write(buffer, 0, bytesRead);
+            teeStream.flush();
         }
         return output.toString(StandardCharsets.UTF_8);
     }
