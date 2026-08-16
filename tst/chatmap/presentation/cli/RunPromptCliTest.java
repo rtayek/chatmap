@@ -11,8 +11,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,8 +22,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.infrastructure.ai.DefaultAiBackends;
 import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.domain.Chat;
@@ -68,9 +74,19 @@ class RunPromptCliTest {
         Path home = tempDir.resolve(".chatmap");
         Files.createDirectories(home);
 
-        String[] cliArgs = new String[]{"--home", home.toString(), "fake", "Test prompt text"};
-        Map<String, AiBackend> backends = Map.of("fake", request ->
-                new AiResponse("Fake CLI response", new BackendId("Fake CLI"), Duration.ofMillis(5)));
+        String[] cliArgs = new String[]{"--home", home.toString(), "claude", "Test prompt text"};
+        Map<ProviderId, AiProvider> backends = providers(new AiProvider() {
+            @Override
+            public AiResponse execute(ModelTarget target, AiRequest request) {
+                return new AiResponse("Fake CLI response", new BackendId("Fake CLI"), Duration.ofMillis(5),
+                        target, null);
+            }
+
+            @Override
+            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        });
         Clock clock = Clock.fixed(Instant.parse("2026-08-07T12:00:00Z"), ZoneOffset.UTC);
 
         PromptResult result = RunPromptCli.execute(cliArgs, backends, clock);
@@ -102,5 +118,25 @@ class RunPromptCliTest {
     void executeRejectsInsufficientArguments() {
         assertThrows(IllegalArgumentException.class, () ->
                 RunPromptCli.execute(new String[]{"claude"}, Map.of(), Clock.systemUTC()));
+    }
+
+    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
+        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        AiProvider noop = new AiProvider() {
+            @Override
+            public AiResponse execute(ModelTarget target, AiRequest request) {
+                throw new AssertionError("unexpected provider call for " + target);
+            }
+
+            @Override
+            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        };
+        for (ProviderId id : ProviderId.values()) {
+            providers.put(id, noop);
+        }
+        providers.put(ProviderId.claudeCli, claudeProvider);
+        return providers;
     }
 }

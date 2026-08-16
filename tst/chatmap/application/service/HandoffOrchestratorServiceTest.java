@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,12 +20,14 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
 import chatmap.application.port.handoff.HandoffFileStore;
-import chatmap.infrastructure.ai.StandardCliBackend;
+import chatmap.infrastructure.ai.ClaudeCliProvider;
 import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
 class HandoffOrchestratorServiceTest {
@@ -32,12 +35,13 @@ class HandoffOrchestratorServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC);
     private static final HandoffFileStore FILE_STORE = new FileSystemHandoffFileStore();
 
-    /** Wraps executor in a real claude StandardCliBackend, since agent invocation now goes through AiBackend. */
+    /** Wraps executor in a real Claude provider, since agent invocation now goes through AiProvider. */
     private static HandoffOrchestratorService newService(
             FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
-        Map<String, CommandBackedAiBackend> agentBackends = Map.of(
-                "claude", StandardCliBackend.claude(executor, Duration.ofMinutes(30)));
-        return new HandoffOrchestratorService(executor, agentBackends, FILE_STORE, registry, CLOCK, autoPush);
+        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
+        return new HandoffOrchestratorService(executor, providers, Map.of("claude", ModelTarget.claude),
+                FILE_STORE, registry, CLOCK, autoPush);
     }
 
     @TempDir

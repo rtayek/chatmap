@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -13,7 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.infrastructure.ai.StandardCliBackend;
+import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.BackendId;
 import chatmap.domain.Project;
 import chatmap.domain.Tag;
 import chatmap.application.service.ExportService;
@@ -49,7 +51,7 @@ class ChatMapMvpWorkflowTest {
         ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), tags,
-                StandardCliBackend.claude(java.time.Duration.ofMinutes(3)));
+                request -> new AiResponse("summary", new BackendId("Summary"), Duration.ZERO));
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(List.of(), importService, chats);
         controller = new ChatMapController(

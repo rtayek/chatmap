@@ -4,7 +4,8 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.app.DefaultServiceIntegrations;
 import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
 import chatmap.application.service.PromptResult;
@@ -27,7 +28,7 @@ public final class RunPromptCli {
         }
         try {
             PromptResult result = execute(
-                    parsedArguments, promptArguments, DefaultServiceIntegrations.promptBackends(), Clock.systemUTC());
+                    parsedArguments, promptArguments, DefaultServiceIntegrations.promptProviders(), Clock.systemUTC());
             System.out.println("Backend: " + result.backendLabel());
             result.transcript().ifPresent(path -> System.out.println("Transcript: " + path));
             System.out.println("----------------------------------------");
@@ -38,19 +39,20 @@ public final class RunPromptCli {
         }
     }
 
-    public static PromptResult execute(String[] args, Map<String, AiBackend> backends, Clock clock) throws Exception {
+    public static PromptResult execute(String[] args, Map<ProviderId, AiProvider> providers, Clock clock)
+            throws Exception {
         ParsedArguments parsedArguments = CliBootstrap.parse(args);
-        return execute(parsedArguments, parsePromptArguments(parsedArguments), backends, clock);
+        return execute(parsedArguments, parsePromptArguments(parsedArguments), providers, clock);
     }
 
     private static PromptResult execute(
             ParsedArguments parsedArguments,
             RunPromptArguments promptArguments,
-            Map<String, AiBackend> backends,
+            Map<ProviderId, AiProvider> providers,
             Clock clock) throws Exception {
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
             PromptService promptService = new PromptService(
-                    backends,
+                    providers,
                     context.services().importService(),
                     clock,
                     context.paths().transcriptsDirectory());

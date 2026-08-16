@@ -10,9 +10,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.time.Duration;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,6 +22,10 @@ import org.junit.jupiter.api.io.TempDir;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
 import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.AiRequest;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.Chat;
@@ -96,12 +102,21 @@ class ServiceGraphTest {
                 request -> {
                     throw new AssertionError("summary backend should not run");
                 },
-                Map.of("fake", request -> new AiResponse(
-                        "response", new BackendId("fake"), Duration.ZERO)));
+                providers(new AiProvider() {
+                    @Override
+                    public AiResponse execute(ModelTarget target, AiRequest request) {
+                        return new AiResponse("response", new BackendId("Claude"), Duration.ZERO, target, null);
+                    }
+
+                    @Override
+                    public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                        return Set.of();
+                    }
+                }));
 
         try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
                 ServiceGraph graph = ServiceGraph.create(connection, integrations, paths)) {
-            PromptResult result = graph.promptService().submit("fake", "prompt");
+            PromptResult result = graph.promptService().submit("claude", "prompt");
 
             Path transcript = result.transcript().orElseThrow();
             assertTrue(transcript.startsWith(paths.transcriptsDirectory()));
@@ -112,5 +127,25 @@ class ServiceGraphTest {
     private ResolvedPaths paths() {
         Path home = tempDir.resolve("home");
         return new ResolvedPaths(home, home.resolve("chatmap.db"));
+    }
+
+    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
+        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        AiProvider noop = new AiProvider() {
+            @Override
+            public AiResponse execute(ModelTarget target, AiRequest request) {
+                throw new AssertionError("unexpected provider call for " + target);
+            }
+
+            @Override
+            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        };
+        for (ProviderId id : ProviderId.values()) {
+            providers.put(id, noop);
+        }
+        providers.put(ProviderId.claudeCli, claudeProvider);
+        return providers;
     }
 }

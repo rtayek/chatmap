@@ -5,10 +5,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
 
-import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.handoff.HandoffFileStore;
 import chatmap.application.service.HandoffOrchestratorService;
-import chatmap.infrastructure.ai.StandardCliBackend;
+import chatmap.infrastructure.ai.DefaultAiBackends;
 import chatmap.infrastructure.command.CommandRunner;
 import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
@@ -23,11 +25,13 @@ public final class HandoffOrchestratorBootstrap {
 
     public static HandoffOrchestratorService create(Map<String, Path> projectRegistry, Clock clock, boolean autoPush) {
         CommandRunner commandExecutor = new CommandRunner();
-        Map<String, CommandBackedAiBackend> agentBackends = Map.of(
-                "claude", StandardCliBackend.claude(commandExecutor, AGENT_TIMEOUT),
-                "codex", StandardCliBackend.codex(commandExecutor, AGENT_TIMEOUT),
-                "agy", StandardCliBackend.agy(commandExecutor, AGENT_TIMEOUT));
+        Map<ProviderId, AiProvider> providers = DefaultAiBackends.providers(commandExecutor, AGENT_TIMEOUT);
+        Map<String, ModelTarget> agentTargets = Map.of(
+                "claude", ModelTarget.claude,
+                "codex", ModelTarget.codex,
+                "agy", ModelTarget.agy);
         HandoffFileStore fileStore = new FileSystemHandoffFileStore();
-        return new HandoffOrchestratorService(commandExecutor, agentBackends, fileStore, projectRegistry, clock, autoPush);
+        return new HandoffOrchestratorService(commandExecutor, providers, agentTargets,
+                fileStore, projectRegistry, clock, autoPush);
     }
 }

@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,12 +20,15 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
 import chatmap.application.port.handoff.HandoffFileStore;
-import chatmap.infrastructure.ai.StandardCliBackend;
+import chatmap.infrastructure.ai.ClaudeCliProvider;
+import chatmap.infrastructure.ai.CodexCliProvider;
 import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
 /**
@@ -46,10 +50,12 @@ class HandoffOrchestratorServiceScenarioTest {
 
     private static HandoffOrchestratorService newService(
             FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
-        Map<String, CommandBackedAiBackend> agentBackends = Map.of(
-                "claude", StandardCliBackend.claude(executor, Duration.ofMinutes(30)),
-                "codex", StandardCliBackend.codex(executor, Duration.ofMinutes(30)));
-        return new HandoffOrchestratorService(executor, agentBackends, FILE_STORE, registry, CLOCK, autoPush);
+        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
+        providers.put(ProviderId.codexCli, new CodexCliProvider(executor, Duration.ofMinutes(30)));
+        return new HandoffOrchestratorService(executor, providers,
+                Map.of("claude", ModelTarget.claude, "codex", ModelTarget.codex),
+                FILE_STORE, registry, CLOCK, autoPush);
     }
 
     private Path projectDir(String name) throws IOException {
@@ -98,7 +104,7 @@ class HandoffOrchestratorServiceScenarioTest {
         List<HandoffRunResult> results = service.processInboxOnce(inbox);
 
         List<String> order = results.stream()
-                .map(r -> r.sourceFile().getFileName().toString())
+                .map(r -> java.util.Objects.requireNonNull(r.sourceFile().getFileName()).toString())
                 .toList();
         assertEquals(List.of("alpha.md", "mango.md", "zebra.md"), order,
                 "processing order must be sorted by path, not filesystem iteration order");
@@ -187,7 +193,7 @@ class HandoffOrchestratorServiceScenarioTest {
 
         HandoffRunResult result = results.get(0);
         assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
-        assertTrue(result.detail().contains("No configured AI backend for agent 'frog'"), result.detail());
+        assertTrue(result.detail().contains("No configured model target for agent 'frog'"), result.detail());
         assertTrue(Files.exists(task), "a failed task's source file must not be archived away");
         assertTrue(executor.calledWithPrefix("git worktree remove --force"),
                 "the worktree created before the failed agent lookup must still be cleaned up");
@@ -226,9 +232,7 @@ class HandoffOrchestratorServiceScenarioTest {
     }
 
     @Test
-    void claudeGetsUnrestrictedPermissionFlagButCodexDoesNot() throws IOException {
-        // Encodes the documented per-agent capability drop: stream-json/unrestricted
-        // are requested for every task, but only claude's commandFor() realizes them.
+    void claudeAndCodexUseTheirOwnUnattendedPermissionSyntax() throws IOException {
         Path chatmapDir = projectDir("chatmap");
         writeTask(chatmapDir, "a-claude.md", "claude", "feature-cl", "x");
         writeTask(chatmapDir, "b-codex.md", "codex", "feature-cx", "y");
@@ -241,10 +245,11 @@ class HandoffOrchestratorServiceScenarioTest {
 
         boolean claudeHasSkip = executor.calls().stream().anyMatch(c ->
                 c.command().contains("claude") && c.command().contains("--dangerously-skip-permissions"));
-        boolean codexHasSkip = executor.calls().stream().anyMatch(c ->
-                c.command().contains("codex") && c.command().contains("--dangerously-skip-permissions"));
+        boolean codexHasWorkspaceWrite = executor.calls().stream().anyMatch(c ->
+                c.command().contains("codex.cmd") && c.command().contains("--sandbox")
+                        && c.command().contains("workspace-write"));
         assertTrue(claudeHasSkip, "claude invocation should carry the unrestricted-permission flag");
-        assertFalse(codexHasSkip, "codex has no such flag; the capability is silently (documented) dropped");
+        assertTrue(codexHasWorkspaceWrite, "codex invocation should carry its own workspace-write sandbox flag");
     }
 
     // ---- eligibility boundaries -------------------------------------------

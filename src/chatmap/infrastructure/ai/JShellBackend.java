@@ -1,10 +1,13 @@
 package chatmap.infrastructure.ai;
 
 import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiCapability;
+import chatmap.application.port.ai.AiProvider;
 import chatmap.application.port.ai.AiBackendStartupException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.ModelTarget;
 
 import chatmap.domain.Source;
 import jdk.jshell.JShell;
@@ -20,12 +23,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * JShell REPL Backend embedding jdk.jshell to execute Java code snippets.
  * Acts as a programmable execution harness for LLMs.
  */
-public class JShellBackend implements AiBackend {
+public class JShellBackend implements AiBackend, AiProvider {
 
     public static final BackendId BACKEND_ID = new BackendId("JShell Harness");
 
@@ -60,6 +64,16 @@ public class JShellBackend implements AiBackend {
 
     @Override
     public AiResponse ask(AiRequest request) {
+        return execute(ModelTarget.jshell, request);
+    }
+
+    @Override
+    public Set<AiCapability> capabilities(ModelTarget target) {
+        return Set.of();
+    }
+
+    @Override
+    public AiResponse execute(ModelTarget target, AiRequest request) {
         Objects.requireNonNull(request, "request");
         Instant start = Instant.now();
 
@@ -133,7 +147,8 @@ public class JShellBackend implements AiBackend {
         }
 
         Duration duration = Duration.between(start, Instant.now());
-        return new AiResponse(resultBuilder.toString().trim(), BACKEND_ID, duration);
+        return new AiResponse(resultBuilder.toString().trim(), BACKEND_ID, duration, target,
+                request.sessionId().orElse(null));
     }
 
     public static String buildSystemPrompt() {

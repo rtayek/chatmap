@@ -2,14 +2,19 @@ package chatmap.app;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiProvider;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
 import chatmap.application.port.persistence.ChatStore;
@@ -71,19 +76,19 @@ public record ServiceGraph(
     public record Integrations(
             List<ChatProvider> chatProviders,
             AiBackend summaryBackend,
-            Map<String, AiBackend> promptBackends) {
+            Map<ProviderId, AiProvider> promptProviders) {
         public Integrations {
             chatProviders = List.copyOf(Objects.requireNonNull(chatProviders, "chatProviders"));
             summaryBackend = Objects.requireNonNull(summaryBackend, "summaryBackend");
-            promptBackends = Map.copyOf(Objects.requireNonNull(promptBackends, "promptBackends"));
+            promptProviders = Map.copyOf(Objects.requireNonNull(promptProviders, "promptProviders"));
         }
 
         public Integrations(List<ChatProvider> chatProviders, AiBackend summaryBackend) {
-            this(chatProviders, summaryBackend, Map.of());
+            this(chatProviders, summaryBackend, unavailablePromptProviders());
         }
 
         public static Integrations none() {
-            return new Integrations(List.of(), new UnavailableSummaryBackend(), Map.of());
+            return new Integrations(List.of(), new UnavailableSummaryBackend(), unavailablePromptProviders());
         }
     }
 
@@ -119,7 +124,7 @@ public record ServiceGraph(
         ProjectService projectService = new ProjectService(projects, chats);
         TagService tagService = new TagService(tags, chats);
         PromptService promptService = new PromptService(
-                integrations.promptBackends(),
+                integrations.promptProviders(),
                 importService,
                 java.time.Clock.systemUTC(),
                 paths.transcriptsDirectory());
@@ -148,6 +153,28 @@ public record ServiceGraph(
         @Override
         public String toString() {
             return "unavailable summary backend";
+        }
+    }
+
+    private static Map<ProviderId, AiProvider> unavailablePromptProviders() {
+        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        AiProvider unavailable = new UnavailablePromptProvider();
+        for (ProviderId id : ProviderId.values()) {
+            providers.put(id, unavailable);
+        }
+        return providers;
+    }
+
+    private static final class UnavailablePromptProvider implements AiProvider {
+        @Override
+        public AiResponse execute(ModelTarget target, AiRequest request) {
+            throw new AiBackendUnsupportedRequestException(
+                    "No AI provider configured for target " + target.id() + ".", new BackendId(target.displayName()));
+        }
+
+        @Override
+        public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+            return Set.of();
         }
     }
 }

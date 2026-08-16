@@ -7,52 +7,43 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TreeMap;
+import java.util.Set;
 
 import org.slf4j.Logger;
 
-import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiCapability;
+import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
+import chatmap.application.port.ai.AiProvider;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.PromptProfile;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
-import chatmap.domain.Source;
 import chatmap.application.model.ImportedChat;
 import chatmap.application.support.Log;
 
 public final class PromptService {
     private static final Logger LOG = Log.of(PromptService.class);
-    private final Map<String, AiBackend> backends;
-    private final Map<String, String> backendLabels;
+    private final Map<ProviderId, AiProvider> providers;
     private final ImportService importService;
     private final Clock clock;
     private final Path transcriptDirectory;
 
     public PromptService(
-            Map<String, AiBackend> backends,
+            Map<ProviderId, AiProvider> providers,
             ImportService importService,
             Clock clock,
             Path transcriptDirectory) {
-        this(backends, backendIdsAsLabels(backends), importService, clock, transcriptDirectory);
-    }
-
-    public PromptService(
-            Map<String, AiBackend> backends,
-            Map<String, String> backendLabels,
-            ImportService importService,
-            Clock clock,
-            Path transcriptDirectory
-    ) {
-        this.backends = Map.copyOf(Objects.requireNonNull(backends, "backends"));
-        Map<String, String> labels = backendLabels != null ? backendLabels : backendIdsAsLabels(this.backends);
-        if (!labels.keySet().containsAll(this.backends.keySet())) {
-            throw new IllegalArgumentException("backendLabels must include every backend id");
-        }
-        this.backendLabels = Map.copyOf(labels);
+        this.providers = validateProviders(providers);
         this.importService = importService;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.transcriptDirectory = Objects.requireNonNull(transcriptDirectory, "transcriptDirectory")
@@ -61,22 +52,18 @@ public final class PromptService {
     }
 
     public boolean hasBackend(String backendName) {
-        return backends.containsKey(backendName);
+        return Arrays.stream(ModelTarget.values()).anyMatch(target -> target.id().equals(backendName));
     }
 
     public List<BackendDescriptor> backends() {
-        return new TreeMap<>(backendLabels).entrySet().stream()
-                .filter(entry -> backends.containsKey(entry.getKey()))
-                .map(entry -> new BackendDescriptor(entry.getKey(), entry.getValue()))
+        return Arrays.stream(ModelTarget.values())
+                .map(target -> new BackendDescriptor(target.id(), target.displayName()))
                 .toList();
     }
 
     public List<String> listSessions(String backendName) {
-        if (!hasBackend(backendName)) {
-            throw new IllegalArgumentException("Unknown backend: " + backendName);
-        }
-
-        return backends.get(backendName).listSessions();
+        ModelTarget target = ModelTarget.require(backendName);
+        return providerFor(target).listSessions(target);
     }
 
     public PromptResult submit(String backendName, String prompt) throws SQLException {
@@ -99,26 +86,27 @@ public final class PromptService {
      */
     public PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId)
             throws SQLException {
-        AiBackend backend = backends.get(backendName);
-        if (backend == null) {
-            throw new IllegalArgumentException("Unknown backend: " + backendName);
-        }
+        ModelTarget target = ModelTarget.require(backendName);
+        AiProvider provider = providerFor(target);
 
         AiRequest request = (sessionId != null && !sessionId.isBlank())
                 ? AiRequest.withSession(prompt, sessionId, profile)
                 : AiRequest.withProfile(prompt, profile);
+        validateCapabilities(target, provider, request);
         Instant started = clock.instant();
 
-        AiResponse response = backend.ask(request);
+        AiResponse response = provider.execute(target, request);
         String responseText = response.text();
         String backendId = response.backendId().value();
+        String effectiveSessionId = response.sessionId().orElse(sessionId);
 
         if (importService != null) {
-            recordInDatabase(backend, prompt, responseText, started, sessionId);
+            recordInDatabase(target, prompt, responseText, started, effectiveSessionId);
         }
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
-        return new PromptResult(backendId, responseText, transcriptPath);
+        return new PromptResult(backendId, responseText, transcriptPath,
+                target.id(), response.providerModelName(), effectiveSessionId);
     }
 
     /**
@@ -128,12 +116,12 @@ public final class PromptService {
      * becoming its own; with no session id, every call still creates a new
      * chat, since there is no external session to key on.
      */
-    private void recordInDatabase(AiBackend backend, String prompt, String responseText, Instant started,
+    private void recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
             String sessionId) throws SQLException {
         String now = started.toString();
-        Source source = backend != null ? backend.source() : Source.plainText;
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
-        Chat chat = new Chat(0L, null, source, title, now, now, now, false, chatmap.domain.ChatOrigin.generated);
+        Chat chat = new Chat(0L, null, target.source(), title, now, now, now, false,
+                chatmap.domain.ChatOrigin.generated);
         Message userMsg = new Message(0L, 0L, chatmap.domain.MessageRole.user, prompt, 0, now, null);
         Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);
         List<Message> messages = List.of(userMsg, assistantMsg);
@@ -162,8 +150,48 @@ public final class PromptService {
         }
     }
 
-    private static Map<String, String> backendIdsAsLabels(Map<String, AiBackend> backends) {
-        Objects.requireNonNull(backends, "backends");
-        return backends.keySet().stream().collect(java.util.stream.Collectors.toMap(id -> id, id -> id));
+    private AiProvider providerFor(ModelTarget target) {
+        AiProvider provider = providers.get(target.providerId());
+        if (provider == null) {
+            throw new IllegalStateException("No AI provider configured for " + target.providerId());
+        }
+        return provider;
+    }
+
+    private static Map<ProviderId, AiProvider> validateProviders(Map<ProviderId, AiProvider> configured) {
+        Objects.requireNonNull(configured, "providers");
+        EnumMap<ProviderId, AiProvider> copy = new EnumMap<>(ProviderId.class);
+        copy.putAll(configured);
+        for (ModelTarget target : ModelTarget.values()) {
+            if (!copy.containsKey(target.providerId())) {
+                throw new IllegalStateException("No AI provider configured for target "
+                        + target.id() + " (" + target.providerId() + ")");
+            }
+        }
+        return Map.copyOf(copy);
+    }
+
+    private static void validateCapabilities(ModelTarget target, AiProvider provider, AiRequest request) {
+        Set<AiCapability> required = EnumSet.noneOf(AiCapability.class);
+        if (request.systemPrompt().isPresent()) {
+            required.add(AiCapability.systemPrompt);
+        }
+        if (request.sessionId().isPresent()) {
+            required.add(AiCapability.sessions);
+        }
+        if (request.permissionMode() == chatmap.application.port.ai.PermissionMode.unrestricted) {
+            required.add(AiCapability.fileEditing);
+        }
+        if (request.outputFormat() == chatmap.application.port.ai.OutputFormat.streamJson) {
+            required.add(AiCapability.streamJson);
+        }
+        Set<AiCapability> supported = provider.capabilities(target);
+        for (AiCapability capability : required) {
+            if (!supported.contains(capability)) {
+                throw new AiBackendUnsupportedRequestException(
+                        target.displayName() + " does not support requested capability: " + capability,
+                        new BackendId(target.displayName()));
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ package chatmap.infrastructure.ai;
 import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.OutputFormat;
 import chatmap.application.port.ai.PermissionMode;
 
@@ -28,63 +29,63 @@ final class OtherCliBackendsTest {
 
     @Test
     void codexCliBackendConstructsCorrectCommand() {
-        StandardCliBackend backend = StandardCliBackend.codex(executor, Duration.ofSeconds(5));
+        CodexCliProvider backend = new CodexCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false);
 
-        AiResponse response = backend.ask(AiRequest.of("Explain recursion"));
+        AiResponse response = backend.execute(ModelTarget.codex, AiRequest.of("Explain recursion"));
 
         assertEquals("Codex answer", response.text());
-        assertEquals("Codex CLI", response.backendId().value());
-        assertEquals(List.of("codex", "-p"), executor.request.command());
+        assertEquals("Codex", response.backendId().value());
+        assertEquals(List.of("codex.cmd", "exec", "-"), executor.request.command());
         assertEquals("Explain recursion", executor.request.standardInput());
         // codexCli is CodexCliHistoryProvider's value for real imported sessions;
         // this backend's Q&A recordings must not share it (see Source's class doc).
-        assertEquals(Source.codexCliPrompt, backend.source());
-        assertNotEquals(Source.codexCli, backend.source());
+        assertEquals(Source.codexCliPrompt, ModelTarget.codex.source());
+        assertNotEquals(Source.codexCli, ModelTarget.codex.source());
     }
 
     @Test
     void codexCliBackendSupportsResumeSession() {
-        StandardCliBackend backend = StandardCliBackend.codex(executor, Duration.ofSeconds(5));
+        CodexCliProvider backend = new CodexCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Resumed", "", Duration.ofMillis(5), false);
 
-        backend.ask(AiRequest.withSession("Next step", "codex-sess-1"));
+        backend.execute(ModelTarget.codex, AiRequest.withSession("Next step", "codex-sess-1"));
 
-        assertEquals(List.of("codex", "--resume", "codex-sess-1", "-p"), executor.request.command());
+        assertEquals(List.of("codex.cmd", "exec", "resume", "codex-sess-1", "-"), executor.request.command());
         assertEquals("Next step", executor.request.standardInput());
     }
 
     @Test
     void agyCliBackendConstructsCorrectCommand() {
-        StandardCliBackend backend = StandardCliBackend.agy(executor, Duration.ofSeconds(5));
+        AntigravityCliProvider backend = new AntigravityCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Agy answer", "", Duration.ofMillis(15), false);
 
-        AiResponse response = backend.ask(AiRequest.of("Hello Antigravity"));
+        AiResponse response = backend.execute(ModelTarget.agy, AiRequest.of("Hello Antigravity"));
 
         assertEquals("Agy answer", response.text());
-        assertEquals("Antigravity CLI", response.backendId().value());
-        assertEquals(List.of("agy", "-p"), executor.request.command());
+        assertEquals("Antigravity", response.backendId().value());
+        assertEquals(List.of("agy", "--print"), executor.request.command());
         assertEquals("Hello Antigravity", executor.request.standardInput());
-        assertEquals(Source.agyCliPrompt, backend.source());
+        assertEquals(Source.agyCliPrompt, ModelTarget.agy.source());
     }
 
     @Test
     void agyCliBackendSupportsResumeSession() {
-        StandardCliBackend backend = StandardCliBackend.agy(executor, Duration.ofSeconds(5));
+        AntigravityCliProvider backend = new AntigravityCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Resumed", "", Duration.ofMillis(5), false);
 
-        backend.ask(AiRequest.withSession("Resume task", "agy-sess-99"));
+        backend.execute(ModelTarget.agy, AiRequest.withSession("Resume task", "agy-sess-99"));
 
-        assertEquals(List.of("agy", "--resume", "agy-sess-99", "-p"), executor.request.command());
+        assertEquals(List.of("agy", "--conversation", "agy-sess-99", "--print"), executor.request.command());
         assertEquals("Resume task", executor.request.standardInput());
     }
 
     @Test
-    void ollamaCliBackendPipesPromptToStandardInput() {
-        OllamaCliBackend backend = new OllamaCliBackend(executor, Duration.ofSeconds(5), "llama3");
+    void ollamaCliProviderPipesPromptToStandardInput() {
+        OllamaCliProvider backend = new OllamaCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Ollama answer", "", Duration.ofMillis(20), false);
 
-        AiResponse response = backend.ask(AiRequest.of("What is Java?"));
+        AiResponse response = backend.execute(ModelTarget.ollama, AiRequest.of("What is Java?"));
 
         assertEquals("Ollama answer", response.text());
         assertEquals("Ollama llama3", response.backendId().value());
@@ -92,34 +93,43 @@ final class OtherCliBackendsTest {
         assertEquals("What is Java?", executor.request.standardInput());
         // No importer produces plainText from an AI backend; Ollama previously fell through
         // to AiBackend's default source() (plainText), colliding with real .txt file imports.
-        assertEquals(Source.ollamaPrompt, backend.source());
+        assertEquals(Source.ollamaPrompt, ModelTarget.ollama.source());
     }
 
     @Test
-    void codexAndAgyIgnorePermissionModeAndOutputFormatRequests() {
-        StandardCliBackend codex = StandardCliBackend.codex(executor, Duration.ofSeconds(5));
+    void codexUsesItsOwnPermissionSyntaxAndRejectsUnsupportedStreamJson() {
+        CodexCliProvider codex = new CodexCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "ok", "", Duration.ofMillis(5), false);
 
-        // Unlike claude, neither flag's semantics have been verified for these CLIs, so a
-        // request for either capability must be a silent no-op rather than an unrecognized flag.
-        codex.askWithResult(AiRequest.of("hello")
-                .withPermissionMode(PermissionMode.unrestricted)
-                .withOutputFormat(OutputFormat.streamJson));
-        assertEquals(List.of("codex", "-p"), executor.request.command());
+        codex.executeWithResult(ModelTarget.codex,
+                AiRequest.of("hello").withPermissionMode(PermissionMode.unrestricted));
+        assertEquals(List.of("codex.cmd", "exec", "--sandbox", "workspace-write", "-"),
+                executor.request.command());
 
-        StandardCliBackend agy = StandardCliBackend.agy(executor, Duration.ofSeconds(5));
-        agy.askWithResult(AiRequest.of("hello")
-                .withPermissionMode(PermissionMode.unrestricted)
-                .withOutputFormat(OutputFormat.streamJson));
-        assertEquals(List.of("agy", "-p"), executor.request.command());
+        assertThrows(AiBackendUnsupportedRequestException.class,
+                () -> codex.executeWithResult(ModelTarget.codex,
+                        AiRequest.of("hello").withOutputFormat(OutputFormat.streamJson)));
     }
 
     @Test
-    void ollamaCliBackendRejectsSystemPrompts() {
-        OllamaCliBackend backend = new OllamaCliBackend(executor, Duration.ofSeconds(5), "llama3");
+    void agySupportsPermissionAndStreamJsonUsingItsOwnFlags() {
+        AntigravityCliProvider agy = new AntigravityCliProvider(executor, Duration.ofSeconds(5));
+        executor.result = new CommandResult(0, "ok", "", Duration.ofMillis(5), false);
+
+        agy.executeWithResult(ModelTarget.agy, AiRequest.of("hello")
+                .withPermissionMode(PermissionMode.unrestricted)
+                .withOutputFormat(OutputFormat.streamJson));
+
+        assertEquals(List.of("agy", "--print", "--dangerously-skip-permissions",
+                "--output-format", "stream-json"), executor.request.command());
+    }
+
+    @Test
+    void ollamaCliProviderRejectsSystemPrompts() {
+        OllamaCliProvider backend = new OllamaCliProvider(executor, Duration.ofSeconds(5));
 
         assertThrows(AiBackendUnsupportedRequestException.class,
-                () -> backend.ask(AiRequest.withSystemPrompt("Hi", "System instruction")));
+                () -> backend.execute(ModelTarget.ollama, AiRequest.withSystemPrompt("Hi", "System instruction")));
     }
 
     private static final class CapturingExecutor implements CommandExecutor {

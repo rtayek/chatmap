@@ -15,10 +15,14 @@ import org.slf4j.Logger;
 
 import chatmap.application.port.ai.AiBackendExecutionException;
 import chatmap.application.port.ai.AiBackendStartupException;
+import chatmap.application.port.ai.AiCapability;
+import chatmap.application.port.ai.AiProvider;
 import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.CommandBackedAiBackend;
+import chatmap.application.port.ai.CommandBackedAiProvider;
+import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.OutputFormat;
 import chatmap.application.port.ai.PermissionMode;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.command.CommandExecutionException;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
@@ -59,7 +63,7 @@ import chatmap.domain.HandoffTask;
  *   its same project folder in the inbox repo (matching this project's own
  *   {@code handoffs/archive/} convention) rather than deleted outright, so a
  *   processed task remains auditable.</li>
- *   <li><b>Agent invocation goes through {@link CommandBackedAiBackend}.</b>
+ *   <li><b>Agent invocation goes through {@link CommandBackedAiProvider}.</b>
  *   The task body is piped as the prompt, with {@code workingDirectory} set
  *   to the worktree and {@code permissionMode} set to
  *   {@link PermissionMode#unrestricted unrestricted} -- confirmed live that
@@ -70,8 +74,7 @@ import chatmap.domain.HandoffTask;
  *   a task file landing in the inbox now gets unrestricted tool access,
  *   contained only in that a disposable branch/worktree is what it can
  *   affect, not that its actions are individually confirmed. Exactly which
- *   flags that translates to is each backend's own concern -- see
- *   {@code StandardCliBackend#commandFor}.</li>
+ *   flags that translates to is each provider's own concern.</li>
  * </ul>
  */
 public final class HandoffOrchestratorService {
@@ -82,7 +85,8 @@ public final class HandoffOrchestratorService {
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private final CommandExecutor commandExecutor;
-    private final Map<String, CommandBackedAiBackend> agentBackends;
+    private final Map<ProviderId, AiProvider> providers;
+    private final Map<String, ModelTarget> agentTargets;
     private final HandoffFileStore fileStore;
     private final Map<String, Path> projectRegistry;
     private final Clock clock;
@@ -90,13 +94,15 @@ public final class HandoffOrchestratorService {
 
     public HandoffOrchestratorService(
             CommandExecutor commandExecutor,
-            Map<String, CommandBackedAiBackend> agentBackends,
+            Map<ProviderId, AiProvider> providers,
+            Map<String, ModelTarget> agentTargets,
             HandoffFileStore fileStore,
             Map<String, Path> projectRegistry,
             Clock clock,
             boolean autoPush) {
         this.commandExecutor = Objects.requireNonNull(commandExecutor, "commandExecutor");
-        this.agentBackends = Map.copyOf(Objects.requireNonNull(agentBackends, "agentBackends"));
+        this.providers = Map.copyOf(Objects.requireNonNull(providers, "providers"));
+        this.agentTargets = Map.copyOf(Objects.requireNonNull(agentTargets, "agentTargets"));
         this.fileStore = Objects.requireNonNull(fileStore, "fileStore");
         this.projectRegistry = Map.copyOf(Objects.requireNonNull(projectRegistry, "projectRegistry"));
         this.clock = Objects.requireNonNull(clock, "clock");
@@ -205,21 +211,29 @@ public final class HandoffOrchestratorService {
                         "git worktree add failed: " + worktreeResult.standardError().strip());
             }
 
-            CommandBackedAiBackend backend = agentBackends.get(task.agent());
-            if (backend == null) {
-                LOG.warn("No configured AI backend for agent '{}'", task.agent());
+            ModelTarget target = agentTargets.get(task.agent());
+            if (target == null) {
+                LOG.warn("No configured model target for agent '{}'", task.agent());
                 return recordFailure(inboxRepo, file, projectKey,
-                        "No configured AI backend for agent '" + task.agent() + "'.");
+                        "No configured model target for agent '" + task.agent() + "'.");
+            }
+            AiProvider provider = providers.get(target.providerId());
+            if (!(provider instanceof CommandBackedAiProvider backend)) {
+                LOG.warn("No command-backed AI provider for agent '{}'", task.agent());
+                return recordFailure(inboxRepo, file, projectKey,
+                        "No command-backed AI provider for agent '" + task.agent() + "'.");
             }
 
             LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
             AiRequest request = AiRequest.of(task.body())
                     .withWorkingDirectory(worktree)
-                    .withPermissionMode(PermissionMode.unrestricted)
-                    .withOutputFormat(OutputFormat.streamJson);
+                    .withPermissionMode(PermissionMode.unrestricted);
+            if (provider.capabilities(target).contains(AiCapability.streamJson)) {
+                request = request.withOutputFormat(OutputFormat.streamJson);
+            }
             CommandResult agentResult;
             try {
-                agentResult = backend.askWithResult(request).commandResult();
+                agentResult = backend.executeWithResult(target, request).commandResult();
             } catch (AiBackendExecutionException executionFailure) {
                 LOG.warn("{} for {}: {}", task.agent(), file, executionFailure.getMessage());
                 return recordFailure(inboxRepo, file, projectKey, executionFailure.getMessage(),

@@ -11,15 +11,26 @@ import java.util.Optional;
 public record PromptResult(
         String backendLabel,
         String response,
-        Path transcriptPath
+        Path transcriptPath,
+        String targetId,
+        String providerModelName,
+        String providerSessionId
 ) {
     public PromptResult {
         Objects.requireNonNull(backendLabel, "backendLabel");
         Objects.requireNonNull(response, "response");
     }
 
+    public PromptResult(String backendLabel, String response, Path transcriptPath) {
+        this(backendLabel, response, transcriptPath, backendLabel, "default", null);
+    }
+
     /** The transcript file, when one could be written. */
     public Optional<Path> transcript() {
         return Optional.ofNullable(transcriptPath);
+    }
+
+    public Optional<String> sessionId() {
+        return Optional.ofNullable(providerSessionId).filter(value -> !value.isBlank());
     }
 }

@@ -106,8 +106,9 @@ public final class ImportService {
         insertMessages(stored.id(), sequenced);
 
         String touchedAt = sequenced.isEmpty() ? stored.updatedAt() : sequenced.getLast().timestamp();
+        String contentHash = ChatContentHasher.hash(messages.findByChat(stored.id()));
         Chat updated = chats.updateImportMetadata(stored.id(), stored.title(), stored.sourceUri(),
-                stored.contentHash(), touchedAt, touchedAt);
+                contentHash, touchedAt, touchedAt);
         return new PersistResult(updated, Outcome.updated);
     }
 

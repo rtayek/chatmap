@@ -1,9 +1,9 @@
 package chatmap.application.port.ai;
 
 /**
- * Requested shape of a backend's raw output. A backend that doesn't support
- * a requested format silently falls back to {@code text} rather than
- * passing an unrecognized flag to its CLI.
+ * Requested shape of a backend's raw output. A provider that doesn't support
+ * a requested format must fail before launching its external process rather
+ * than silently downgrading the request.
  */
 public enum OutputFormat {
     text,

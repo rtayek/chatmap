@@ -3,6 +3,7 @@ package chatmap.infrastructure.ai;
 import chatmap.application.port.ai.AiBackendException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.OutputFormat;
 import chatmap.application.port.ai.PermissionMode;
 import chatmap.application.port.ai.PromptProfile;
@@ -31,25 +32,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class ClaudeCliBackendTest {
     private final CapturingExecutor executor = new CapturingExecutor();
-    private final StandardCliBackend backend = StandardCliBackend.claude(executor, Duration.ofSeconds(5));
+    private final ClaudeCliProvider backend = new ClaudeCliProvider(executor, Duration.ofSeconds(5));
 
     @Test
     void sourceIsDistinctFromImportedClaudeCodeTranscripts() {
         // claudeCode is ClaudeCodeHistoryProvider's value for real imported sessions;
         // this backend's Q&A recordings must not share it (see Source's class doc).
-        assertEquals(Source.claudeCliPrompt, backend.source());
-        assertNotEquals(Source.claudeCode, backend.source());
+        assertEquals(Source.claudeCliPrompt, ModelTarget.claude.source());
+        assertNotEquals(Source.claudeCode, ModelTarget.claude.source());
     }
 
     @Test
     void successfulOutputBecomesAiResponseText() {
         executor.result = new CommandResult(0, "OK\n", "", Duration.ofMillis(12), false);
 
-        AiResponse response = backend.ask(AiRequest.of("Say exactly: OK"));
+        AiResponse response = backend.execute(ModelTarget.claude, AiRequest.of("Say exactly: OK"));
 
         assertEquals("OK\n", response.text());
-        assertEquals("Claude CLI", response.backendId().value());
+        assertEquals("Claude", response.backendId().value());
         assertEquals(Duration.ofMillis(12), response.duration());
+    }
+
+    @Test
+    void streamJsonSessionIdIsReturnedWhenProviderCreatesOne() {
+        executor.result = new CommandResult(0,
+                "{\"type\":\"assistant\",\"session_id\":\"claude-session-123\",\"message\":\"OK\"}\n",
+                "", Duration.ofMillis(12), false);
+
+        AiResponse response = backend.execute(ModelTarget.claude,
+                AiRequest.of("Say exactly: OK").withOutputFormat(OutputFormat.streamJson));
+
+        assertEquals("claude-session-123", response.sessionId().orElseThrow());
     }
 
     @Test
@@ -57,7 +70,7 @@ final class ClaudeCliBackendTest {
         String prompt = "quotes \" semicolon ; dollars $HOME backticks `x` newline\nend";
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.ask(AiRequest.of(prompt));
+        backend.execute(ModelTarget.claude, AiRequest.of(prompt));
 
         assertEquals(List.of("claude", "-p"), executor.request.command());
         assertEquals(prompt, executor.request.standardInput());
@@ -67,7 +80,7 @@ final class ClaudeCliBackendTest {
     void constructsClaudeResumeCommandWhenSessionIdIsPresent() {
         executor.result = new CommandResult(0, "resumed response", "", Duration.ofMillis(1), false);
 
-        backend.ask(AiRequest.withSession("Continue work", "sess-123-abc"));
+        backend.execute(ModelTarget.claude, AiRequest.withSession("Continue work", "sess-123-abc"));
 
         assertEquals(List.of("claude", "--resume", "sess-123-abc", "-p"), executor.request.command());
         assertEquals("Continue work", executor.request.standardInput());
@@ -77,7 +90,8 @@ final class ClaudeCliBackendTest {
     void guidedTeachingProfileAddsTeachingInstructionToClaudePromptArgument() {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.ask(AiRequest.withProfile("Help me understand fractions", PromptProfile.guidedTeaching));
+        backend.execute(ModelTarget.claude,
+                AiRequest.withProfile("Help me understand fractions", PromptProfile.guidedTeaching));
 
         assertEquals(List.of("claude", "-p"), executor.request.command());
         assertTrue(executor.request.standardInput().contains("[GUIDED_TEACHING mode]"));
@@ -90,9 +104,10 @@ final class ClaudeCliBackendTest {
     void nonzeroCommandResultBecomesClearBackendFailure() {
         executor.result = new CommandResult(7, "", "bad credentials", Duration.ofMillis(2), false);
 
-        AiBackendException exception = assertThrows(AiBackendException.class, () -> backend.ask(AiRequest.of("hello")));
+        AiBackendException exception = assertThrows(AiBackendException.class,
+                () -> backend.execute(ModelTarget.claude, AiRequest.of("hello")));
 
-        assertEquals("Claude CLI exited with status 7: bad credentials", exception.getMessage());
+        assertEquals("Claude exited with status 7: bad credentials", exception.getMessage());
         assertEquals("bad credentials", exception.commandResult().orElseThrow().standardError());
     }
 
@@ -100,7 +115,8 @@ final class ClaudeCliBackendTest {
     void timeoutIsReportedClearly() {
         executor.result = new CommandResult(-1, "", "partial", Duration.ofSeconds(5), true);
 
-        AiBackendException exception = assertThrows(AiBackendException.class, () -> backend.ask(AiRequest.of("hello")));
+        AiBackendException exception = assertThrows(AiBackendException.class,
+                () -> backend.execute(ModelTarget.claude, AiRequest.of("hello")));
 
         assertTrue(exception.getMessage().contains("timed out"));
         assertTrue(exception.commandResult().orElseThrow().timedOut());
@@ -110,7 +126,8 @@ final class ClaudeCliBackendTest {
     void stderrIsRetainedInFailureDiagnostics() {
         executor.result = new CommandResult(1, "partial", "provider error", Duration.ofMillis(4), false);
 
-        AiBackendException exception = assertThrows(AiBackendException.class, () -> backend.ask(AiRequest.of("hello")));
+        AiBackendException exception = assertThrows(AiBackendException.class,
+                () -> backend.execute(ModelTarget.claude, AiRequest.of("hello")));
 
         assertEquals("provider error", exception.commandResult().orElseThrow().standardError());
     }
@@ -119,7 +136,8 @@ final class ClaudeCliBackendTest {
     void unrestrictedPermissionModeAddsSkipPermissionsFlag() {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.askWithResult(AiRequest.of("hello").withPermissionMode(PermissionMode.unrestricted));
+        backend.executeWithResult(ModelTarget.claude,
+                AiRequest.of("hello").withPermissionMode(PermissionMode.unrestricted));
 
         assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions"), executor.request.command());
     }
@@ -128,7 +146,7 @@ final class ClaudeCliBackendTest {
     void streamJsonOutputFormatRequiresVerboseFlag() {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.askWithResult(AiRequest.of("hello").withOutputFormat(OutputFormat.streamJson));
+        backend.executeWithResult(ModelTarget.claude, AiRequest.of("hello").withOutputFormat(OutputFormat.streamJson));
 
         assertEquals(List.of("claude", "-p", "--output-format", "stream-json", "--verbose"), executor.request.command());
     }
@@ -137,7 +155,7 @@ final class ClaudeCliBackendTest {
     void defaultPermissionModeAndOutputFormatAddNoExtraFlags() {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.ask(AiRequest.of("hello"));
+        backend.execute(ModelTarget.claude, AiRequest.of("hello"));
 
         assertEquals(List.of("claude", "-p"), executor.request.command());
     }
@@ -147,7 +165,7 @@ final class ClaudeCliBackendTest {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
         Path worktree = Path.of("some", "worktree");
 
-        backend.askWithResult(AiRequest.of("hello").withWorkingDirectory(worktree));
+        backend.executeWithResult(ModelTarget.claude, AiRequest.of("hello").withWorkingDirectory(worktree));
 
         assertEquals(worktree, executor.request.workingDirectory());
     }
@@ -156,7 +174,7 @@ final class ClaudeCliBackendTest {
     void noWorkingDirectoryRequestLeavesItNull() {
         executor.result = new CommandResult(0, "done", "", Duration.ofMillis(1), false);
 
-        backend.ask(AiRequest.of("hello"));
+        backend.execute(ModelTarget.claude, AiRequest.of("hello"));
 
         assertNull(executor.request.workingDirectory());
     }
@@ -165,14 +183,15 @@ final class ClaudeCliBackendTest {
     void listSessionsReturnsEmptyListForGenuinelyNoSessions() {
         executor.result = new CommandResult(0, "", "", Duration.ofMillis(1), false);
 
-        assertEquals(List.of(), backend.listSessions());
+        assertEquals(List.of(), backend.listSessions(ModelTarget.claude));
     }
 
     @Test
     void listSessionsThrowsInsteadOfSwallowingANonzeroExit() {
         executor.result = new CommandResult(1, "", "not authenticated", Duration.ofMillis(1), false);
 
-        AiBackendException exception = assertThrows(AiBackendException.class, backend::listSessions);
+        AiBackendException exception = assertThrows(AiBackendException.class,
+                () -> backend.listSessions(ModelTarget.claude));
 
         assertTrue(exception.getMessage().contains("not authenticated"), exception.getMessage());
     }
@@ -181,7 +200,8 @@ final class ClaudeCliBackendTest {
     void listSessionsThrowsInsteadOfSwallowingAStartupFailure() {
         executor.toThrow = new CommandExecutionException("claude not found on PATH");
 
-        AiBackendException exception = assertThrows(AiBackendException.class, backend::listSessions);
+        AiBackendException exception = assertThrows(AiBackendException.class,
+                () -> backend.listSessions(ModelTarget.claude));
 
         assertTrue(exception.getMessage().contains("claude not found on PATH"), exception.getMessage());
     }

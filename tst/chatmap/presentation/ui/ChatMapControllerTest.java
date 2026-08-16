@@ -11,8 +11,10 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,9 +30,12 @@ import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
 import chatmap.application.port.ai.AiBackend;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
-import chatmap.infrastructure.ai.StandardCliBackend;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
 import chatmap.application.model.ChatExportModel;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ConversationInventoryService;
@@ -74,7 +79,7 @@ class ChatMapControllerTest {
         ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
                 new SummaryRepository(conn), tags,
-                StandardCliBackend.claude(java.time.Duration.ofMinutes(3)));
+                summaryBackend());
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(java.util.List.of(), importService, chats);
         controller = new ChatMapController(
@@ -180,7 +185,7 @@ class ChatMapControllerTest {
                 projectService,
                 tagService,
                 new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
-                        StandardCliBackend.claude(java.time.Duration.ofMinutes(3))),
+                        summaryBackend()),
                 new LiveChatFetchService(List.of(provider), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
                 null,
                 new ConversationInventoryService(List.of(provider), chats));
@@ -199,9 +204,19 @@ class ChatMapControllerTest {
 
     @Test
     void executePromptDelegatesToConfiguredService() throws Exception {
-        AiBackend fakeBackend = request -> new AiResponse("pong", new BackendId("Fake"), Duration.ZERO);
+        AiProvider fakeBackend = new AiProvider() {
+            @Override
+            public AiResponse execute(ModelTarget target, AiRequest request) {
+                return new AiResponse("pong", new BackendId("Fake"), Duration.ZERO, target, null);
+            }
+
+            @Override
+            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        };
         PromptService promptService = new PromptService(
-                Map.of("fake", fakeBackend),
+                providers(fakeBackend),
                 new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
                 Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC),
                 tempDir);
@@ -212,13 +227,13 @@ class ChatMapControllerTest {
                 projectService,
                 tagService,
                 new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
-                        StandardCliBackend.claude(java.time.Duration.ofMinutes(3))),
+                        summaryBackend()),
                 new LiveChatFetchService(List.of(), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
                 null,
                 null,
                 promptService);
 
-        PromptResult result = promptController.executePrompt("fake", "ping");
+        PromptResult result = promptController.executePrompt("claude", "ping");
 
         assertEquals("pong", result.response());
     }
@@ -345,7 +360,7 @@ class ChatMapControllerTest {
                 new SearchService(new SearchRepository(conn)),
                 projectService,
                 tagService,
-                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn), StandardCliBackend.claude(java.time.Duration.ofMinutes(3))),
+                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn), summaryBackend()),
                 slowFetchService);
 
         java.util.concurrent.CompletableFuture<ChatListState.Snapshot> fetchTask =
@@ -376,6 +391,30 @@ class ChatMapControllerTest {
         return snapshot.currentItems().stream()
                 .map(result -> result.chatId())
                 .toList();
+    }
+
+    private static AiBackend summaryBackend() {
+        return request -> new AiResponse("summary", new BackendId("Summary"), Duration.ZERO);
+    }
+
+    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
+        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        AiProvider noop = new AiProvider() {
+            @Override
+            public AiResponse execute(ModelTarget target, AiRequest request) {
+                throw new AssertionError("unexpected provider call for " + target);
+            }
+
+            @Override
+            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        };
+        for (ProviderId id : ProviderId.values()) {
+            providers.put(id, noop);
+        }
+        providers.put(ProviderId.claudeCli, claudeProvider);
+        return providers;
     }
 
     private Chat insertChat(String title, String text) throws Exception {
