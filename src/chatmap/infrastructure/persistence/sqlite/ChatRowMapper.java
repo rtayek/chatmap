@@ -28,21 +28,21 @@ final class ChatRowMapper {
     static Chat read(ResultSet rs) throws SQLException {
         long projectId = rs.getLong("projectId");
         Long boxedProjectId = rs.wasNull() ? null : projectId;
-        return new Chat(
-                rs.getLong("id"),
-                boxedProjectId,
-                Source.fromDbValue(rs.getString("source")),
-                rs.getString("title"),
-                rs.getString("createdAt"),
-                rs.getString("updatedAt"),
-                rs.getString("importedAt"),
-                rs.getInt("archived") != 0,
-                new ImportMetadata(
-                        rs.getString("externalConversationId"),
-                        rs.getString("sourceUri"),
-                        rs.getString("contentHash"),
-                        rs.getString("sourceUpdatedAt"),
-                        rs.getString("lastImportedAt")),
-                ChatOrigin.fromDbValue(rs.getString("originatedBy")));
+        return Chat.builder()
+                .id(rs.getLong("id"))
+                .projectId(boxedProjectId)
+                .source(Source.fromDbValue(rs.getString("source")))
+                .title(rs.getString("title"))
+                .createdAt(rs.getString("createdAt"))
+                .updatedAt(rs.getString("updatedAt"))
+                .importedAt(rs.getString("importedAt"))
+                .archived(rs.getInt("archived") != 0)
+                .externalConversationId(rs.getString("externalConversationId"))
+                .sourceUri(rs.getString("sourceUri"))
+                .contentHash(rs.getString("contentHash"))
+                .sourceUpdatedAt(rs.getString("sourceUpdatedAt"))
+                .lastImportedAt(rs.getString("lastImportedAt"))
+                .originatedBy(chatmap.domain.ChatOrigin.fromDbValue(rs.getString("originatedBy")))
+                .build();
     }
 }

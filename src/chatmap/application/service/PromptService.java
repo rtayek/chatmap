@@ -120,8 +120,16 @@ public final class PromptService {
             String sessionId) throws SQLException {
         String now = started.toString();
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
-        Chat chat = new Chat(0L, null, target.source(), title, now, now, now, false,
-                chatmap.domain.ChatOrigin.generated);
+        Chat chat = Chat.builder()
+                .id(0L)
+                .source(target.source())
+                .title(title)
+                .createdAt(now)
+                .updatedAt(now)
+                .importedAt(now)
+                .archived(false)
+                .originatedBy(chatmap.domain.ChatOrigin.generated)
+                .build();
         Message userMsg = new Message(0L, 0L, chatmap.domain.MessageRole.user, prompt, 0, now, null);
         Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);
         List<Message> messages = List.of(userMsg, assistantMsg);

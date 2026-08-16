@@ -80,8 +80,15 @@ final class LocalCliSessions {
 
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt,
             Source source, String externalConversationId, String sourceUri) {
-        Chat chat = new Chat(0, null, source, title, null, null, importedAt, false,
-                new ImportMetadata(externalConversationId, sourceUri, null, importedAt, importedAt));
+        Chat chat = Chat.builder()
+                .source(source)
+                .title(title)
+                .importedAt(importedAt)
+                .externalConversationId(externalConversationId)
+                .sourceUri(sourceUri)
+                .sourceUpdatedAt(importedAt)
+                .lastImportedAt(importedAt)
+                .build();
         List<Message> messages = new ArrayList<>();
         int sequence = 0;
         for (ClaudeTurn turn : turns) {

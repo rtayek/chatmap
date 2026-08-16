@@ -22,7 +22,11 @@ public final class PlainTextImporter {
         Objects.requireNonNull(text, "text");
         Objects.requireNonNull(importedAt, "importedAt");
 
-        Chat chat = new Chat(0, null, Source.plainText, title, null, null, importedAt, false);
+        Chat chat = Chat.builder()
+                .source(Source.plainText)
+                .title(title)
+                .importedAt(importedAt)
+                .build();
         List<Message> messages = RolePrefixedTranscriptParser.parse(text);
         if (messages.isEmpty()) {
             messages = List.of(new Message(0, 0, MessageRole.unknown, text, 0, null, null));

@@ -27,23 +27,27 @@ public record Chat(
         Objects.requireNonNull(originatedBy, "originatedBy");
     }
 
+    @Deprecated
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived, ImportMetadata importMetadata) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived, importMetadata,
                 ChatOrigin.imported);
     }
 
+    @Deprecated
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
                 ImportMetadata.none(updatedAt, importedAt), ChatOrigin.imported);
     }
 
+    @Deprecated
     public Chat(long id, Long projectId, Source source, String title, String createdAt,
             String updatedAt, String importedAt, boolean archived, ChatOrigin originatedBy) {
         this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
                 ImportMetadata.none(updatedAt, importedAt), originatedBy);
     }
+
 
     public String externalConversationId() {
         return importMetadata.externalConversationId();
@@ -75,6 +79,10 @@ public record Chat(
         return new Builder(this);
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     /** Copy builder for {@link Chat}. Start from {@link Chat#toBuilder()}. */
     public static final class Builder {
         private long id;
@@ -90,7 +98,10 @@ public record Chat(
         private String contentHash;
         private String sourceUpdatedAt;
         private String lastImportedAt;
-        private ChatOrigin originatedBy;
+        private ChatOrigin originatedBy = ChatOrigin.imported;
+
+        public Builder() {
+        }
 
         private Builder(Chat chat) {
             this.id = chat.id;
@@ -126,6 +137,21 @@ public record Chat(
 
         public Builder title(String title) {
             this.title = title;
+            return this;
+        }
+
+        public Builder createdAt(String createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public Builder updatedAt(String updatedAt) {
+            this.updatedAt = updatedAt;
+            return this;
+        }
+
+        public Builder importedAt(String importedAt) {
+            this.importedAt = importedAt;
             return this;
         }
 

@@ -23,8 +23,11 @@ public final class MarkdownImporter {
         Objects.requireNonNull(fallbackTitle, "fallbackTitle");
         Objects.requireNonNull(importedAt, "importedAt");
 
-        Chat chat = new Chat(0, null, Source.markdown, deriveTitle(markdown, fallbackTitle),
-                null, null, importedAt, false);
+        Chat chat = Chat.builder()
+                .source(Source.markdown)
+                .title(deriveTitle(markdown, fallbackTitle))
+                .importedAt(importedAt)
+                .build();
         List<Message> messages = RolePrefixedTranscriptParser.parse(markdownWithoutTitleHeading(markdown));
         if (messages.isEmpty()) {
             messages = List.of(new Message(0, 0, MessageRole.unknown, markdown, 0, null, null));

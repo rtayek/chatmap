@@ -87,8 +87,14 @@ final class WebTranscripts {
     static ImportedChat toImportedChat(String title, List<ClaudeTurn> turns, String importedAt,
             String fallbackTitle, Source source, String externalConversationId, String sourceUri) {
         String chatTitle = (title == null || title.isBlank()) ? fallbackTitle : title.strip();
-        Chat chat = new Chat(0, null, source, chatTitle, null, null, importedAt, false,
-                new ImportMetadata(externalConversationId, sourceUri, null, null, importedAt));
+        Chat chat = Chat.builder()
+                .source(source)
+                .title(chatTitle)
+                .importedAt(importedAt)
+                .externalConversationId(externalConversationId)
+                .sourceUri(sourceUri)
+                .lastImportedAt(importedAt)
+                .build();
         List<Message> messages = new ArrayList<>();
         int sequence = 0;
         for (ClaudeTurn turn : turns) {

@@ -36,10 +36,14 @@ public final class ChatGptConversationParser {
         JsonObject mapping = ChatGptMapping.object(conversation.get("mapping"));
         if (mapping == null || mapping.isEmpty()) {
             String fallbackId = externalId != null ? externalId : "missing-id";
-            Chat emptyChat = new Chat(0, null, Source.chatgptJson,
-                    stringOr(conversation.get("title"), defaultTitle),
-                    null, null, importedAt, false,
-                    new ImportMetadata(fallbackId, sourceUri, null, null, importedAt));
+            Chat emptyChat = Chat.builder()
+                    .source(Source.chatgptJson)
+                    .title(stringOr(conversation.get("title"), defaultTitle))
+                    .importedAt(importedAt)
+                    .externalConversationId(fallbackId)
+                    .sourceUri(sourceUri)
+                    .lastImportedAt(importedAt)
+                    .build();
             return new ImportedChat(emptyChat, List.of());
         }
 
@@ -55,8 +59,17 @@ public final class ChatGptConversationParser {
             messages.add(new Message(0, 0, draft.role(), draft.text(), i, draft.timestamp(), draft.rawJson()));
         }
 
-        Chat chat = new Chat(0, null, Source.chatgptJson, title, createdAt, updatedAt, importedAt, false,
-                new ImportMetadata(externalId, sourceUri, null, updatedAt, importedAt));
+        Chat chat = Chat.builder()
+                .source(Source.chatgptJson)
+                .title(title)
+                .createdAt(createdAt)
+                .updatedAt(updatedAt)
+                .importedAt(importedAt)
+                .externalConversationId(externalId)
+                .sourceUri(sourceUri)
+                .sourceUpdatedAt(updatedAt)
+                .lastImportedAt(importedAt)
+                .build();
         return new ImportedChat(chat, messages);
     }
 

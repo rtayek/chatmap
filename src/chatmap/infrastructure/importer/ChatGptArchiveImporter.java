@@ -121,8 +121,13 @@ public final class ChatGptArchiveImporter implements ChatArchiveReader {
     private static ImportedConversation emptyConversation(String entryName, int index, String idOrReason,
             String importedAt) {
         String id = idOrReason.startsWith("missing ") ? entryName + "#" + index : idOrReason;
-        Chat chat = new Chat(0, null, Source.chatgptJson, "Skipped ChatGPT conversation",
-                null, null, importedAt, false, new ImportMetadata(id, null, null, null, importedAt));
+        Chat chat = Chat.builder()
+                .source(Source.chatgptJson)
+                .title("Skipped ChatGPT conversation")
+                .importedAt(importedAt)
+                .externalConversationId(id)
+                .lastImportedAt(importedAt)
+                .build();
         return new ImportedConversation(entryName, id, new ImportedChat(chat, List.of()));
     }
 
