@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import chatmap.infrastructure.provider.ClaudeTurn;
 
@@ -24,6 +27,8 @@ import java.util.Optional;
  * best-effort and must be verified against the live site.
  */
 abstract class CdpTranscriptAdapter implements AutoCloseable {
+    private static final Logger LOG = Log.of(CdpTranscriptAdapter.class);
+
 
     /** A conversation's display title and its full URL. */
     record ChatWebSummary(String title, String url) {}
@@ -332,7 +337,8 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             try {
                 page.close();
             } catch (Exception ignored) {
-            }
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        }
         }
         openPages.clear();
         browser = null;

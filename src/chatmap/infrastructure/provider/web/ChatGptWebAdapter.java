@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import chatmap.infrastructure.provider.ClaudeTurn;
 import chatmap.infrastructure.provider.ProviderIdentity;
@@ -32,6 +35,8 @@ import java.util.function.LongConsumer;
  * markers both matched and read a real conversation correctly.
  */
 public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
+    private static final Logger LOG = Log.of(ChatGptWebAdapter.class);
+
 
     static final String BASE_URL = "https://chatgpt.com";
 
@@ -50,7 +55,7 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         try {
             page.waitForSelector("a[href*='/c/']", 5000);
         } catch (Exception ignored) {
-            // Sidebar may be slow, or absent when logged out.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
@@ -83,7 +88,7 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         try {
             page.waitForSelector("[data-message-author-role]", 5000);
         } catch (Exception ignored) {
-            // No messages in time (e.g. not logged in) -> empty transcript.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         List<ClaudeTurn> turns = new ArrayList<>();
@@ -318,8 +323,8 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
                     return delay;
                 }
             } catch (NumberFormatException ignored) {
-                // HTTP-date handling follows below.
-            }
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        }
             try {
                 long delay = java.time.ZonedDateTime.parse(
                         retryAfter, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
@@ -328,8 +333,8 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
                     return delay;
                 }
             } catch (java.time.DateTimeException ignored) {
-                // Fall through to bounded exponential backoff.
-            }
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        }
         }
         return Math.min(PAGE_DELAY_MILLIS * (1L << Math.min(retry, 3)), MAX_RETRY_DELAY_MILLIS);
     }

@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import chatmap.infrastructure.provider.ClaudeTurn;
 
@@ -7,7 +10,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import chatmap.domain.Chat;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
@@ -19,6 +21,8 @@ import chatmap.application.model.ImportedChat;
  * the logic that most needs testing does not require a live browser.
  */
 final class WebTranscripts {
+    private static final Logger LOG = Log.of(WebTranscripts.class);
+
 
     private WebTranscripts() {
     }
@@ -71,6 +75,7 @@ final class WebTranscripts {
         try {
             return locator.innerText();
         } catch (Exception ignored) {
+            LOG.trace("Silenced exception reading innerText: {}", ignored.getMessage(), ignored);
             return null;
         }
     }

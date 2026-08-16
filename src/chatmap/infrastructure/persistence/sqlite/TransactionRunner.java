@@ -1,5 +1,8 @@
 package chatmap.infrastructure.persistence.sqlite;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
@@ -17,6 +20,8 @@ import chatmap.application.port.persistence.TransactionManager;
  * not take this lock themselves.
  */
 public final class TransactionRunner implements TransactionManager {
+
+    private static final Logger LOG = Log.of(TransactionRunner.class);
 
     private final Connection conn;
     private final Object lock;
@@ -63,8 +68,8 @@ public final class TransactionRunner implements TransactionManager {
             try {
                 conn.releaseSavepoint(savepoint);
             } catch (SQLException ignored) {
-                // Some drivers invalidate a savepoint when rolling back to it.
-            }
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        }
             throw e;
         }
     }

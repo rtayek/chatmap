@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,6 +25,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 final class CdpPage implements AutoCloseable {
+    private static final Logger LOG = Log.of(CdpPage.class);
+
 
     private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(8);
     private static final long POLL_INTERVAL_MILLIS = 100;
@@ -107,7 +112,7 @@ final class CdpPage implements AutoCloseable {
         try {
             onClose.run();
         } catch (RuntimeException ignored) {
-            // Best-effort cleanup (e.g. closing a browser tab we created); never fail the caller over it.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
     }
 
@@ -326,8 +331,8 @@ final class CdpPage implements AutoCloseable {
                         }
                     }
                 } catch (Exception ignored) {
-                    // Ignore unparseable notification frames
-                }
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        }
             }
             socket.request(1);
             return null;
@@ -354,7 +359,8 @@ final class CdpPage implements AutoCloseable {
             try {
                 webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
             } catch (Exception ignored) {
-            }
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        }
         }
     }
 }

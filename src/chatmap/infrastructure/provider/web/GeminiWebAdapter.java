@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import chatmap.infrastructure.provider.SessionLines;
 
@@ -37,6 +40,8 @@ import com.google.gson.JsonParser;
  * reading the inner content elements avoids.
  */
 public final class GeminiWebAdapter extends CdpTranscriptAdapter {
+    private static final Logger LOG = Log.of(GeminiWebAdapter.class);
+
 
     static final String BASE_URL = "https://gemini.google.com/app";
     static final String SIDEBAR_URI_PREFIX = "gemini-sidebar-index:";
@@ -320,7 +325,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         try {
             page.waitForSelector("user-query, model-response", 5000);
         } catch (Exception ignored) {
-            // No messages in time -> empty transcript.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         // Read each turn's clean content element (avoids the a11y "You said"/"Gemini said" prefix).
@@ -362,7 +367,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
                 turns.add(new ClaudeTurn(role, text.strip()));
             }
         } catch (RuntimeException ignored) {
-            // return whatever parsed so far (empty on malformed input)
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
         return turns;
     }

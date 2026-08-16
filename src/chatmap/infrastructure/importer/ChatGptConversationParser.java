@@ -16,7 +16,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import chatmap.domain.Chat;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 import chatmap.domain.Source;

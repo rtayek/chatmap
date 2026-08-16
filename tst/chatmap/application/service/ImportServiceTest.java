@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.domain.Chat;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 import chatmap.domain.Project;

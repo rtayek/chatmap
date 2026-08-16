@@ -25,7 +25,6 @@ import com.google.gson.stream.JsonReader;
 import static chatmap.infrastructure.importer.ChatGptMapping.object;
 
 import chatmap.domain.Chat;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Source;
 
 /** Reads ChatGPT export ZIP conversation JSON without extracting the archive. */

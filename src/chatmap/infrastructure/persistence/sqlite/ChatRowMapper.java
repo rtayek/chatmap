@@ -4,8 +4,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import chatmap.domain.Chat;
-import chatmap.domain.ChatOrigin;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Source;
 
 final class ChatRowMapper {

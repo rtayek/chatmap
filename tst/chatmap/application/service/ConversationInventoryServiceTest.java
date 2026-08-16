@@ -17,7 +17,6 @@ import chatmap.application.port.provider.ChatProvider;
 import chatmap.domain.Chat;
 import chatmap.domain.ConversationCandidate;
 import chatmap.domain.ConversationInventory;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Source;
 import chatmap.application.model.ImportedChat;
 import chatmap.infrastructure.persistence.sqlite.ChatRepository;

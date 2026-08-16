@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import chatmap.infrastructure.provider.ClaudeTurn;
 import chatmap.infrastructure.provider.ProviderIdentity;
@@ -32,6 +35,8 @@ import java.util.Set;
  */
 public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
 
+    private static final Logger LOG = Log.of(ClaudeWebAdapter.class);
+
     public static final String CLAUDE_BASE_URL = "https://claude.ai";
 
     ClaudeWebAdapter(String cdpUrl) {
@@ -54,7 +59,7 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         try {
             page.waitForSelector("a[href*='/chat/']", 5000);
         } catch (Exception ignored) {
-            // Sidebar may be slow, or absent when logged out.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
@@ -111,7 +116,7 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         try {
             page.waitForSelector(String.join(", ", turnSelectorCandidates), 5000);
         } catch (Exception ignored) {
-            // No messages found in time (e.g. not logged in) -> empty transcript.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         for (String selector : turnSelectorCandidates) {

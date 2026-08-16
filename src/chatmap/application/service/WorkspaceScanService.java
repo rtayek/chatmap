@@ -1,5 +1,8 @@
 package chatmap.application.service;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -21,6 +24,8 @@ import java.util.stream.Stream;
  * CLI-presentation concern, so it lives here rather than in the CLI class.
  */
 public final class WorkspaceScanService {
+    private static final Logger LOG = Log.of(WorkspaceScanService.class);
+
 
     private static final Set<String> IGNORE_DIRS = Set.of(
             ".git", ".gradle", ".settings", ".venv", "__pycache__", "node_modules",
@@ -86,7 +91,7 @@ public final class WorkspaceScanService {
                 }
             });
         } catch (IOException ignored) {
-            // ignore inaccessible roots
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
         return list;
     }

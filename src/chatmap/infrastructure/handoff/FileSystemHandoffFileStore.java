@@ -1,5 +1,8 @@
 package chatmap.infrastructure.handoff;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +15,8 @@ import chatmap.application.port.handoff.HandoffFileStoreException;
 
 /** Real {@code java.nio.file}-backed implementation of {@link HandoffFileStore}. */
 public final class FileSystemHandoffFileStore implements HandoffFileStore {
+    private static final Logger LOG = Log.of(FileSystemHandoffFileStore.class);
+
 
     @Override
     public List<Path> listDirectories(Path dir) {
@@ -95,7 +100,7 @@ public final class FileSystemHandoffFileStore implements HandoffFileStore {
                 Files.deleteIfExists(path);
             }
         } catch (IOException ignored) {
-            // Best-effort: a leftover temp directory is not worth failing the run over.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         }
     }
 }

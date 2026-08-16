@@ -18,7 +18,6 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import chatmap.domain.Chat;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;

@@ -1,5 +1,8 @@
 package chatmap.infrastructure.provider.web;
 
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,6 +21,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public final class CdpBrowserConnection {
+    private static final Logger LOG = Log.of(CdpBrowserConnection.class);
+
 
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(4);
 
@@ -95,7 +100,7 @@ public final class CdpBrowserConnection {
             httpClient.send(request, HttpResponse.BodyHandlers.discarding());
             awaitTargetGone(targetId);
         } catch (IOException | RuntimeException ignored) {
-            // Not worth failing the caller over a leftover tab.
+            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }

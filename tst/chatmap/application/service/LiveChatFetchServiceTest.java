@@ -16,7 +16,6 @@ import org.junit.jupiter.api.Test;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.application.port.provider.ChatProviderException;
 import chatmap.domain.Chat;
-import chatmap.domain.ImportMetadata;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 import chatmap.domain.Source;
