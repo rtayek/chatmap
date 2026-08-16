@@ -58,8 +58,16 @@ class ExportServiceTest {
 
     @Test
     void loadChatHydratesChatAndItsMessages() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Hydrated",
-                null, null, "2026-08-10T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(null)
+                                         .source(Source.plainText)
+                                         .title("Hydrated")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-08-10T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         Message first = messages.insert(new Message(0, chat.id(), MessageRole.user, "hi", 0, null, null));
         Message second = messages.insert(new Message(0, chat.id(), MessageRole.assistant, "hello", 1, null, null));
 
@@ -74,8 +82,16 @@ class ExportServiceTest {
     void loadProjectHandoffHydratesChatsMessagesAndTags() throws Exception {
         Project project = projects.insert(new Project(0, "Handoff Project", null,
                 "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
-        Chat chat = chats.insert(new Chat(0, project.id(), Source.plainText, "In project",
-                null, null, "2026-08-10T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(project.id())
+                                         .source(Source.plainText)
+                                         .title("In project")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-08-10T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         Message message = messages.insert(new Message(0, chat.id(), MessageRole.user, "hi", 0, null, null));
         Tag tag = tags.insert(new Tag(0, "MVP"));
         tags.assignToChat(chat.id(), tag.id());
@@ -96,8 +112,16 @@ class ExportServiceTest {
     void loadProjectHandoffIsAtomicAgainstAConcurrentWriter() throws Exception {
         Project project = projects.insert(new Project(0, "Concurrent Project", null,
                 "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
-        chats.insert(new Chat(0, project.id(), Source.plainText, "One",
-                null, null, "2026-08-10T00:00:00Z", false));
+        chats.insert(Chat.builder()
+                             .id(0)
+                             .projectId(project.id())
+                             .source(Source.plainText)
+                             .title("One")
+                             .createdAt(null)
+                             .updatedAt(null)
+                             .importedAt("2026-08-10T00:00:00Z")
+                             .archived(false)
+                             .build());
 
         // Hold the shared connection's monitor from outside, the same way a
         // writer holding it mid-transaction would. If loadProjectHandoff's

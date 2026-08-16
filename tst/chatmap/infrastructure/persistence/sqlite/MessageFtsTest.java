@@ -46,8 +46,16 @@ class MessageFtsTest {
     }
 
     private Chat newChat() throws Exception {
-        return chats.insert(new Chat(0, null, Source.unknown, "Test Chat",
-                null, null, "2026-07-02T00:00:00Z", false));
+        return chats.insert(Chat.builder()
+                                    .id(0)
+                                    .projectId(null)
+                                    .source(Source.unknown)
+                                    .title("Test Chat")
+                                    .createdAt(null)
+                                    .updatedAt(null)
+                                    .importedAt("2026-07-02T00:00:00Z")
+                                    .archived(false)
+                                    .build());
     }
 
     private Message newMessage(long chatId, int seq, String text) throws Exception {

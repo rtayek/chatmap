@@ -154,10 +154,14 @@ class ChatMapControllerTest {
 
     @Test
     void loadsConversationInventoryThroughConfiguredService() throws Exception {
-        Chat stored = chats.insert(new Chat(0, null, Source.codexCli, "Stored",
-                null, null, "2026-07-08T00:00:00Z", false,
-                new chatmap.domain.ImportMetadata("stored-id", "source://stored",
-                        null, null, null)));
+        Chat stored = chats.insert(Chat.builder()
+                .id(0)
+                .source(Source.codexCli)
+                .title("Stored")
+                .importedAt("2026-07-08T00:00:00Z")
+                .externalConversationId("stored-id")
+                .sourceUri("source://stored")
+                .build());
         chatmap.application.port.provider.ChatProvider provider = new chatmap.application.port.provider.ChatProvider() {
             @Override
             public String name() {
@@ -418,8 +422,16 @@ class ChatMapControllerTest {
     }
 
     private Chat insertChat(String title, String text) throws Exception {
-        Chat chat = chats.insert(new Chat(
-                0, null, Source.plainText, title, null, null, "2026-07-08T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(null)
+                                         .source(Source.plainText)
+                                         .title(title)
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-08T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         messages.insert(new Message(0, chat.id(), MessageRole.unknown, text, 0, null, null));
         return chat;
     }

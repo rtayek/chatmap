@@ -12,8 +12,16 @@ import org.junit.jupiter.api.Test;
 class SearchResultTest {
 
     private static Chat sampleChat(long id) {
-        return new Chat(id, null, Source.plainText, "Title",
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false);
+        return Chat.builder()
+                       .id(id)
+                       .projectId(null)
+                       .source(Source.plainText)
+                       .title("Title")
+                       .createdAt("2026-01-01T00:00:00Z")
+                       .updatedAt("2026-01-02T00:00:00Z")
+                       .importedAt("2026-01-03T00:00:00Z")
+                       .archived(false)
+                       .build();
     }
 
     @Test

@@ -27,28 +27,6 @@ public record Chat(
         Objects.requireNonNull(originatedBy, "originatedBy");
     }
 
-    @Deprecated
-    public Chat(long id, Long projectId, Source source, String title, String createdAt,
-            String updatedAt, String importedAt, boolean archived, ImportMetadata importMetadata) {
-        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived, importMetadata,
-                ChatOrigin.imported);
-    }
-
-    @Deprecated
-    public Chat(long id, Long projectId, Source source, String title, String createdAt,
-            String updatedAt, String importedAt, boolean archived) {
-        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
-                ImportMetadata.none(updatedAt, importedAt), ChatOrigin.imported);
-    }
-
-    @Deprecated
-    public Chat(long id, Long projectId, Source source, String title, String createdAt,
-            String updatedAt, String importedAt, boolean archived, ChatOrigin originatedBy) {
-        this(id, projectId, source, title, createdAt, updatedAt, importedAt, archived,
-                ImportMetadata.none(updatedAt, importedAt), originatedBy);
-    }
-
-
     public String externalConversationId() {
         return importMetadata.externalConversationId();
     }
@@ -191,9 +169,11 @@ public record Chat(
         }
 
         public Chat build() {
+            String actualSourceUpdatedAt = sourceUpdatedAt != null ? sourceUpdatedAt : updatedAt;
+            String actualLastImportedAt = lastImportedAt != null ? lastImportedAt : importedAt;
             return new Chat(id, projectId, source, title, createdAt, updatedAt, importedAt,
                     archived, new ImportMetadata(externalConversationId, sourceUri,
-                            contentHash, sourceUpdatedAt, lastImportedAt), originatedBy);
+                            contentHash, actualSourceUpdatedAt, actualLastImportedAt), originatedBy);
         }
     }
 }

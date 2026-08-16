@@ -182,8 +182,16 @@ class SearchServiceTest {
         Project project = projects.insert(new Project(
                 0, "Search Project", null, "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
         Tag tag = tags.insert(new Tag(0, "MVP"));
-        Chat chat = chats.insert(new Chat(
-                0, project.id(), Source.plainText, "Metadata", null, null, "2026-07-06T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(project.id())
+                                         .source(Source.plainText)
+                                         .title("Metadata")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-06T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         tags.assignToChat(chat.id(), tag.id());
         messages.insert(new Message(0, chat.id(), MessageRole.user, "ChatMap metadata target", 0, null, null));
 
@@ -196,6 +204,15 @@ class SearchServiceTest {
     }
 
     private Chat insertChat(String title, String importedAt) throws Exception {
-        return chats.insert(new Chat(0, null, Source.plainText, title, null, null, importedAt, false));
+        return chats.insert(Chat.builder()
+                                    .id(0)
+                                    .projectId(null)
+                                    .source(Source.plainText)
+                                    .title(title)
+                                    .createdAt(null)
+                                    .updatedAt(null)
+                                    .importedAt(importedAt)
+                                    .archived(false)
+                                    .build());
     }
 }

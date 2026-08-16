@@ -68,8 +68,16 @@ class HandoffExporterTest {
     void exportsOneChatWithTagsArchivedStatusAndMissingOptionalTimestamps() throws Exception {
         Project project = projects.insert(new Project(0, "One Chat Project", null,
                 "2026-07-01T00:00:00Z", "2026-07-02T00:00:00Z"));
-        Chat chat = chats.insert(new Chat(0, project.id(), Source.markdown, "Planning Notes",
-                null, null, "2026-07-03T08:00:00Z", true));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(project.id())
+                                         .source(Source.markdown)
+                                         .title("Planning Notes")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-03T08:00:00Z")
+                                         .archived(true)
+                                         .build());
         Tag tag = tags.insert(new Tag(0, "planning"));
         tags.assignToChat(chat.id(), tag.id());
         messages.insert(new Message(0, chat.id(), MessageRole.user,
@@ -86,10 +94,26 @@ class HandoffExporterTest {
     void exportsMultipleChatsInStableOrderWithAssistantPreview() throws Exception {
         Project project = projects.insert(new Project(0, "Knowledge Base", "Reusable chat notes.",
                 "2026-07-01T00:00:00Z", "2026-07-02T00:00:00Z"));
-        Chat second = chats.insert(new Chat(0, project.id(), Source.plainText, "Later Chat",
-                null, "2026-07-05T09:00:00Z", "2026-07-05T10:00:00Z", false));
-        Chat first = chats.insert(new Chat(0, project.id(), Source.plainText, "Earlier Chat",
-                "2026-07-04T09:00:00Z", null, "2026-07-04T10:00:00Z", false));
+        Chat second = chats.insert(Chat.builder()
+                                           .id(0)
+                                           .projectId(project.id())
+                                           .source(Source.plainText)
+                                           .title("Later Chat")
+                                           .createdAt(null)
+                                           .updatedAt("2026-07-05T09:00:00Z")
+                                           .importedAt("2026-07-05T10:00:00Z")
+                                           .archived(false)
+                                           .build());
+        Chat first = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(project.id())
+                                          .source(Source.plainText)
+                                          .title("Earlier Chat")
+                                          .createdAt("2026-07-04T09:00:00Z")
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-04T10:00:00Z")
+                                          .archived(false)
+                                          .build());
         Tag export = tags.insert(new Tag(0, "export"));
         Tag mvp = tags.insert(new Tag(0, "mvp"));
         tags.assignToChat(first.id(), mvp.id());
@@ -114,12 +138,36 @@ class HandoffExporterTest {
     void loadProjectHandoffHydratesMessagesAndTagsForAllProjectChats() throws Exception {
         Project project = projects.insert(new Project(0, "Hydrated", null,
                 "2026-07-01T00:00:00Z", "2026-07-02T00:00:00Z"));
-        Chat first = chats.insert(new Chat(0, project.id(), Source.plainText, "First",
-                null, null, "2026-07-03T00:00:00Z", false));
-        Chat second = chats.insert(new Chat(0, project.id(), Source.plainText, "Second",
-                null, null, "2026-07-04T00:00:00Z", false));
-        Chat empty = chats.insert(new Chat(0, project.id(), Source.plainText, "Empty",
-                null, null, "2026-07-05T00:00:00Z", false));
+        Chat first = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(project.id())
+                                          .source(Source.plainText)
+                                          .title("First")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-03T00:00:00Z")
+                                          .archived(false)
+                                          .build());
+        Chat second = chats.insert(Chat.builder()
+                                           .id(0)
+                                           .projectId(project.id())
+                                           .source(Source.plainText)
+                                           .title("Second")
+                                           .createdAt(null)
+                                           .updatedAt(null)
+                                           .importedAt("2026-07-04T00:00:00Z")
+                                           .archived(false)
+                                           .build());
+        Chat empty = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(project.id())
+                                          .source(Source.plainText)
+                                          .title("Empty")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-05T00:00:00Z")
+                                          .archived(false)
+                                          .build());
         Tag alpha = tags.insert(new Tag(0, "Alpha"));
         Tag zebra = tags.insert(new Tag(0, "zebra"));
         tags.assignToChat(first.id(), zebra.id());

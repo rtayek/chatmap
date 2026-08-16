@@ -9,10 +9,21 @@ import org.junit.jupiter.api.Test;
 class ChatTest {
 
     private static Chat sample() {
-        return new Chat(7L, 3L, Source.chatgptJson, "Title",
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false,
-                new ImportMetadata("ext-1", "file:///a", "hash-1",
-                        "2026-01-04T00:00:00Z", "2026-01-05T00:00:00Z"));
+        return Chat.builder()
+                .id(7L)
+                .projectId(3L)
+                .source(Source.chatgptJson)
+                .title("Title")
+                .createdAt("2026-01-01T00:00:00Z")
+                .updatedAt("2026-01-02T00:00:00Z")
+                .importedAt("2026-01-03T00:00:00Z")
+                .archived(false)
+                .externalConversationId("ext-1")
+                .sourceUri("file:///a")
+                .contentHash("hash-1")
+                .sourceUpdatedAt("2026-01-04T00:00:00Z")
+                .lastImportedAt("2026-01-05T00:00:00Z")
+                .build();
     }
 
     @Test
@@ -62,8 +73,16 @@ class ChatTest {
 
     @Test
     void eightArgConstructorDefaultsOriginatedByToImportedAndImportMetadataToNone() {
-        Chat chat = new Chat(1L, null, Source.plainText, "Title",
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false);
+        Chat chat = Chat.builder()
+                            .id(1L)
+                            .projectId(null)
+                            .source(Source.plainText)
+                            .title("Title")
+                            .createdAt("2026-01-01T00:00:00Z")
+                            .updatedAt("2026-01-02T00:00:00Z")
+                            .importedAt("2026-01-03T00:00:00Z")
+                            .archived(false)
+                            .build();
 
         assertEquals(ChatOrigin.imported, chat.originatedBy());
         assertNull(chat.externalConversationId());
@@ -77,8 +96,17 @@ class ChatTest {
 
     @Test
     void nineArgConstructorUsesGivenOriginatedByAndStillDefaultsImportMetadataToNone() {
-        Chat chat = new Chat(1L, null, Source.jshellHarness, "Title",
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, ChatOrigin.generated);
+        Chat chat = Chat.builder()
+                            .id(1L)
+                            .projectId(null)
+                            .source(Source.jshellHarness)
+                            .title("Title")
+                            .createdAt("2026-01-01T00:00:00Z")
+                            .updatedAt("2026-01-02T00:00:00Z")
+                            .importedAt("2026-01-03T00:00:00Z")
+                            .archived(false)
+                            .originatedBy(ChatOrigin.generated)
+                            .build();
 
         assertEquals(ChatOrigin.generated, chat.originatedBy());
         assertNull(chat.externalConversationId());
@@ -90,8 +118,19 @@ class ChatTest {
     void nineArgImportMetadataConstructorDefaultsOriginatedByToImported() {
         ImportMetadata metadata = new ImportMetadata("ext-1", "file:///a", "hash-1",
                 "2026-01-04T00:00:00Z", "2026-01-05T00:00:00Z");
-        Chat chat = new Chat(1L, null, Source.chatgptJson, "Title",
-                "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z", false, metadata);
+        Chat chat = Chat.builder()
+                .id(1L)
+                .source(Source.chatgptJson)
+                .title("Title")
+                .createdAt("2026-01-01T00:00:00Z")
+                .updatedAt("2026-01-02T00:00:00Z")
+                .importedAt("2026-01-03T00:00:00Z")
+                .externalConversationId(metadata.externalConversationId())
+                .sourceUri(metadata.sourceUri())
+                .contentHash(metadata.transcriptHash())
+                .sourceUpdatedAt(metadata.sourceUpdatedAt())
+                .lastImportedAt(metadata.lastImportedAt())
+                .build();
 
         assertEquals(ChatOrigin.imported, chat.originatedBy());
         assertEquals(metadata, chat.importMetadata());
@@ -101,11 +140,8 @@ class ChatTest {
     void rejectsNullClosedSetAndMetadataFields() {
         ImportMetadata metadata = ImportMetadata.none(null, "2026-01-03T00:00:00Z");
 
-        assertThrows(NullPointerException.class, () -> new Chat(1L, null, null, "Title",
-                null, null, "2026-01-03T00:00:00Z", false, metadata, ChatOrigin.imported));
-        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title",
-                null, null, "2026-01-03T00:00:00Z", false, null, ChatOrigin.imported));
-        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title",
-                null, null, "2026-01-03T00:00:00Z", false, metadata, null));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, null, "Title", null, null, "2026-01-03T00:00:00Z", false, metadata, ChatOrigin.imported));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title", null, null, "2026-01-03T00:00:00Z", false, null, ChatOrigin.imported));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title", null, null, "2026-01-03T00:00:00Z", false, metadata, null));
     }
 }

@@ -324,8 +324,16 @@ class ImportServiceTest {
     void failedImportInsideOuterTransactionKeepsCallerTransactionUsable() throws Exception {
         conn.setAutoCommit(false);
         try {
-            Chat survivor = chats.insert(new Chat(0, null, Source.plainText, "Survivor", null, null,
-                    "2026-08-05T00:00:00Z", false));
+            Chat survivor = chats.insert(Chat.builder()
+                                                 .id(0)
+                                                 .projectId(null)
+                                                 .source(Source.plainText)
+                                                 .title("Survivor")
+                                                 .createdAt(null)
+                                                 .updatedAt(null)
+                                                 .importedAt("2026-08-05T00:00:00Z")
+                                                 .archived(false)
+                                                 .build());
             ImportedChat invalid = providerChatWithMessages(Source.chatGptWeb, "bad-outer",
                     "https://chatgpt.com/c/bad-outer", "Bad",
                     List.of(new Message(0, 0, MessageRole.user, "partial text", 0, null, null),
@@ -358,8 +366,15 @@ class ImportServiceTest {
 
     private static ImportedChat providerChatWithMessages(Source source, String externalId, String sourceUri,
             String title, List<Message> messages) {
-        Chat chat = new Chat(0, null, source, title, null, null, "2026-08-05T00:00:00Z", false,
-                new ImportMetadata(externalId, sourceUri, null, null, "2026-08-05T00:00:00Z"));
+        Chat chat = Chat.builder()
+                .id(0)
+                .source(source)
+                .title(title)
+                .importedAt("2026-08-05T00:00:00Z")
+                .externalConversationId(externalId)
+                .sourceUri(sourceUri)
+                .lastImportedAt("2026-08-05T00:00:00Z")
+                .build();
         return new ImportedChat(chat, messages);
     }
 

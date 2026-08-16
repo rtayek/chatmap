@@ -41,8 +41,16 @@ class MarkdownExporterTest {
 
     @Test
     void exportsHydratedChatAsDeterministicMarkdown() throws Exception {
-        Chat chat = new Chat(7, null, Source.plainText, "Sample Chat",
-                "2026-07-05T10:00:00Z", null, "2026-07-06T00:00:00Z", false);
+        Chat chat = Chat.builder()
+                            .id(7)
+                            .projectId(null)
+                            .source(Source.plainText)
+                            .title("Sample Chat")
+                            .createdAt("2026-07-05T10:00:00Z")
+                            .updatedAt(null)
+                            .importedAt("2026-07-06T00:00:00Z")
+                            .archived(false)
+                            .build();
         List<Message> messages = List.of(
                 new Message(11, 7, MessageRole.unknown, "First line\nsecond line", 0, null, null),
                 new Message(12, 7, MessageRole.assistant, "Final answer.", 1, null, null));
@@ -61,8 +69,16 @@ class MarkdownExporterTest {
         TagRepository tags = new TagRepository(conn);
         ExportService exportService = new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter());
 
-        Chat storedChat = chats.insert(new Chat(0, null, Source.plainText, "Stored Chat",
-                null, null, "2026-07-06T00:00:00Z", false));
+        Chat storedChat = chats.insert(Chat.builder()
+                                               .id(0)
+                                               .projectId(null)
+                                               .source(Source.plainText)
+                                               .title("Stored Chat")
+                                               .createdAt(null)
+                                               .updatedAt(null)
+                                               .importedAt("2026-07-06T00:00:00Z")
+                                               .archived(false)
+                                               .build());
         Message second = messages.insert(new Message(0, storedChat.id(), MessageRole.unknown,
                 "Second message.", 1, null, null));
         Message first = messages.insert(new Message(0, storedChat.id(), MessageRole.unknown,
@@ -84,8 +100,16 @@ class MarkdownExporterTest {
         TagRepository tags = new TagRepository(conn);
         ExportService exportService = new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter());
 
-        Chat storedChat = chats.insert(new Chat(0, null, Source.markdown, "UI Export Chat",
-                null, null, "2026-07-06T00:00:00Z", false));
+        Chat storedChat = chats.insert(Chat.builder()
+                                               .id(0)
+                                               .projectId(null)
+                                               .source(Source.markdown)
+                                               .title("UI Export Chat")
+                                               .createdAt(null)
+                                               .updatedAt(null)
+                                               .importedAt("2026-07-06T00:00:00Z")
+                                               .archived(false)
+                                               .build());
         messages.insert(new Message(0, storedChat.id(), MessageRole.unknown,
                 "Export this selected chat.", 0, null, null));
         Path outputPath = tempDir.resolve("selected-chat.md");

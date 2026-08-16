@@ -93,7 +93,16 @@ class SummaryServiceTest {
 
     @Test
     void buildPromptIncludesTitleAndRoleLabeledMessages() {
-        Chat chat = new Chat(1, null, Source.plainText, "Storage Decision", null, null, "2026-01-01T00:00:00Z", false);
+        Chat chat = Chat.builder()
+                            .id(1)
+                            .projectId(null)
+                            .source(Source.plainText)
+                            .title("Storage Decision")
+                            .createdAt(null)
+                            .updatedAt(null)
+                            .importedAt("2026-01-01T00:00:00Z")
+                            .archived(false)
+                            .build();
         List<Message> messages = List.of(
                 new Message(1, 1, MessageRole.user, "Should we use SQLite?", 0, null, null),
                 new Message(2, 1, MessageRole.assistant, "Yes, with FTS5 for search.", 1, null, null));
@@ -162,8 +171,16 @@ class SummaryServiceTest {
     }
 
     private Chat insertChatWithMessage() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Storage Decision",
-                null, null, "2026-01-01T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(null)
+                                         .source(Source.plainText)
+                                         .title("Storage Decision")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-01-01T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         messages.insert(new Message(0, chat.id(), MessageRole.user, "Should we use SQLite?", 0, null, null));
         return chat;
     }

@@ -88,7 +88,16 @@ class ChatListStateTest {
 
     private static SearchResult result(long id, String title) {
         return new SearchResult(
-                new Chat(id, null, Source.plainText, title, null, null, "2026-07-07T00:00:00Z", false),
+                Chat.builder()
+                        .id(id)
+                        .projectId(null)
+                        .source(Source.plainText)
+                        .title(title)
+                        .createdAt(null)
+                        .updatedAt(null)
+                        .importedAt("2026-07-07T00:00:00Z")
+                        .archived(false)
+                        .build(),
                 null,
                 List.of(),
                 null);

@@ -57,8 +57,16 @@ class ConversationInventoryServiceTest {
 
     @Test
     void importedStatusUsesExternalIdentityAndDoesNotWrite() throws Exception {
-        chats.insert(new Chat(0, null, Source.codexCli, "Stored", null, null, "now", false,
-                new ImportMetadata("stored-id", "file:///stored", null, "now", "now")));
+        chats.insert(Chat.builder()
+                .id(0)
+                .source(Source.codexCli)
+                .title("Stored")
+                .importedAt("now")
+                .externalConversationId("stored-id")
+                .sourceUri("source://stored")
+                .sourceUpdatedAt("now")
+                .lastImportedAt("now")
+                .build());
         long before = rowCount("chats");
         ConversationInventoryService service = new ConversationInventoryService(List.of(
                 provider("codex", List.of(

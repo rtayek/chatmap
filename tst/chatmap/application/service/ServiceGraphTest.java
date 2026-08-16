@@ -44,8 +44,16 @@ class ServiceGraphTest {
     void defaultGraphDoesNotConfigureOptionalLiveProvidersOrSummaryBackend() throws Exception {
         try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
                 ServiceGraph graph = ServiceGraph.create(connection, paths())) {
-            Chat stored = graph.chats().insert(new Chat(
-                    0, null, Source.plainText, "Stored", null, null, "2026-08-08T00:00:00Z", false));
+            Chat stored = graph.chats().insert(Chat.builder()
+                                                       .id(0)
+                                                       .projectId(null)
+                                                       .source(Source.plainText)
+                                                       .title("Stored")
+                                                       .createdAt(null)
+                                                       .updatedAt(null)
+                                                       .importedAt("2026-08-08T00:00:00Z")
+                                                       .archived(false)
+                                                       .build());
 
             LiveChatFetchService.Resolution resolution = graph.liveChatFetchService().resolve(null);
 
@@ -65,9 +73,16 @@ class ServiceGraphTest {
 
             @Override
             public Optional<ImportedChat> latestChat() {
-                Chat chat = new Chat(
-                        0, null, Source.plainText, "Injected Chat",
-                        null, null, "2026-08-08T00:00:00Z", false);
+                Chat chat = Chat.builder()
+                                    .id(0)
+                                    .projectId(null)
+                                    .source(Source.plainText)
+                                    .title("Injected Chat")
+                                    .createdAt(null)
+                                    .updatedAt(null)
+                                    .importedAt("2026-08-08T00:00:00Z")
+                                    .archived(false)
+                                    .build();
                 Message message = new Message(0, 0, MessageRole.user, "injected body", 0, null, null);
                 return Optional.of(new ImportedChat(chat, List.of(message)));
             }

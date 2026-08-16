@@ -41,9 +41,16 @@ class DatabaseMigrationTest {
             assertTrue(columns(conn, "chatSummaries").contains("contentHash"));
 
             ChatRepository chats = new ChatRepository(conn);
-            chats.insert(new Chat(0, null, Source.chatGptWeb, "One", null, null,
-                    "2026-08-05T00:00:00Z", false, new ImportMetadata("abc", "https://chatgpt.com/c/abc",
-                    "hash", null, "2026-08-05T00:00:00Z")));
+            chats.insert(Chat.builder()
+                    .id(0)
+                    .source(Source.chatGptWeb)
+                    .title("One")
+                    .importedAt("2026-08-05T00:00:00Z")
+                    .externalConversationId("abc")
+                    .sourceUri("https://chatgpt.com/c/abc")
+                    .contentHash("hash")
+                    .lastImportedAt("2026-08-05T00:00:00Z")
+                    .build());
 
             assertDoesNotThrow(() -> Database.initialize(conn), "migration must be idempotent");
             assertEquals(1, chats.findAll().size());
@@ -121,8 +128,13 @@ class DatabaseMigrationTest {
             assertEquals(1, summaries.findAllForChat(survivorId).size(), "duplicate's summary reassigned, not lost");
 
             SQLException thrown = assertThrows(SQLException.class, () -> chats.insert(
-                    new Chat(0, null, Source.plainText, "New dup", null, null, "2026-08-10T00:03:00Z", false,
-                            new ImportMetadata(null, null, "hash-1", null, null))));
+                    Chat.builder()
+                            .id(0)
+                            .source(Source.plainText)
+                            .title("New dup")
+                            .importedAt("2026-08-10T00:03:00Z")
+                            .contentHash("hash-1")
+                            .build()));
             assertTrue(ChatRepository.isUniqueConstraintViolation(thrown),
                     "the unique index must be active after migration: " + thrown.getMessage());
         }
@@ -212,8 +224,16 @@ class DatabaseMigrationTest {
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 keys.next();
                 long id = keys.getLong(1);
-                return new Chat(id, projectId, Source.plainText, title, null, null,
-                        "2026-08-10T00:00:00Z", false);
+                return Chat.builder()
+                               .id(id)
+                               .projectId(projectId)
+                               .source(Source.plainText)
+                               .title(title)
+                               .createdAt(null)
+                               .updatedAt(null)
+                               .importedAt("2026-08-10T00:00:00Z")
+                               .archived(false)
+                               .build();
             }
         }
     }

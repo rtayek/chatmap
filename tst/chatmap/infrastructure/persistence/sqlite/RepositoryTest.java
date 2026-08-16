@@ -71,8 +71,16 @@ class RepositoryTest {
     void createsUpdatesArchivesAndDeletesChat() throws Exception {
         Project project = projects.insert(new Project(0, "Project", null,
                 "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
-        Chat chat = chats.insert(new Chat(0, project.id(), Source.plainText, "Original",
-                null, null, "2026-07-06T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(project.id())
+                                         .source(Source.plainText)
+                                         .title("Original")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-06T00:00:00Z")
+                                         .archived(false)
+                                         .build());
 
         chats.updateTitle(chat.id(), "Renamed");
         chats.setArchived(chat.id(), true);
@@ -92,10 +100,26 @@ class RepositoryTest {
     void findsMostRecentChatByImportedAtAndId() throws Exception {
         assertTrue(chats.findMostRecent().isEmpty());
 
-        chats.insert(new Chat(0, null, Source.plainText, "First",
-                null, null, "2026-07-06T00:00:00Z", false));
-        Chat second = chats.insert(new Chat(0, null, Source.plainText, "Second",
-                null, null, "2026-07-06T01:00:00Z", false));
+        chats.insert(Chat.builder()
+                             .id(0)
+                             .projectId(null)
+                             .source(Source.plainText)
+                             .title("First")
+                             .createdAt(null)
+                             .updatedAt(null)
+                             .importedAt("2026-07-06T00:00:00Z")
+                             .archived(false)
+                             .build());
+        Chat second = chats.insert(Chat.builder()
+                                           .id(0)
+                                           .projectId(null)
+                                           .source(Source.plainText)
+                                           .title("Second")
+                                           .createdAt(null)
+                                           .updatedAt(null)
+                                           .importedAt("2026-07-06T01:00:00Z")
+                                           .archived(false)
+                                           .build());
 
         assertEquals(second.id(), chats.findMostRecent().orElseThrow().id());
         assertEquals("Second", chats.findMostRecent().orElseThrow().title());
@@ -103,10 +127,26 @@ class RepositoryTest {
 
     @Test
     void findMostRecentSkipsArchivedChats() throws Exception {
-        Chat older = chats.insert(new Chat(0, null, Source.plainText, "Older",
-                null, null, "2026-07-06T00:00:00Z", false));
-        Chat newer = chats.insert(new Chat(0, null, Source.plainText, "Newer",
-                null, null, "2026-07-06T01:00:00Z", false));
+        Chat older = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(null)
+                                          .source(Source.plainText)
+                                          .title("Older")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-06T00:00:00Z")
+                                          .archived(false)
+                                          .build());
+        Chat newer = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(null)
+                                          .source(Source.plainText)
+                                          .title("Newer")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-06T01:00:00Z")
+                                          .archived(false)
+                                          .build());
 
         assertEquals(newer.id(), chats.findMostRecent().orElseThrow().id());
 
@@ -122,8 +162,16 @@ class RepositoryTest {
 
     @Test
     void createsUpdatesDeletesAndSearchesMessages() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Searchable",
-                null, null, "2026-07-06T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(null)
+                                         .source(Source.plainText)
+                                         .title("Searchable")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-06T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         Message first = messages.insert(new Message(0, chat.id(), MessageRole.user,
                 "storage foundation alpha", 0, null, null));
         Message second = messages.insert(new Message(0, chat.id(), MessageRole.assistant,
@@ -146,7 +194,16 @@ class RepositoryTest {
 
     @Test
     void insertsBatchOfMessagesInSingleOperation() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Batch", null, null, "2026-07-06T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(null)
+                                         .source(Source.plainText)
+                                         .title("Batch")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-06T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         List<Message> batch = List.of(
                 new Message(0, chat.id(), MessageRole.user, "Batch item 1", 0, null, null),
                 new Message(0, chat.id(), MessageRole.assistant, "Batch item 2", 1, null, null)
@@ -162,12 +219,36 @@ class RepositoryTest {
 
     @Test
     void findsMessagesForManyChatsInSequenceOrder() throws Exception {
-        Chat first = chats.insert(new Chat(0, null, Source.plainText, "First",
-                null, null, "2026-07-06T00:00:00Z", false));
-        Chat second = chats.insert(new Chat(0, null, Source.plainText, "Second",
-                null, null, "2026-07-06T00:01:00Z", false));
-        Chat empty = chats.insert(new Chat(0, null, Source.plainText, "Empty",
-                null, null, "2026-07-06T00:02:00Z", false));
+        Chat first = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(null)
+                                          .source(Source.plainText)
+                                          .title("First")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-06T00:00:00Z")
+                                          .archived(false)
+                                          .build());
+        Chat second = chats.insert(Chat.builder()
+                                           .id(0)
+                                           .projectId(null)
+                                           .source(Source.plainText)
+                                           .title("Second")
+                                           .createdAt(null)
+                                           .updatedAt(null)
+                                           .importedAt("2026-07-06T00:01:00Z")
+                                           .archived(false)
+                                           .build());
+        Chat empty = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(null)
+                                          .source(Source.plainText)
+                                          .title("Empty")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-06T00:02:00Z")
+                                          .archived(false)
+                                          .build());
         Message firstTwo = messages.insert(new Message(0, first.id(), MessageRole.assistant, "two", 2, null, null));
         Message firstOne = messages.insert(new Message(0, first.id(), MessageRole.user, "one", 1, null, null));
         Message secondOne = messages.insert(new Message(0, second.id(), MessageRole.user, "other", 0, null, null));
@@ -182,8 +263,16 @@ class RepositoryTest {
 
     @Test
     void assignsFindsRemovesAndCascadesTags() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, Source.plainText, "Tagged",
-                null, null, "2026-07-06T00:00:00Z", false));
+        Chat chat = chats.insert(Chat.builder()
+                                         .id(0)
+                                         .projectId(null)
+                                         .source(Source.plainText)
+                                         .title("Tagged")
+                                         .createdAt(null)
+                                         .updatedAt(null)
+                                         .importedAt("2026-07-06T00:00:00Z")
+                                         .archived(false)
+                                         .build());
         Tag tag = tags.insert(new Tag(0, "MVP"));
 
         assertEquals(tag, tags.findByName("mvp").orElseThrow());
@@ -206,12 +295,36 @@ class RepositoryTest {
 
     @Test
     void findsTagsForManyChatsInNameOrder() throws Exception {
-        Chat first = chats.insert(new Chat(0, null, Source.plainText, "First",
-                null, null, "2026-07-06T00:00:00Z", false));
-        Chat second = chats.insert(new Chat(0, null, Source.plainText, "Second",
-                null, null, "2026-07-06T00:01:00Z", false));
-        Chat empty = chats.insert(new Chat(0, null, Source.plainText, "Empty",
-                null, null, "2026-07-06T00:02:00Z", false));
+        Chat first = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(null)
+                                          .source(Source.plainText)
+                                          .title("First")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-06T00:00:00Z")
+                                          .archived(false)
+                                          .build());
+        Chat second = chats.insert(Chat.builder()
+                                           .id(0)
+                                           .projectId(null)
+                                           .source(Source.plainText)
+                                           .title("Second")
+                                           .createdAt(null)
+                                           .updatedAt(null)
+                                           .importedAt("2026-07-06T00:01:00Z")
+                                           .archived(false)
+                                           .build());
+        Chat empty = chats.insert(Chat.builder()
+                                          .id(0)
+                                          .projectId(null)
+                                          .source(Source.plainText)
+                                          .title("Empty")
+                                          .createdAt(null)
+                                          .updatedAt(null)
+                                          .importedAt("2026-07-06T00:02:00Z")
+                                          .archived(false)
+                                          .build());
         Tag zebra = tags.insert(new Tag(0, "zebra"));
         Tag alpha = tags.insert(new Tag(0, "Alpha"));
         Tag beta = tags.insert(new Tag(0, "beta"));
@@ -250,12 +363,22 @@ class RepositoryTest {
 
     @Test
     void enforcesUniqueContentHashPerSourceForIdentityLessChats() throws Exception {
-        chats.insert(new Chat(0, null, Source.plainText, "First", null, null,
-                "2026-08-10T00:00:00Z", false, new ImportMetadata(null, null, "hash-1", null, null)));
+        chats.insert(Chat.builder()
+                .id(0)
+                .source(Source.plainText)
+                .title("First")
+                .importedAt("2026-08-10T00:00:00Z")
+                .contentHash("hash-1")
+                .build());
 
         SQLException thrown = assertThrows(SQLException.class, () -> chats.insert(
-                new Chat(0, null, Source.plainText, "Second", null, null,
-                        "2026-08-10T00:01:00Z", false, new ImportMetadata(null, null, "hash-1", null, null))));
+                Chat.builder()
+                        .id(0)
+                        .source(Source.plainText)
+                        .title("Second")
+                        .importedAt("2026-08-10T00:01:00Z")
+                        .contentHash("hash-1")
+                        .build()));
 
         assertTrue(ChatRepository.isUniqueConstraintViolation(thrown), thrown.getMessage());
     }
@@ -272,20 +395,41 @@ class RepositoryTest {
 
     @Test
     void enforcesUniqueExternalProviderIdentity() throws Exception {
-        chats.insert(new Chat(0, null, Source.chatGptWeb, "First", null, null,
-                "2026-08-05T00:00:00Z", false, new ImportMetadata("same-id", "https://chatgpt.com/c/same-id",
-                "hash-one", null, "2026-08-05T00:00:00Z")));
+        chats.insert(Chat.builder()
+                .id(0)
+                .source(Source.chatGptWeb)
+                .title("First")
+                .importedAt("2026-08-05T00:00:00Z")
+                .externalConversationId("same-id")
+                .sourceUri("https://chatgpt.com/c/same-id")
+                .contentHash("hash-one")
+                .lastImportedAt("2026-08-05T00:00:00Z")
+                .build());
 
-        assertThrows(SQLException.class, () -> chats.insert(new Chat(0, null, Source.chatGptWeb,
-                "Second", null, null, "2026-08-05T00:00:00Z", false, new ImportMetadata("same-id",
-                "https://chatgpt.com/c/same-id", "hash-two", null, "2026-08-05T00:00:00Z"))));
+        assertThrows(SQLException.class, () -> chats.insert(Chat.builder()
+                .id(0)
+                .source(Source.chatGptWeb)
+                .title("Second")
+                .importedAt("2026-08-05T00:00:00Z")
+                .externalConversationId("same-id")
+                .sourceUri("https://chatgpt.com/c/same-id")
+                .contentHash("hash-two")
+                .lastImportedAt("2026-08-05T00:00:00Z")
+                .build()));
     }
 
     @Test
     void latestSummaryOnlyReturnsCurrentContentHash() throws Exception {
-        Chat chat = chats.insert(new Chat(0, null, Source.chatGptWeb, "Summarized", null, null,
-                "2026-08-05T00:00:00Z", false, new ImportMetadata("summary-id", "https://chatgpt.com/c/summary-id",
-                "old-hash", null, "2026-08-05T00:00:00Z")));
+        Chat chat = chats.insert(Chat.builder()
+                .id(0)
+                .source(Source.chatGptWeb)
+                .title("Summarized")
+                .importedAt("2026-08-05T00:00:00Z")
+                .externalConversationId("summary-id")
+                .sourceUri("https://chatgpt.com/c/summary-id")
+                .contentHash("old-hash")
+                .lastImportedAt("2026-08-05T00:00:00Z")
+                .build());
         ChatSummary summary = summaries.insert(new ChatSummary(0, chat.id(), "Old summary",
                 "claude", "2026-08-05T00:01:00Z", "old-hash"));
 
@@ -323,7 +467,16 @@ class RepositoryTest {
         }
 
         runner.inTransaction(() -> {
-            chats.insert(new Chat(0, null, Source.plainText, "ThreadSafe", null, null, "2026-08-09T00:00:00Z", false));
+            chats.insert(Chat.builder()
+                                 .id(0)
+                                 .projectId(null)
+                                 .source(Source.plainText)
+                                 .title("ThreadSafe")
+                                 .createdAt(null)
+                                 .updatedAt(null)
+                                 .importedAt("2026-08-09T00:00:00Z")
+                                 .archived(false)
+                                 .build());
             return null;
         });
 

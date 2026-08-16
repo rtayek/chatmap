@@ -162,19 +162,44 @@ class LiveChatFetchServiceTest {
     // --- helpers ---
 
     private Chat insertChat(String title, String importedAt) throws Exception {
-        return chats.insert(new Chat(0, null, Source.plainText, title, null, null, importedAt, false));
+        return chats.insert(Chat.builder()
+                                    .id(0)
+                                    .projectId(null)
+                                    .source(Source.plainText)
+                                    .title(title)
+                                    .createdAt(null)
+                                    .updatedAt(null)
+                                    .importedAt(importedAt)
+                                    .archived(false)
+                                    .build());
     }
 
     private static ImportedChat liveChat(String title) {
-        Chat chat = new Chat(0, null, Source.markdown, title, null, null, "2026-08-04T00:00:00Z", false);
+        Chat chat = Chat.builder()
+                            .id(0)
+                            .projectId(null)
+                            .source(Source.markdown)
+                            .title(title)
+                            .createdAt(null)
+                            .updatedAt(null)
+                            .importedAt("2026-08-04T00:00:00Z")
+                            .archived(false)
+                            .build();
         Message message = new Message(0, 0, MessageRole.user, "hello from the provider", 0, null, null);
         return new ImportedChat(chat, List.of(message));
     }
 
     private static ImportedChat providerChat(Source source, String externalId, String sourceUri,
             String title, String token) {
-        Chat chat = new Chat(0, null, source, title, null, null, "2026-08-04T00:00:00Z", false,
-                new ImportMetadata(externalId, sourceUri, null, null, "2026-08-04T00:00:00Z"));
+        Chat chat = Chat.builder()
+                .id(0)
+                .source(source)
+                .title(title)
+                .importedAt("2026-08-04T00:00:00Z")
+                .externalConversationId(externalId)
+                .sourceUri(sourceUri)
+                .lastImportedAt("2026-08-04T00:00:00Z")
+                .build();
         return new ImportedChat(chat, List.of(
                 new Message(0, 0, MessageRole.user, "Question with " + token, 0, null, null),
                 new Message(0, 0, MessageRole.assistant, "Answer with " + token, 1, null, null)));

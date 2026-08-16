@@ -151,10 +151,26 @@ class ProjectTagServiceTest {
         projectService.assignChat(second.id(), project.id());
         projectService.assignChat(first.id(), project.id());
 
-        Chat firstAssigned = new Chat(first.id(), project.id(), first.source(), first.title(),
-                first.createdAt(), first.updatedAt(), first.importedAt(), first.archived());
-        Chat secondAssigned = new Chat(second.id(), project.id(), second.source(), second.title(),
-                second.createdAt(), second.updatedAt(), second.importedAt(), second.archived());
+        Chat firstAssigned = Chat.builder()
+                                     .id(first.id())
+                                     .projectId(project.id())
+                                     .source(first.source())
+                                     .title(first.title())
+                                     .createdAt(first.createdAt())
+                                     .updatedAt(first.updatedAt())
+                                     .importedAt(first.importedAt())
+                                     .archived(first.archived())
+                                     .build();
+        Chat secondAssigned = Chat.builder()
+                                      .id(second.id())
+                                      .projectId(project.id())
+                                      .source(second.source())
+                                      .title(second.title())
+                                      .createdAt(second.createdAt())
+                                      .updatedAt(second.updatedAt())
+                                      .importedAt(second.importedAt())
+                                      .archived(second.archived())
+                                      .build();
 
         assertEquals(List.of(firstAssigned, secondAssigned), projectService.listChats(project.id()));
 
@@ -207,7 +223,15 @@ class ProjectTagServiceTest {
     }
 
     private Chat insertChat(String title, String importedAt) throws Exception {
-        return chatRepository.insert(new Chat(0, null, Source.plainText, title,
-                null, null, importedAt, false));
+        return chatRepository.insert(Chat.builder()
+                                             .id(0)
+                                             .projectId(null)
+                                             .source(Source.plainText)
+                                             .title(title)
+                                             .createdAt(null)
+                                             .updatedAt(null)
+                                             .importedAt(importedAt)
+                                             .archived(false)
+                                             .build());
     }
 }

@@ -236,6 +236,15 @@ class SearchRepositoryTest {
     }
 
     private Chat insertChat(String title, Long projectId, boolean archived, String importedAt) throws Exception {
-        return chats.insert(new Chat(0, projectId, Source.plainText, title, null, null, importedAt, archived));
+        return chats.insert(Chat.builder()
+                                    .id(0)
+                                    .projectId(projectId)
+                                    .source(Source.plainText)
+                                    .title(title)
+                                    .createdAt(null)
+                                    .updatedAt(null)
+                                    .importedAt(importedAt)
+                                    .archived(archived)
+                                    .build());
     }
 }
