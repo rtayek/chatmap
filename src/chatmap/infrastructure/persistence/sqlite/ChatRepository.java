@@ -53,8 +53,9 @@ public final class ChatRepository implements ChatStore {
     public Chat insert(Chat chat) throws SQLException {
         return locked(() -> {
             String sql = "INSERT INTO chats (projectId, source, title, createdAt, updatedAt, importedAt, archived, "
-                    + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy, "
+                    + "providerId, modelTargetId, providerModelName, providerSessionId) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 setNullableLong(ps, 1, chat.projectId());
                 ps.setString(2, chat.source().dbValue());
@@ -69,6 +70,10 @@ public final class ChatRepository implements ChatStore {
                 ps.setString(11, chat.sourceUpdatedAt());
                 ps.setString(12, chat.lastImportedAt());
                 ps.setString(13, chat.originatedBy().dbValue());
+                ps.setString(14, chat.providerId());
+                ps.setString(15, chat.modelTargetId());
+                ps.setString(16, chat.providerModelName());
+                ps.setString(17, chat.providerSessionId());
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     keys.next();
@@ -208,6 +213,31 @@ public final class ChatRepository implements ChatStore {
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, source.dbValue());
                 ps.setString(2, externalConversationId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(ChatRowMapper.read(rs));
+                }
+            }
+        });
+    }
+
+    @Override
+    public Optional<Chat> findByPromptSession(String providerId, String modelTargetId, String providerSessionId)
+            throws SQLException {
+        return locked(() -> {
+            if (providerId == null || providerId.isBlank()
+                    || modelTargetId == null || modelTargetId.isBlank()
+                    || providerSessionId == null || providerSessionId.isBlank()) {
+                return Optional.empty();
+            }
+            String sql = ChatRowMapper.selectColumns()
+                    + "FROM chats WHERE providerId = ? AND modelTargetId = ? AND providerSessionId = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, providerId);
+                ps.setString(2, modelTargetId);
+                ps.setString(3, providerSessionId);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
                         return Optional.empty();

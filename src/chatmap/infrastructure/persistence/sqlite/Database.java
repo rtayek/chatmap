@@ -172,11 +172,19 @@ public final class Database {
         addColumnIfMissing(conn, "chats", "sourceUpdatedAt", "TEXT");
         addColumnIfMissing(conn, "chats", "lastImportedAt", "TEXT");
         addColumnIfMissing(conn, "chats", "originatedBy", "TEXT NOT NULL DEFAULT 'IMPORTED'");
+        addColumnIfMissing(conn, "chats", "providerId", "TEXT");
+        addColumnIfMissing(conn, "chats", "modelTargetId", "TEXT");
+        addColumnIfMissing(conn, "chats", "providerModelName", "TEXT");
+        addColumnIfMissing(conn, "chats", "providerSessionId", "TEXT");
         addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
 
         try (Statement st = conn.createStatement()) {
             st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
                     + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
+            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptSessionIndex "
+                    + "ON chats(providerId, modelTargetId, providerSessionId) "
+                    + "WHERE providerId IS NOT NULL AND modelTargetId IS NOT NULL "
+                    + "AND providerSessionId IS NOT NULL");
         }
 
         // Same reasoning as chatsExternalIdentityIndex, for the other dedup path:

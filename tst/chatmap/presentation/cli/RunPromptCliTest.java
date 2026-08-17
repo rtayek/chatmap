@@ -79,7 +79,7 @@ class RunPromptCliTest {
             @Override
             public AiResponse execute(ModelTarget target, AiRequest request) {
                 return new AiResponse("Fake CLI response", new BackendId("Fake CLI"), Duration.ofMillis(5),
-                        target, null);
+                        target, "session-123");
             }
 
             @Override
@@ -93,6 +93,10 @@ class RunPromptCliTest {
 
         assertEquals("Fake CLI", result.backendLabel());
         assertEquals("Fake CLI response", result.response());
+        assertEquals(ProviderId.claudeCli.name(), result.providerId());
+        assertEquals(ModelTarget.claude.id(), result.targetId());
+        assertEquals(ModelTarget.claude.providerModelName(), result.providerModelName());
+        assertEquals("session-123", result.sessionId().orElseThrow());
         Path transcript = result.transcript().orElseThrow();
         assertTrue(transcript.startsWith(home.resolve("transcripts")));
         assertTrue(Files.isRegularFile(transcript));
@@ -106,6 +110,10 @@ class RunPromptCliTest {
             List<Chat> storedChats = chats.findAll();
             assertEquals(1, storedChats.size());
             assertEquals("Test prompt text", storedChats.get(0).title());
+            assertEquals(ProviderId.claudeCli.name(), storedChats.get(0).providerId());
+            assertEquals(ModelTarget.claude.id(), storedChats.get(0).modelTargetId());
+            assertEquals(ModelTarget.claude.providerModelName(), storedChats.get(0).providerModelName());
+            assertEquals("session-123", storedChats.get(0).providerSessionId());
 
             List<Message> storedMessages = messages.findByChat(storedChats.get(0).id());
             assertEquals(2, storedMessages.size());

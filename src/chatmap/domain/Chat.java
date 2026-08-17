@@ -19,7 +19,11 @@ public record Chat(
         String importedAt,
         boolean archived,
         ImportMetadata importMetadata,
-        ChatOrigin originatedBy) {
+        ChatOrigin originatedBy,
+        String providerId,
+        String modelTargetId,
+        String providerModelName,
+        String providerSessionId) {
 
     public Chat {
         Objects.requireNonNull(source, "source");
@@ -77,6 +81,10 @@ public record Chat(
         private String sourceUpdatedAt;
         private String lastImportedAt;
         private ChatOrigin originatedBy = ChatOrigin.imported;
+        private String providerId;
+        private String modelTargetId;
+        private String providerModelName;
+        private String providerSessionId;
 
         public Builder() {
         }
@@ -96,6 +104,10 @@ public record Chat(
             this.sourceUpdatedAt = chat.importMetadata.sourceUpdatedAt();
             this.lastImportedAt = chat.importMetadata.lastImportedAt();
             this.originatedBy = chat.originatedBy;
+            this.providerId = chat.providerId;
+            this.modelTargetId = chat.modelTargetId;
+            this.providerModelName = chat.providerModelName;
+            this.providerSessionId = chat.providerSessionId;
         }
 
         public Builder id(long id) {
@@ -168,12 +180,33 @@ public record Chat(
             return this;
         }
 
+        public Builder providerId(String providerId) {
+            this.providerId = providerId;
+            return this;
+        }
+
+        public Builder modelTargetId(String modelTargetId) {
+            this.modelTargetId = modelTargetId;
+            return this;
+        }
+
+        public Builder providerModelName(String providerModelName) {
+            this.providerModelName = providerModelName;
+            return this;
+        }
+
+        public Builder providerSessionId(String providerSessionId) {
+            this.providerSessionId = providerSessionId;
+            return this;
+        }
+
         public Chat build() {
             String actualSourceUpdatedAt = sourceUpdatedAt != null ? sourceUpdatedAt : updatedAt;
             String actualLastImportedAt = lastImportedAt != null ? lastImportedAt : importedAt;
             return new Chat(id, projectId, source, title, createdAt, updatedAt, importedAt,
                     archived, new ImportMetadata(externalConversationId, sourceUri,
-                            contentHash, actualSourceUpdatedAt, actualLastImportedAt), originatedBy);
+                            contentHash, actualSourceUpdatedAt, actualLastImportedAt), originatedBy,
+                    providerId, modelTargetId, providerModelName, providerSessionId);
         }
     }
 }

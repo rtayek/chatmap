@@ -12,6 +12,7 @@ public record PromptResult(
         String backendLabel,
         String response,
         Path transcriptPath,
+        String providerId,
         String targetId,
         String providerModelName,
         String providerSessionId
@@ -19,10 +20,13 @@ public record PromptResult(
     public PromptResult {
         Objects.requireNonNull(backendLabel, "backendLabel");
         Objects.requireNonNull(response, "response");
+        Objects.requireNonNull(providerId, "providerId");
+        Objects.requireNonNull(targetId, "targetId");
+        Objects.requireNonNull(providerModelName, "providerModelName");
     }
 
     public PromptResult(String backendLabel, String response, Path transcriptPath) {
-        this(backendLabel, response, transcriptPath, backendLabel, "default", null);
+        this(backendLabel, response, transcriptPath, "unknown", "unknown", "unknown", null);
     }
 
     /** The transcript file, when one could be written. */

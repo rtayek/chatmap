@@ -9,12 +9,14 @@ import chatmap.domain.Source;
 final class ChatRowMapper {
     static final String SELECT_COLUMNS =
             "SELECT id, projectId, source, title, createdAt, updatedAt, importedAt, archived, "
-            + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy ";
+            + "externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy, "
+            + "providerId, modelTargetId, providerModelName, providerSessionId ";
 
     static final String SELECT_C_COLUMNS =
             "SELECT c.id, c.projectId, c.source, c.title, c.createdAt, c.updatedAt, "
             + "c.importedAt, c.archived, c.externalConversationId, c.sourceUri, "
-            + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt, c.originatedBy ";
+            + "c.contentHash, c.sourceUpdatedAt, c.lastImportedAt, c.originatedBy, "
+            + "c.providerId, c.modelTargetId, c.providerModelName, c.providerSessionId ";
 
     private ChatRowMapper() {
     }
@@ -41,6 +43,10 @@ final class ChatRowMapper {
                 .sourceUpdatedAt(rs.getString("sourceUpdatedAt"))
                 .lastImportedAt(rs.getString("lastImportedAt"))
                 .originatedBy(chatmap.domain.ChatOrigin.fromDbValue(rs.getString("originatedBy")))
+                .providerId(rs.getString("providerId"))
+                .modelTargetId(rs.getString("modelTargetId"))
+                .providerModelName(rs.getString("providerModelName"))
+                .providerSessionId(rs.getString("providerSessionId"))
                 .build();
     }
 }

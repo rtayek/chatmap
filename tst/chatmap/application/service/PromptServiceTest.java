@@ -26,6 +26,7 @@ import chatmap.application.port.command.CommandResult;
 import chatmap.domain.MessageRole;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,6 +98,10 @@ final class PromptServiceTest {
             assertEquals(1, storedChats.size());
             assertEquals("Test prompt", storedChats.get(0).title());
             assertEquals(chatmap.domain.Source.claudeCliPrompt, storedChats.get(0).source());
+            assertEquals(ProviderId.claudeCli.name(), storedChats.get(0).providerId());
+            assertEquals(ModelTarget.claude.id(), storedChats.get(0).modelTargetId());
+            assertEquals(ModelTarget.claude.providerModelName(), storedChats.get(0).providerModelName());
+            assertNull(storedChats.get(0).providerSessionId());
 
             List<chatmap.domain.Message> storedMessages = messages.findByChat(storedChats.get(0).id());
             assertEquals(2, storedMessages.size());
@@ -141,6 +146,11 @@ final class PromptServiceTest {
             assertEquals(1, storedChats.size(), "both turns of the same session should share one chat");
             assertEquals("First turn", storedChats.get(0).title(),
                     "title should come from the first turn, not be overwritten by later ones");
+            assertEquals(ProviderId.claudeCli.name(), storedChats.get(0).providerId());
+            assertEquals(ModelTarget.claude.id(), storedChats.get(0).modelTargetId());
+            assertEquals("session-abc", storedChats.get(0).providerSessionId());
+            assertNull(storedChats.get(0).externalConversationId(),
+                    "generated prompt session identity must not occupy imported-chat external identity");
 
             List<chatmap.domain.Message> storedMessages = messages.findByChat(storedChats.get(0).id());
             assertEquals(4, storedMessages.size(), "both turns' messages should be preserved, not replaced");
@@ -205,7 +215,52 @@ final class PromptServiceTest {
                     .submit("claude", "Start a session");
 
             assertEquals("provider-session-1", result.sessionId().orElseThrow());
-            assertEquals("provider-session-1", chats.findAll().getFirst().externalConversationId());
+            chatmap.domain.Chat stored = chats.findAll().getFirst();
+            assertEquals(ProviderId.claudeCli.name(), stored.providerId());
+            assertEquals(ModelTarget.claude.id(), stored.modelTargetId());
+            assertEquals(ModelTarget.claude.providerModelName(), stored.providerModelName());
+            assertEquals("provider-session-1", stored.providerSessionId());
+            assertNull(stored.externalConversationId());
+        }
+    }
+
+    @Test
+    void sameProviderSessionIdOnDifferentTargetsCreatesSeparateChats() throws Exception {
+        try (java.sql.Connection conn = new chatmap.infrastructure.persistence.sqlite.Database("jdbc:sqlite::memory:")
+                .openAndInitialize()) {
+            chatmap.infrastructure.persistence.sqlite.ChatRepository chats =
+                    new chatmap.infrastructure.persistence.sqlite.ChatRepository(conn);
+            chatmap.infrastructure.persistence.sqlite.MessageRepository messages =
+                    new chatmap.infrastructure.persistence.sqlite.MessageRepository(conn);
+            ImportService importService = new ImportService(chats, messages,
+                    new chatmap.infrastructure.importer.DefaultConversationFileReader());
+            Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
+
+            CapturingBackend claude = new CapturingBackend(new CommandBackedRun(
+                    new AiResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
+                            ModelTarget.claude, null),
+                    new CommandResult(0, "Claude answer", "", Duration.ofMillis(10), false),
+                    List.of("claude", "-p")));
+            CapturingBackend codex = new CapturingBackend(new CommandBackedRun(
+                    new AiResponse("Codex answer", new BackendId("Codex"), Duration.ofMillis(10),
+                            ModelTarget.codex, null),
+                    new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false),
+                    List.of("codex", "exec")));
+
+            Map<ProviderId, AiProvider> configured = providers(Map.of(
+                    ProviderId.claudeCli, claude,
+                    ProviderId.codexCli, codex));
+            new PromptService(configured, importService, clock, tempDir)
+                    .submit("claude", "Claude turn", "shared-session");
+            new PromptService(configured, importService, clock, tempDir)
+                    .submit("codex", "Codex turn", "shared-session");
+
+            List<chatmap.domain.Chat> storedChats = chats.findAll();
+            assertEquals(2, storedChats.size(), "target identity scopes generated prompt sessions");
+            assertEquals(List.of(ModelTarget.claude.id(), ModelTarget.codex.id()),
+                    storedChats.stream().map(chatmap.domain.Chat::modelTargetId).toList());
+            assertEquals(List.of("shared-session", "shared-session"),
+                    storedChats.stream().map(chatmap.domain.Chat::providerSessionId).toList());
         }
     }
 
@@ -291,12 +346,16 @@ final class PromptServiceTest {
     }
 
     private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
+        return providers(Map.of(ProviderId.claudeCli, claudeProvider));
+    }
+
+    private static Map<ProviderId, AiProvider> providers(Map<ProviderId, AiProvider> configuredProviders) {
         EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
         NoopProvider noop = new NoopProvider();
         for (ProviderId id : ProviderId.values()) {
             providers.put(id, noop);
         }
-        providers.put(ProviderId.claudeCli, claudeProvider);
+        providers.putAll(configuredProviders);
         return providers;
     }
 

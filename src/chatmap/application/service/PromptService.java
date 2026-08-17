@@ -106,15 +106,15 @@ public final class PromptService {
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
         return new PromptResult(backendId, responseText, transcriptPath,
-                target.id(), response.providerModelName(), effectiveSessionId);
+                response.providerId().name(), target.id(), response.providerModelName(), effectiveSessionId);
     }
 
     /**
      * Records the exchange. When {@code sessionId} is present, appends to the
-     * chat already identified by {@code (source, sessionId)} so repeated
+     * chat identified by {@code (providerId, targetId, sessionId)} so repeated
      * turns in one provider session extend a single chat instead of each
      * becoming its own; with no session id, every call still creates a new
-     * chat, since there is no external session to key on.
+     * chat, since there is no provider session to key on.
      */
     private void recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
             String sessionId) throws SQLException {
@@ -129,13 +129,17 @@ public final class PromptService {
                 .importedAt(now)
                 .archived(false)
                 .originatedBy(chatmap.domain.ChatOrigin.generated)
+                .providerId(target.providerId().name())
+                .modelTargetId(target.id())
+                .providerModelName(target.providerModelName())
+                .providerSessionId(sessionId)
                 .build();
         Message userMsg = new Message(0L, 0L, chatmap.domain.MessageRole.user, prompt, 0, now, null);
         Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);
         List<Message> messages = List.of(userMsg, assistantMsg);
 
         if (sessionId != null && !sessionId.isBlank()) {
-            importService.appendToConversation(chat.toBuilder().externalConversationId(sessionId).build(), messages);
+            importService.appendToConversation(chat, messages);
         } else {
             importService.persist(new ImportedChat(chat, messages));
         }

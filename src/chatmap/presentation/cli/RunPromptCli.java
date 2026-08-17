@@ -30,6 +30,10 @@ public final class RunPromptCli {
             PromptResult result = execute(
                     parsedArguments, promptArguments, DefaultServiceIntegrations.promptProviders(), Clock.systemUTC());
             System.out.println("Backend: " + result.backendLabel());
+            System.out.println("Provider: " + result.providerId());
+            System.out.println("Target: " + result.targetId());
+            System.out.println("Model: " + result.providerModelName());
+            result.sessionId().ifPresent(session -> System.out.println("Session: " + session));
             result.transcript().ifPresent(path -> System.out.println("Transcript: " + path));
             System.out.println("----------------------------------------");
             System.out.println(result.response());

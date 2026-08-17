@@ -75,8 +75,8 @@ public final class ImportService {
     }
 
     /**
-     * Appends {@code newMessages} to the chat already identified by
-     * {@code (chatTemplate.source(), chatTemplate.externalConversationId())},
+     * Appends {@code newMessages} to the chat already identified by imported
+     * external identity or generated prompt-session provenance,
      * preserving its existing messages and title. Unlike {@link #persist},
      * which replaces the whole message set whenever the incoming content hash
      * differs (correct for a re-imported file that IS the full transcript
@@ -89,9 +89,7 @@ public final class ImportService {
     }
 
     private PersistResult appendInTransaction(Chat chatTemplate, List<Message> newMessages) throws SQLException {
-        String externalConversationId = Objects.requireNonNull(chatTemplate.externalConversationId(),
-                "chatTemplate must carry an externalConversationId");
-        Optional<Chat> existing = chats.findByExternalIdentity(chatTemplate.source(), externalConversationId);
+        Optional<Chat> existing = existingConversation(chatTemplate);
         if (existing.isEmpty()) {
             return persistInTransaction(new ImportedChat(chatTemplate, newMessages));
         }
@@ -110,6 +108,16 @@ public final class ImportService {
         Chat updated = chats.updateImportMetadata(stored.id(), stored.title(), stored.sourceUri(),
                 contentHash, touchedAt, touchedAt);
         return new PersistResult(updated, Outcome.updated);
+    }
+
+    private Optional<Chat> existingConversation(Chat chatTemplate) throws SQLException {
+        if (chatTemplate.providerSessionId() != null && !chatTemplate.providerSessionId().isBlank()) {
+            return chats.findByPromptSession(chatTemplate.providerId(), chatTemplate.modelTargetId(),
+                    chatTemplate.providerSessionId());
+        }
+        String externalConversationId = Objects.requireNonNull(chatTemplate.externalConversationId(),
+                "chatTemplate must carry an externalConversationId or providerSessionId");
+        return chats.findByExternalIdentity(chatTemplate.source(), externalConversationId);
     }
 
     private PersistResult persistInTransaction(ImportedChat imported) throws SQLException {
@@ -206,6 +214,10 @@ public final class ImportService {
                 .contentHash(contentHash)
                 .sourceUpdatedAt(sourceUpdatedAt)
                 .lastImportedAt(lastImportedAt)
+                .providerId(blankToNull(chat.providerId()))
+                .modelTargetId(blankToNull(chat.modelTargetId()))
+                .providerModelName(blankToNull(chat.providerModelName()))
+                .providerSessionId(blankToNull(chat.providerSessionId()))
                 .build();
     }
 

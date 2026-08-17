@@ -140,8 +140,11 @@ class ChatTest {
     void rejectsNullClosedSetAndMetadataFields() {
         ImportMetadata metadata = ImportMetadata.none(null, "2026-01-03T00:00:00Z");
 
-        assertThrows(NullPointerException.class, () -> new Chat(1L, null, null, "Title", null, null, "2026-01-03T00:00:00Z", false, metadata, ChatOrigin.imported));
-        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title", null, null, "2026-01-03T00:00:00Z", false, null, ChatOrigin.imported));
-        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title", null, null, "2026-01-03T00:00:00Z", false, metadata, null));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, null, "Title", null, null,
+                "2026-01-03T00:00:00Z", false, metadata, ChatOrigin.imported, null, null, null, null));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title", null, null,
+                "2026-01-03T00:00:00Z", false, null, ChatOrigin.imported, null, null, null, null));
+        assertThrows(NullPointerException.class, () -> new Chat(1L, null, Source.plainText, "Title", null, null,
+                "2026-01-03T00:00:00Z", false, metadata, null, null, null, null, null));
     }
 }

@@ -37,6 +37,10 @@ class DatabaseMigrationTest {
             assertTrue(chatColumns.contains("contentHash"));
             assertTrue(chatColumns.contains("sourceUpdatedAt"));
             assertTrue(chatColumns.contains("lastImportedAt"));
+            assertTrue(chatColumns.contains("providerId"));
+            assertTrue(chatColumns.contains("modelTargetId"));
+            assertTrue(chatColumns.contains("providerModelName"));
+            assertTrue(chatColumns.contains("providerSessionId"));
             assertTrue(columns(conn, "chatSummaries").contains("contentHash"));
 
             ChatRepository chats = new ChatRepository(conn);
@@ -49,10 +53,18 @@ class DatabaseMigrationTest {
                     .sourceUri("https://chatgpt.com/c/abc")
                     .contentHash("hash")
                     .lastImportedAt("2026-08-05T00:00:00Z")
+                    .providerId("claudeCli")
+                    .modelTargetId("claude")
+                    .providerModelName("default")
+                    .providerSessionId("session-1")
                     .build());
 
             assertDoesNotThrow(() -> Database.initialize(conn), "migration must be idempotent");
-            assertEquals(1, chats.findAll().size());
+            Chat stored = chats.findAll().getFirst();
+            assertEquals("claudeCli", stored.providerId());
+            assertEquals("claude", stored.modelTargetId());
+            assertEquals("default", stored.providerModelName());
+            assertEquals("session-1", stored.providerSessionId());
         }
     }
 

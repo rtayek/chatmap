@@ -31,6 +31,9 @@ public interface ChatStore {
 
     Optional<Chat> findByExternalIdentity(Source source, String externalConversationId) throws SQLException;
 
+    Optional<Chat> findByPromptSession(String providerId, String modelTargetId, String providerSessionId)
+            throws SQLException;
+
     Map<String, Long> findImportedIdsByExternalIdentity(Collection<ConversationCandidate> candidates)
             throws SQLException;
 

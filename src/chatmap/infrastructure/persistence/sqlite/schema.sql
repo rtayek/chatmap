@@ -30,7 +30,11 @@ CREATE TABLE IF NOT EXISTS chats (
     contentHash TEXT,
     sourceUpdatedAt TEXT,
     lastImportedAt TEXT,
-    originatedBy TEXT NOT NULL DEFAULT 'IMPORTED'
+    originatedBy TEXT NOT NULL DEFAULT 'IMPORTED',
+    providerId TEXT,
+    modelTargetId TEXT,
+    providerModelName TEXT,
+    providerSessionId TEXT
 );
 
 CREATE INDEX IF NOT EXISTS chatsProjectIndex ON chats(projectId);
