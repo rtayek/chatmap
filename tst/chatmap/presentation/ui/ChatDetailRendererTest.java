@@ -41,7 +41,7 @@ final class ChatDetailRendererTest {
                 Source: ChatGPT web
                 Imported: 2026-08-08T00:00:00Z
 
-                AI Summary (claude): Short summary
+                LLM Summary (claude): Short summary
 
                 [User]
                 Question

@@ -4,14 +4,14 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.app.DefaultServiceIntegrations;
 import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
 import chatmap.application.service.PromptResult;
 import chatmap.application.service.PromptService;
 
-/** Executable CLI entry point for running prompts against AI backends and recording chats in SQLite. */
+/** Executable CLI entry point for running prompts against LLM backends and recording chats in SQLite. */
 public final class RunPromptCli {
 
     private static final String USAGE = "Usage: runPrompt [--home <directory>] <backendId> [--session <id>] <prompt>";
@@ -43,7 +43,7 @@ public final class RunPromptCli {
         }
     }
 
-    public static PromptResult execute(String[] args, Map<ProviderId, AiProvider> providers, Clock clock)
+    public static PromptResult execute(String[] args, Map<ProviderId, LlmProvider> providers, Clock clock)
             throws Exception {
         ParsedArguments parsedArguments = CliBootstrap.parse(args);
         return execute(parsedArguments, parsePromptArguments(parsedArguments), providers, clock);
@@ -52,7 +52,7 @@ public final class RunPromptCli {
     private static PromptResult execute(
             ParsedArguments parsedArguments,
             RunPromptArguments promptArguments,
-            Map<ProviderId, AiProvider> providers,
+            Map<ProviderId, LlmProvider> providers,
             Clock clock) throws Exception {
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
             PromptService promptService = new PromptService(

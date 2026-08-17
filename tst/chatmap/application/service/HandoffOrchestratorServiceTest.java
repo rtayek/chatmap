@@ -20,14 +20,14 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
 import chatmap.application.port.handoff.HandoffFileStore;
-import chatmap.infrastructure.ai.ClaudeCliProvider;
+import chatmap.infrastructure.llm.ClaudeCliProvider;
 import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
 class HandoffOrchestratorServiceTest {
@@ -35,10 +35,10 @@ class HandoffOrchestratorServiceTest {
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC);
     private static final HandoffFileStore FILE_STORE = new FileSystemHandoffFileStore();
 
-    /** Wraps executor in a real Claude provider, since agent invocation now goes through AiProvider. */
+    /** Wraps executor in a real Claude provider, since agent invocation now goes through LlmProvider. */
     private static HandoffOrchestratorService newService(
             FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
         providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
         return new HandoffOrchestratorService(executor, providers, Map.of("claude", ModelTarget.claude),
                 FILE_STORE, registry, CLOCK, autoPush);

@@ -12,9 +12,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.ModelTarget;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
@@ -121,7 +121,7 @@ class SummaryServiceTest {
     void successfulSummaryInsideOuterTransactionCanBeRolledBackByCaller() throws Exception {
         Chat chat = insertChatWithMessage();
         SummaryService service = new SummaryService(chats, messages, summaries, tags,
-                request -> new AiResponse("SUMMARY: Stored summary.\nTAGS: storage",
+                request -> new LlmResponse("SUMMARY: Stored summary.\nTAGS: storage",
                         new BackendId("fake"), Duration.ZERO, ModelTarget.claude, null));
 
         conn.setAutoCommit(false);
@@ -143,7 +143,7 @@ class SummaryServiceTest {
     void storesTheBackendIdentityAsSummaryProvenance() throws Exception {
         Chat chat = insertChatWithMessage();
         SummaryService service = new SummaryService(chats, messages, summaries, tags,
-                request -> new AiResponse("SUMMARY: Stored summary.\nTAGS: storage",
+                request -> new LlmResponse("SUMMARY: Stored summary.\nTAGS: storage",
                         new BackendId("test-backend"), Duration.ZERO, ModelTarget.claude, null));
 
         ChatSummary stored = service.summarize(chat.id());
@@ -155,7 +155,7 @@ class SummaryServiceTest {
     void failedSummaryTagAssignmentRollsBackSummaryAndTags() throws Exception {
         Chat chat = insertChatWithMessage();
         SummaryService service = new SummaryService(chats, messages, summaries, tags,
-                request -> new AiResponse("SUMMARY: Stored summary.\nTAGS: failtag",
+                request -> new LlmResponse("SUMMARY: Stored summary.\nTAGS: failtag",
                         new BackendId("fake"), Duration.ZERO, ModelTarget.claude, null));
         try (var stmt = conn.createStatement()) {
             stmt.execute("""

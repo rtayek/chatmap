@@ -8,15 +8,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import chatmap.application.port.ai.AiBackend;
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmBackend;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
-import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
+import chatmap.application.port.llm.LlmBackendUnsupportedRequestException;
 import chatmap.application.port.persistence.ChatStore;
 import chatmap.application.port.persistence.MessageStore;
 import chatmap.application.port.persistence.ProjectStore;
@@ -75,15 +75,15 @@ public record ServiceGraph(
      */
     public record Integrations(
             List<ChatProvider> chatProviders,
-            AiBackend summaryBackend,
-            Map<ProviderId, AiProvider> promptProviders) {
+            LlmBackend summaryBackend,
+            Map<ProviderId, LlmProvider> promptProviders) {
         public Integrations {
             chatProviders = List.copyOf(Objects.requireNonNull(chatProviders, "chatProviders"));
             summaryBackend = Objects.requireNonNull(summaryBackend, "summaryBackend");
             promptProviders = Map.copyOf(Objects.requireNonNull(promptProviders, "promptProviders"));
         }
 
-        public Integrations(List<ChatProvider> chatProviders, AiBackend summaryBackend) {
+        public Integrations(List<ChatProvider> chatProviders, LlmBackend summaryBackend) {
             this(chatProviders, summaryBackend, unavailablePromptProviders());
         }
 
@@ -143,11 +143,11 @@ public record ServiceGraph(
         }
     }
 
-    private static final class UnavailableSummaryBackend implements AiBackend {
+    private static final class UnavailableSummaryBackend implements LlmBackend {
         @Override
-        public AiResponse ask(AiRequest request) {
-            throw new AiBackendUnsupportedRequestException(
-                    "No summary AI backend configured.", new BackendId("unavailable"));
+        public LlmResponse ask(LlmRequest request) {
+            throw new LlmBackendUnsupportedRequestException(
+                    "No summary LLM backend configured.", new BackendId("unavailable"));
         }
 
         @Override
@@ -156,24 +156,24 @@ public record ServiceGraph(
         }
     }
 
-    private static Map<ProviderId, AiProvider> unavailablePromptProviders() {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
-        AiProvider unavailable = new UnavailablePromptProvider();
+    private static Map<ProviderId, LlmProvider> unavailablePromptProviders() {
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+        LlmProvider unavailable = new UnavailablePromptProvider();
         for (ProviderId id : ProviderId.values()) {
             providers.put(id, unavailable);
         }
         return providers;
     }
 
-    private static final class UnavailablePromptProvider implements AiProvider {
+    private static final class UnavailablePromptProvider implements LlmProvider {
         @Override
-        public AiResponse execute(ModelTarget target, AiRequest request) {
-            throw new AiBackendUnsupportedRequestException(
-                    "No AI provider configured for target " + target.id() + ".", new BackendId(target.displayName()));
+        public LlmResponse execute(ModelTarget target, LlmRequest request) {
+            throw new LlmBackendUnsupportedRequestException(
+                    "No LLM provider configured for target " + target.id() + ".", new BackendId(target.displayName()));
         }
 
         @Override
-        public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+        public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
             return Set.of();
         }
     }

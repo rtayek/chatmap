@@ -19,13 +19,13 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.LlmBackendUnsupportedRequestException;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.Chat;
@@ -58,7 +58,7 @@ class ServiceGraphTest {
             LiveChatFetchService.Resolution resolution = graph.liveChatFetchService().resolve(null);
 
             assertEquals(stored.id(), resolution.chatId());
-            assertThrows(AiBackendUnsupportedRequestException.class,
+            assertThrows(LlmBackendUnsupportedRequestException.class,
                     () -> graph.summaryService().summarize(stored.id()));
         }
     }
@@ -117,14 +117,14 @@ class ServiceGraphTest {
                 request -> {
                     throw new AssertionError("summary backend should not run");
                 },
-                providers(new AiProvider() {
+                providers(new LlmProvider() {
                     @Override
-                    public AiResponse execute(ModelTarget target, AiRequest request) {
-                        return new AiResponse("response", new BackendId("Claude"), Duration.ZERO, target, null);
+                    public LlmResponse execute(ModelTarget target, LlmRequest request) {
+                        return new LlmResponse("response", new BackendId("Claude"), Duration.ZERO, target, null);
                     }
 
                     @Override
-                    public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+                    public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
                         return Set.of();
                     }
                 }));
@@ -144,16 +144,16 @@ class ServiceGraphTest {
         return new ResolvedPaths(home, home.resolve("chatmap.db"));
     }
 
-    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
-        AiProvider noop = new AiProvider() {
+    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+        LlmProvider noop = new LlmProvider() {
             @Override
-            public AiResponse execute(ModelTarget target, AiRequest request) {
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
                 throw new AssertionError("unexpected provider call for " + target);
             }
 
             @Override
-            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
                 return Set.of();
             }
         };

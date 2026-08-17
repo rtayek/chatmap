@@ -10,7 +10,7 @@ import javafx.scene.control.Label;
 
 /**
  * Runs blocking UI actions on one of ChatMap's two background lanes: the fast
- * DB-only lane (default) or the slow AI-backend/live-fetch lane (the run*OnBackendLane
+ * DB-only lane (default) or the slow LLM-backend/live-fetch lane (the run*OnBackendLane
  * variants), so a multi-minute summarize or live web fetch never makes a search or
  * chat-list load wait behind it.
  */

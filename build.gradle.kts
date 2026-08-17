@@ -124,7 +124,7 @@ tasks.register<JavaExec>("importAllChats") {
 
 tasks.register<JavaExec>("runPrompt") {
     group = "application"
-    description = "Submits a prompt to an AI backend and stores the result. Usage: -Pargs='<backendId> <prompt>'"
+    description = "Submits a prompt to an LLM backend and stores the result. Usage: -Pargs='<backendId> <prompt>'"
     mainClass.set("chatmap.presentation.cli.RunPromptCli")
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile

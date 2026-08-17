@@ -1,13 +1,13 @@
 package chatmap.domain;
 
 /**
- * Closed set of chat sources. Each importer or AI backend maps to exactly one member.
+ * Closed set of chat sources. Each importer or LLM backend maps to exactly one member.
  *
  * dbValue is the string persisted in chats.source and is stable forever;
  * renaming an enum constant must never change its dbValue once real
  * databases exist. Naming convention for dbValues: lowerCamelCase.
  *
- * A source used by an AI backend to record a prompt/response exchange (the
+ * A source used by an LLM backend to record a prompt/response exchange (the
  * "*Prompt" and jshellHarness members) must never be reused by an importer
  * that reads a real conversation history, and vice versa: source is the
  * namespace content-hash dedup (see ChatRepository.findBySourceAndContentHash)

@@ -15,7 +15,7 @@ final class ChatDetailRenderer {
         out.append("Source: ").append(model.chat().source().displayName()).append("\n");
         out.append("Imported: ").append(model.chat().importedAt()).append("\n\n");
         if (summary != null) {
-            out.append("AI Summary (").append(summary.generatedBy()).append("): ")
+            out.append("LLM Summary (").append(summary.generatedBy()).append("): ")
                     .append(summary.summary()).append("\n\n");
         }
         for (Message message : model.messages()) {

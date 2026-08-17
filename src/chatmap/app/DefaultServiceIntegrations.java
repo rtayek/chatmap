@@ -3,10 +3,10 @@ package chatmap.app;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
-import chatmap.infrastructure.ai.DefaultAiBackends;
+import chatmap.infrastructure.llm.DefaultLlmBackends;
 import chatmap.infrastructure.provider.DefaultChatProviders;
 import chatmap.app.ServiceGraph.Integrations;
 
@@ -19,7 +19,7 @@ public final class DefaultServiceIntegrations {
     public static Integrations create() {
         return new Integrations(
                 chatProviders(),
-                DefaultAiBackends.summaryBackend(),
+                DefaultLlmBackends.summaryBackend(),
                 promptProviders());
     }
 
@@ -27,7 +27,7 @@ public final class DefaultServiceIntegrations {
         return DefaultChatProviders.ordered();
     }
 
-    public static Map<ProviderId, AiProvider> promptProviders() {
-        return DefaultAiBackends.providers();
+    public static Map<ProviderId, LlmProvider> promptProviders() {
+        return DefaultLlmBackends.providers();
     }
 }

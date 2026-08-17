@@ -15,13 +15,13 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
-import chatmap.application.port.ai.CommandBackedRun;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.CommandBackedRun;
 import chatmap.application.port.command.CommandResult;
 import chatmap.domain.MessageRole;
 
@@ -39,7 +39,7 @@ final class PromptServiceTest {
     void submitExecutesBackendAndReturnsPromptResult() throws Exception {
         CapturingBackend backend = new CapturingBackend(
                 new CommandBackedRun(
-                        new AiResponse("OK\n", new BackendId("Claude"), Duration.ofMillis(8),
+                        new LlmResponse("OK\n", new BackendId("Claude"), Duration.ofMillis(8),
                                 ModelTarget.claude, null),
                         new CommandResult(0, "OK\n", "", Duration.ofMillis(8), false),
                         List.of("fake", "run")
@@ -83,7 +83,7 @@ final class PromptServiceTest {
 
             CapturingBackend backend = new CapturingBackend(
                     new CommandBackedRun(
-                            new AiResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
+                            new LlmResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
                                     ModelTarget.claude, null),
                             new CommandResult(0, "Claude answer", "", Duration.ofMillis(10), false),
                             List.of("claude", "-p", "Test prompt")
@@ -122,7 +122,7 @@ final class PromptServiceTest {
 
             CapturingBackend firstTurn = new CapturingBackend(
                     new CommandBackedRun(
-                            new AiResponse("First answer", new BackendId("Claude"), Duration.ofMillis(10),
+                            new LlmResponse("First answer", new BackendId("Claude"), Duration.ofMillis(10),
                                     ModelTarget.claude, null),
                             new CommandResult(0, "First answer", "", Duration.ofMillis(10), false),
                             List.of("claude", "-p", "First turn")
@@ -133,7 +133,7 @@ final class PromptServiceTest {
 
             CapturingBackend secondTurn = new CapturingBackend(
                     new CommandBackedRun(
-                            new AiResponse("Second answer", new BackendId("Claude"), Duration.ofMillis(10),
+                            new LlmResponse("Second answer", new BackendId("Claude"), Duration.ofMillis(10),
                                     ModelTarget.claude, null),
                             new CommandResult(0, "Second answer", "", Duration.ofMillis(10), false),
                             List.of("claude", "-p", "Second turn")
@@ -171,7 +171,7 @@ final class PromptServiceTest {
 
             CapturingBackend backendA = new CapturingBackend(
                     new CommandBackedRun(
-                            new AiResponse("Answer A", new BackendId("Claude"), Duration.ofMillis(10),
+                            new LlmResponse("Answer A", new BackendId("Claude"), Duration.ofMillis(10),
                                     ModelTarget.claude, null),
                             new CommandResult(0, "Answer A", "", Duration.ofMillis(10), false),
                             List.of("claude", "-p", "Prompt A")
@@ -182,7 +182,7 @@ final class PromptServiceTest {
 
             CapturingBackend backendB = new CapturingBackend(
                     new CommandBackedRun(
-                            new AiResponse("Answer B", new BackendId("Claude"), Duration.ofMillis(10),
+                            new LlmResponse("Answer B", new BackendId("Claude"), Duration.ofMillis(10),
                                     ModelTarget.claude, null),
                             new CommandResult(0, "Answer B", "", Duration.ofMillis(10), false),
                             List.of("claude", "-p", "Prompt B")
@@ -204,7 +204,7 @@ final class PromptServiceTest {
             Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
             CapturingBackend backend = new CapturingBackend(
                     new CommandBackedRun(
-                            new AiResponse("Created session answer", new BackendId("Claude"), Duration.ofMillis(10),
+                            new LlmResponse("Created session answer", new BackendId("Claude"), Duration.ofMillis(10),
                                     ModelTarget.claude, "provider-session-1"),
                             new CommandResult(0, "Created session answer", "", Duration.ofMillis(10), false),
                             List.of("claude", "-p")
@@ -237,17 +237,17 @@ final class PromptServiceTest {
             Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
 
             CapturingBackend claude = new CapturingBackend(new CommandBackedRun(
-                    new AiResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
+                    new LlmResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
                             ModelTarget.claude, null),
                     new CommandResult(0, "Claude answer", "", Duration.ofMillis(10), false),
                     List.of("claude", "-p")));
             CapturingBackend codex = new CapturingBackend(new CommandBackedRun(
-                    new AiResponse("Codex answer", new BackendId("Codex"), Duration.ofMillis(10),
+                    new LlmResponse("Codex answer", new BackendId("Codex"), Duration.ofMillis(10),
                             ModelTarget.codex, null),
                     new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false),
                     List.of("codex", "exec")));
 
-            Map<ProviderId, AiProvider> configured = providers(Map.of(
+            Map<ProviderId, LlmProvider> configured = providers(Map.of(
                     ProviderId.claudeCli, claude,
                     ProviderId.codexCli, codex));
             new PromptService(configured, importService, clock, tempDir)
@@ -277,16 +277,16 @@ final class PromptServiceTest {
             Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
 
             CapturingBackend claude = new CapturingBackend(new CommandBackedRun(
-                    new AiResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
+                    new LlmResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
                             ModelTarget.claude, null),
                     new CommandResult(0, "Claude answer", "", Duration.ofMillis(10), false),
                     List.of("claude", "-p")));
             CapturingBackend codex = new CapturingBackend(new CommandBackedRun(
-                    new AiResponse("Codex answer", new BackendId("Codex"), Duration.ofMillis(10),
+                    new LlmResponse("Codex answer", new BackendId("Codex"), Duration.ofMillis(10),
                             ModelTarget.codex, null),
                     new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false),
                     List.of("codex", "exec")));
-            Map<ProviderId, AiProvider> configured = providers(Map.of(
+            Map<ProviderId, LlmProvider> configured = providers(Map.of(
                     ProviderId.claudeCli, claude,
                     ProviderId.codexCli, codex));
             PromptService service = new PromptService(configured, importService, clock, tempDir);
@@ -311,13 +311,13 @@ final class PromptServiceTest {
             Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
 
             new PromptService(providers(new CapturingBackend(new CommandBackedRun(
-                    new AiResponse("First answer", new BackendId("Claude"), Duration.ofMillis(10),
+                    new LlmResponse("First answer", new BackendId("Claude"), Duration.ofMillis(10),
                             ModelTarget.claude, null),
                     new CommandResult(0, "First answer", "", Duration.ofMillis(10), false),
                     List.of("claude", "-p")))), importService, clock, tempDir)
                     .submit("claude", "First turn", "session-hash");
             new PromptService(providers(new CapturingBackend(new CommandBackedRun(
-                    new AiResponse("Second answer", new BackendId("Claude"), Duration.ofMillis(10),
+                    new LlmResponse("Second answer", new BackendId("Claude"), Duration.ofMillis(10),
                             ModelTarget.claude, null),
                     new CommandResult(0, "Second answer", "", Duration.ofMillis(10), false),
                     List.of("claude", "-p")))), importService, clock, tempDir)
@@ -348,7 +348,7 @@ final class PromptServiceTest {
 
         CapturingBackend backend = new CapturingBackend(
                 new CommandBackedRun(
-                        new AiResponse("OK", new BackendId("Claude"), Duration.ofMillis(1),
+                        new LlmResponse("OK", new BackendId("Claude"), Duration.ofMillis(1),
                                 ModelTarget.claude, null),
                         new CommandResult(0, "OK", "", Duration.ofMillis(1), false),
                         List.of("fake", "run")
@@ -365,7 +365,7 @@ final class PromptServiceTest {
     void submitSurvivesTranscriptWriteFailure() throws Exception {
         CapturingBackend backend = new CapturingBackend(
                 new CommandBackedRun(
-                        new AiResponse("OK", new BackendId("Claude"), Duration.ofMillis(1),
+                        new LlmResponse("OK", new BackendId("Claude"), Duration.ofMillis(1),
                                 ModelTarget.claude, null),
                         new CommandResult(0, "OK", "", Duration.ofMillis(1), false),
                         List.of("fake", "run")
@@ -383,12 +383,12 @@ final class PromptServiceTest {
         assertTrue(result.transcript().isEmpty());
     }
 
-    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
+    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
         return providers(Map.of(ProviderId.claudeCli, claudeProvider));
     }
 
-    private static Map<ProviderId, AiProvider> providers(Map<ProviderId, AiProvider> configuredProviders) {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+    private static Map<ProviderId, LlmProvider> providers(Map<ProviderId, LlmProvider> configuredProviders) {
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
         NoopProvider noop = new NoopProvider();
         for (ProviderId id : ProviderId.values()) {
             providers.put(id, noop);
@@ -397,34 +397,34 @@ final class PromptServiceTest {
         return providers;
     }
 
-    private static final class CapturingBackend implements AiProvider {
+    private static final class CapturingBackend implements LlmProvider {
         private final CommandBackedRun run;
-        AiRequest request;
+        LlmRequest request;
 
         CapturingBackend(CommandBackedRun run) {
             this.run = run;
         }
 
         @Override
-        public AiResponse execute(ModelTarget target, AiRequest request) {
+        public LlmResponse execute(ModelTarget target, LlmRequest request) {
             this.request = request;
             return run.response();
         }
 
         @Override
-        public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
-            return Set.of(chatmap.application.port.ai.AiCapability.sessions);
+        public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
+            return Set.of(chatmap.application.port.llm.LlmCapability.sessions);
         }
     }
 
-    private static final class NoopProvider implements AiProvider {
+    private static final class NoopProvider implements LlmProvider {
         @Override
-        public AiResponse execute(ModelTarget target, AiRequest request) {
+        public LlmResponse execute(ModelTarget target, LlmRequest request) {
             throw new AssertionError("unexpected provider call for " + target);
         }
 
         @Override
-        public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+        public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
             return Set.of();
         }
     }

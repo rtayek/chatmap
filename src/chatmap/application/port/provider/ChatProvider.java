@@ -7,7 +7,7 @@ import chatmap.domain.ConversationCandidate;
 import chatmap.application.model.ImportedChat;
 
 /**
- * A live AI chat provider (Claude, ChatGPT, ...) that can hand back the user's
+ * A live LLM chat provider (Claude, ChatGPT, ...) that can hand back the user's
  * most recent conversation so it can be imported and summarized.
  *
  * This is the seam ChatMap uses to make "the last live chat from a provider"

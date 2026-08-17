@@ -15,16 +15,16 @@ import java.nio.file.Path;
 
 import org.slf4j.Logger;
 
-import chatmap.application.port.ai.AiBackendExecutionException;
-import chatmap.application.port.ai.AiBackendStartupException;
-import chatmap.application.port.ai.AiCapability;
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.CommandBackedAiProvider;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.OutputFormat;
-import chatmap.application.port.ai.PermissionMode;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmBackendExecutionException;
+import chatmap.application.port.llm.LlmBackendStartupException;
+import chatmap.application.port.llm.LlmCapability;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.CommandBackedLlmProvider;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.OutputFormat;
+import chatmap.application.port.llm.PermissionMode;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.command.CommandExecutionException;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
@@ -65,7 +65,7 @@ import chatmap.domain.HandoffTask;
  *   its same project folder in the inbox repo (matching this project's own
  *   {@code handoffs/archive/} convention) rather than deleted outright, so a
  *   processed task remains auditable.</li>
- *   <li><b>Agent invocation goes through {@link CommandBackedAiProvider}.</b>
+ *   <li><b>Agent invocation goes through {@link CommandBackedLlmProvider}.</b>
  *   The task body is piped as the prompt, with {@code workingDirectory} set
  *   to the worktree and {@code permissionMode} set to
  *   {@link PermissionMode#unrestricted unrestricted} -- confirmed live that
@@ -87,7 +87,7 @@ public final class HandoffOrchestratorService {
     private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
 
     private final CommandExecutor commandExecutor;
-    private final Map<ProviderId, AiProvider> providers;
+    private final Map<ProviderId, LlmProvider> providers;
     private final Map<String, ModelTarget> agentTargets;
     private final HandoffFileStore fileStore;
     private final Map<String, Path> projectRegistry;
@@ -96,7 +96,7 @@ public final class HandoffOrchestratorService {
 
     public HandoffOrchestratorService(
             CommandExecutor commandExecutor,
-            Map<ProviderId, AiProvider> providers,
+            Map<ProviderId, LlmProvider> providers,
             Map<String, ModelTarget> agentTargets,
             HandoffFileStore fileStore,
             Map<String, Path> projectRegistry,
@@ -219,32 +219,32 @@ public final class HandoffOrchestratorService {
                 return recordFailure(inboxRepo, file, projectKey,
                         "No configured model target for agent '" + task.agent() + "'.");
             }
-            AiProvider provider = providers.get(target.providerId());
-            if (!(provider instanceof CommandBackedAiProvider backend)) {
-                LOG.warn("No command-backed AI provider for agent '{}'", task.agent());
+            LlmProvider provider = providers.get(target.providerId());
+            if (!(provider instanceof CommandBackedLlmProvider backend)) {
+                LOG.warn("No command-backed LLM provider for agent '{}'", task.agent());
                 return recordFailure(inboxRepo, file, projectKey,
-                        "No command-backed AI provider for agent '" + task.agent() + "'.");
+                        "No command-backed LLM provider for agent '" + task.agent() + "'.");
             }
 
             LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
             Path agentStdout = agentOutputPath(file, "stdout.log");
             Path agentStderr = agentOutputPath(file, "stderr.log");
             createDirectories(Objects.requireNonNull(agentStdout.getParent(), "agent output parent"));
-            AiRequest request = AiRequest.of(task.body())
+            LlmRequest request = LlmRequest.of(task.body())
                     .withWorkingDirectory(worktree)
                     .withPermissionMode(PermissionMode.unrestricted)
                     .withOutputPaths(agentStdout, agentStderr);
-            if (provider.capabilities(target).contains(AiCapability.streamJson)) {
+            if (provider.capabilities(target).contains(LlmCapability.streamJson)) {
                 request = request.withOutputFormat(OutputFormat.streamJson);
             }
             CommandResult agentResult;
             try {
                 agentResult = backend.executeWithResult(target, request).commandResult();
-            } catch (AiBackendExecutionException executionFailure) {
+            } catch (LlmBackendExecutionException executionFailure) {
                 LOG.warn("{} for {}: {}", task.agent(), file, executionFailure.getMessage());
                 return recordFailure(inboxRepo, file, projectKey, executionFailure.getMessage(),
                         executionFailure.commandResult().orElse(null));
-            } catch (AiBackendStartupException startupFailure) {
+            } catch (LlmBackendStartupException startupFailure) {
                 LOG.warn("Could not run {} for {}: {}", task.agent(), file, startupFailure.getMessage());
                 return recordFailure(inboxRepo, file, projectKey,
                         "Could not run " + task.agent() + ": " + startupFailure.getMessage());

@@ -21,12 +21,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -64,15 +64,15 @@ class RunPromptCliTest {
         Files.createDirectories(home);
 
         String[] cliArgs = new String[]{"--home", home.toString(), "claude", "Test prompt text"};
-        Map<ProviderId, AiProvider> backends = providers(new AiProvider() {
+        Map<ProviderId, LlmProvider> backends = providers(new LlmProvider() {
             @Override
-            public AiResponse execute(ModelTarget target, AiRequest request) {
-                return new AiResponse("Fake CLI response", new BackendId("Fake CLI"), Duration.ofMillis(5),
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
+                return new LlmResponse("Fake CLI response", new BackendId("Fake CLI"), Duration.ofMillis(5),
                         target, "session-123");
             }
 
             @Override
-            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
                 return Set.of();
             }
         });
@@ -117,16 +117,16 @@ class RunPromptCliTest {
                 RunPromptCli.execute(new String[]{"claude"}, Map.of(), Clock.systemUTC()));
     }
 
-    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
-        AiProvider noop = new AiProvider() {
+    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+        LlmProvider noop = new LlmProvider() {
             @Override
-            public AiResponse execute(ModelTarget target, AiRequest request) {
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
                 throw new AssertionError("unexpected provider call for " + target);
             }
 
             @Override
-            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
                 return Set.of();
             }
         };

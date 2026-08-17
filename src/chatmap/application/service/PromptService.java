@@ -17,15 +17,15 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 
-import chatmap.application.port.ai.AiCapability;
-import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.PromptProfile;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmCapability;
+import chatmap.application.port.llm.LlmBackendUnsupportedRequestException;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.PromptProfile;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.application.model.ImportedChat;
@@ -33,13 +33,13 @@ import chatmap.application.support.Log;
 
 public final class PromptService {
     private static final Logger LOG = Log.of(PromptService.class);
-    private final Map<ProviderId, AiProvider> providers;
+    private final Map<ProviderId, LlmProvider> providers;
     private final ImportService importService;
     private final Clock clock;
     private final Path transcriptDirectory;
 
     public PromptService(
-            Map<ProviderId, AiProvider> providers,
+            Map<ProviderId, LlmProvider> providers,
             ImportService importService,
             Clock clock,
             Path transcriptDirectory) {
@@ -94,15 +94,15 @@ public final class PromptService {
     public PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId)
             throws SQLException {
         ModelTarget target = ModelTarget.require(backendName);
-        AiProvider provider = providerFor(target);
+        LlmProvider provider = providerFor(target);
 
-        AiRequest request = (sessionId != null && !sessionId.isBlank())
-                ? AiRequest.withSession(prompt, sessionId, profile)
-                : AiRequest.withProfile(prompt, profile);
+        LlmRequest request = (sessionId != null && !sessionId.isBlank())
+                ? LlmRequest.withSession(prompt, sessionId, profile)
+                : LlmRequest.withProfile(prompt, profile);
         validateCapabilities(target, provider, request);
         Instant started = clock.instant();
 
-        AiResponse response = provider.execute(target, request);
+        LlmResponse response = provider.execute(target, request);
         String responseText = response.text();
         String backendId = response.backendId().value();
         String effectiveSessionId = response.sessionId().orElse(sessionId);
@@ -169,45 +169,45 @@ public final class PromptService {
         }
     }
 
-    private AiProvider providerFor(ModelTarget target) {
-        AiProvider provider = providers.get(target.providerId());
+    private LlmProvider providerFor(ModelTarget target) {
+        LlmProvider provider = providers.get(target.providerId());
         if (provider == null) {
-            throw new IllegalStateException("No AI provider configured for " + target.providerId());
+            throw new IllegalStateException("No LLM provider configured for " + target.providerId());
         }
         return provider;
     }
 
-    private static Map<ProviderId, AiProvider> validateProviders(Map<ProviderId, AiProvider> configured) {
+    private static Map<ProviderId, LlmProvider> validateProviders(Map<ProviderId, LlmProvider> configured) {
         Objects.requireNonNull(configured, "providers");
-        EnumMap<ProviderId, AiProvider> copy = new EnumMap<>(ProviderId.class);
+        EnumMap<ProviderId, LlmProvider> copy = new EnumMap<>(ProviderId.class);
         copy.putAll(configured);
         for (ModelTarget target : ModelTarget.values()) {
             if (!copy.containsKey(target.providerId())) {
-                throw new IllegalStateException("No AI provider configured for target "
+                throw new IllegalStateException("No LLM provider configured for target "
                         + target.id() + " (" + target.providerId() + ")");
             }
         }
         return Map.copyOf(copy);
     }
 
-    private static void validateCapabilities(ModelTarget target, AiProvider provider, AiRequest request) {
-        Set<AiCapability> required = EnumSet.noneOf(AiCapability.class);
+    private static void validateCapabilities(ModelTarget target, LlmProvider provider, LlmRequest request) {
+        Set<LlmCapability> required = EnumSet.noneOf(LlmCapability.class);
         if (request.systemPrompt().isPresent()) {
-            required.add(AiCapability.systemPrompt);
+            required.add(LlmCapability.systemPrompt);
         }
         if (request.sessionId().isPresent()) {
-            required.add(AiCapability.sessions);
+            required.add(LlmCapability.sessions);
         }
-        if (request.permissionMode() == chatmap.application.port.ai.PermissionMode.unrestricted) {
-            required.add(AiCapability.fileEditing);
+        if (request.permissionMode() == chatmap.application.port.llm.PermissionMode.unrestricted) {
+            required.add(LlmCapability.fileEditing);
         }
-        if (request.outputFormat() == chatmap.application.port.ai.OutputFormat.streamJson) {
-            required.add(AiCapability.streamJson);
+        if (request.outputFormat() == chatmap.application.port.llm.OutputFormat.streamJson) {
+            required.add(LlmCapability.streamJson);
         }
-        Set<AiCapability> supported = provider.capabilities(target);
-        for (AiCapability capability : required) {
+        Set<LlmCapability> supported = provider.capabilities(target);
+        for (LlmCapability capability : required) {
             if (!supported.contains(capability)) {
-                throw new AiBackendUnsupportedRequestException(
+                throw new LlmBackendUnsupportedRequestException(
                         target.displayName() + " does not support requested capability: " + capability,
                         new BackendId(target.displayName()));
             }

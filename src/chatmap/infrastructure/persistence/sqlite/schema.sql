@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS chatTags (
 
 CREATE INDEX IF NOT EXISTS chatTagsTagIndex ON chatTags(tagId);
 
--- AI-generated summaries. Derived artifacts only: never referenced by
+-- LLM-generated summaries. Derived artifacts only: never referenced by
 -- messages.text or used to rewrite it. A chat may accumulate more than one
 -- summary row over time (e.g. regenerated later, or by a different backend).
 CREATE TABLE IF NOT EXISTS chatSummaries (

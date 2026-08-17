@@ -20,15 +20,15 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
 import chatmap.application.port.handoff.HandoffFileStore;
-import chatmap.infrastructure.ai.ClaudeCliProvider;
-import chatmap.infrastructure.ai.CodexCliProvider;
+import chatmap.infrastructure.llm.ClaudeCliProvider;
+import chatmap.infrastructure.llm.CodexCliProvider;
 import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
 /**
@@ -50,7 +50,7 @@ class HandoffOrchestratorServiceScenarioTest {
 
     private static HandoffOrchestratorService newService(
             FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
         providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
         providers.put(ProviderId.codexCli, new CodexCliProvider(executor, Duration.ofMinutes(30)));
         return new HandoffOrchestratorService(executor, providers,

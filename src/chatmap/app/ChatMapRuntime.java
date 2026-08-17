@@ -21,7 +21,7 @@ import chatmap.application.support.Log;
 /**
  * Owns application paths, database/service wiring, background work, and shutdown.
  *
- * Background work runs on two independent lanes so a slow AI-backend or live web/CDP
+ * Background work runs on two independent lanes so a slow LLM-backend or live web/CDP
  * fetch (can run for minutes) never queues behind, or blocks, a fast DB-only action
  * (search, chat-list load, import) and vice versa. Both lanes are single-threaded:
  * storage access already serializes structurally inside the repositories
@@ -60,7 +60,7 @@ public final class ChatMapRuntime implements AutoCloseable {
         try {
             ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create(), paths);
             SerializedTaskExecutor dbExecutor = new SerializedTaskExecutor("chatmap-db");
-            SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor("chatmap-ai-backend");
+            SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor("chatmap-llm-backend");
             return new ChatMapRuntime(log, paths, services, new ChatMapController(services), dbExecutor,
                     backendExecutor);
         } catch (Exception failure) {
@@ -97,12 +97,12 @@ public final class ChatMapRuntime implements AutoCloseable {
         return dbExecutor.submit(task);
     }
 
-    /** Slow lane: AI backend calls (summarize) and live provider fetches (web/CDP). */
+    /** Slow lane: LLM backend calls (summarize) and live provider fetches (web/CDP). */
     public Future<?> submitBackendWork(Runnable task) {
         return backendExecutor.submit(task);
     }
 
-    /** Slow lane: AI backend calls (summarize) and live provider fetches (web/CDP). */
+    /** Slow lane: LLM backend calls (summarize) and live provider fetches (web/CDP). */
     public <T> Future<T> submitBackendWork(Callable<T> task) {
         return backendExecutor.submit(task);
     }

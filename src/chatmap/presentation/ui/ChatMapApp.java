@@ -214,7 +214,7 @@ public final class ChatMapApp extends Application {
 
     /**
      * Same as {@link #runInBackground(String, Button, BackgroundCall)}, but for calls
-     * that reach an AI backend or a live web/CDP provider fetch (can run for minutes)
+     * that reach an LLM backend or a live web/CDP provider fetch (can run for minutes)
      * rather than doing DB-only work. Runs on ChatMapRuntime's separate slow lane so
      * it never makes a search or chat-list load wait behind it.
      */

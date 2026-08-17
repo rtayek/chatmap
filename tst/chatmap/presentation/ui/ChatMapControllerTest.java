@@ -29,13 +29,13 @@ import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
-import chatmap.application.port.ai.AiBackend;
-import chatmap.application.port.ai.AiProvider;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.AiResponse;
-import chatmap.application.port.ai.BackendId;
-import chatmap.application.port.ai.ModelTarget;
-import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.llm.LlmBackend;
+import chatmap.application.port.llm.LlmProvider;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.LlmResponse;
+import chatmap.application.port.llm.BackendId;
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.application.port.llm.ProviderId;
 import chatmap.application.model.ChatExportModel;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ConversationInventoryService;
@@ -208,14 +208,14 @@ class ChatMapControllerTest {
 
     @Test
     void executePromptDelegatesToConfiguredService() throws Exception {
-        AiProvider fakeBackend = new AiProvider() {
+        LlmProvider fakeBackend = new LlmProvider() {
             @Override
-            public AiResponse execute(ModelTarget target, AiRequest request) {
-                return new AiResponse("pong", new BackendId("Fake"), Duration.ZERO, target, null);
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
+                return new LlmResponse("pong", new BackendId("Fake"), Duration.ZERO, target, null);
             }
 
             @Override
-            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
                 return Set.of();
             }
         };
@@ -397,21 +397,21 @@ class ChatMapControllerTest {
                 .toList();
     }
 
-    private static AiBackend summaryBackend() {
-        return request -> new AiResponse("summary", new BackendId("Summary"), Duration.ZERO,
+    private static LlmBackend summaryBackend() {
+        return request -> new LlmResponse("summary", new BackendId("Summary"), Duration.ZERO,
                 ModelTarget.claude, null);
     }
 
-    private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {
-        EnumMap<ProviderId, AiProvider> providers = new EnumMap<>(ProviderId.class);
-        AiProvider noop = new AiProvider() {
+    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
+        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+        LlmProvider noop = new LlmProvider() {
             @Override
-            public AiResponse execute(ModelTarget target, AiRequest request) {
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
                 throw new AssertionError("unexpected provider call for " + target);
             }
 
             @Override
-            public Set<chatmap.application.port.ai.AiCapability> capabilities(ModelTarget target) {
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
                 return Set.of();
             }
         };

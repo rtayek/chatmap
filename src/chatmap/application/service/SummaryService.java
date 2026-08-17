@@ -14,16 +14,16 @@ import chatmap.application.port.persistence.MessageStore;
 import chatmap.application.port.persistence.SummaryStore;
 import chatmap.application.port.persistence.TagStore;
 import chatmap.application.port.persistence.TransactionManager;
-import chatmap.application.port.ai.AiBackend;
-import chatmap.application.port.ai.AiRequest;
-import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.llm.LlmBackend;
+import chatmap.application.port.llm.LlmRequest;
+import chatmap.application.port.llm.LlmResponse;
 import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.Tag;
 
 /**
- * Generates an AI summary and tags for an already-imported chat.
+ * Generates an LLM summary and tags for an already-imported chat.
  *
  * This is a deliberate, on-demand extra step, not part of import. It only
  * ever adds a new chatSummaries row and assigns existing/new tags; it never
@@ -40,16 +40,16 @@ public final class SummaryService {
     private final MessageStore messages;
     private final SummaryStore summaries;
     private final TagStore tags;
-    private final AiBackend backend;
+    private final LlmBackend backend;
     private final TransactionManager transactions;
 
     public SummaryService(ChatStore chats, MessageStore messages, SummaryStore summaries,
-            TagStore tags, AiBackend backend) {
+            TagStore tags, LlmBackend backend) {
         this(chats, messages, summaries, tags, backend, chats.transactions());
     }
 
     public SummaryService(ChatStore chats, MessageStore messages, SummaryStore summaries,
-            TagStore tags, AiBackend backend, TransactionManager transactions) {
+            TagStore tags, LlmBackend backend, TransactionManager transactions) {
         this.chats = chats;
         this.messages = messages;
         this.summaries = summaries;
@@ -70,7 +70,7 @@ public final class SummaryService {
         List<Message> chatMessages = messages.findByChat(chatId);
 
         String prompt = buildPrompt(chat, chatMessages);
-        AiResponse backendResponse = backend.ask(AiRequest.of(prompt));
+        LlmResponse backendResponse = backend.ask(LlmRequest.of(prompt));
         String response = backendResponse.text();
         String generatedBy = backendResponse.backendId().value();
 

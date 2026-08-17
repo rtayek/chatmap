@@ -16,7 +16,7 @@ import chatmap.application.port.importing.ConversationFileReader;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.application.model.ImportedChat;
-import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.llm.ModelTarget;
 
 /** Imports selected files through format-specific importers, then persists normalized data. */
 public final class ImportService {
