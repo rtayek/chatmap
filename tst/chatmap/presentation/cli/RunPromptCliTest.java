@@ -21,14 +21,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import chatmap.application.port.ai.AiBackend;
 import chatmap.application.port.ai.AiProvider;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.BackendId;
 import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.ProviderId;
-import chatmap.infrastructure.ai.DefaultAiBackends;
 import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -50,15 +48,6 @@ class RunPromptCliTest {
     void releaseLogFileAndRestoreProperty() {
         LoggingBootstrap.initializeTemporaryFallback();
         restoreLogDirectoryProperty(originalLogDirectory);
-    }
-
-    @Test
-    void defaultAiBackendsInstantiatesSupportedBackends() {
-        Map<String, AiBackend> backends = DefaultAiBackends.defaults();
-        assertTrue(backends.containsKey("claude"));
-        assertTrue(backends.containsKey("codex"));
-        assertTrue(backends.containsKey("agy"));
-        assertTrue(backends.containsKey("ollama"));
     }
 
     private static void restoreLogDirectoryProperty(String value) {

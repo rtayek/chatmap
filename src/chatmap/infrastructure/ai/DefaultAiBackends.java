@@ -14,7 +14,6 @@ import chatmap.application.port.command.CommandExecutor;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -23,10 +22,6 @@ import java.util.Map;
 public final class DefaultAiBackends {
 
     private DefaultAiBackends() {
-    }
-
-    public static Map<String, AiBackend> defaults() {
-        return legacyBackends(new CommandRunner(), Duration.ofMinutes(3));
     }
 
     /** Primary prompt provider wiring: one provider implementation per provider/protocol family. */
@@ -45,23 +40,11 @@ public final class DefaultAiBackends {
     }
 
     public static AiBackend summaryBackend() {
-        return targetBackend(ModelTarget.claude, providers());
+        return summaryBackend(providers());
     }
 
-    public static Map<String, AiBackend> defaults(CommandExecutor executor, Duration timeout) {
-        return legacyBackends(executor, timeout);
-    }
-
-    public static Map<String, AiBackend> legacyBackends(CommandExecutor executor, Duration timeout) {
-        Map<ProviderId, AiProvider> providers = providers(executor, timeout);
-        Map<String, AiBackend> backends = new LinkedHashMap<>();
-        for (ModelTarget target : ModelTarget.values()) {
-            backends.put(target.id(), targetBackend(target, providers));
-        }
-        return Collections.unmodifiableMap(backends);
-    }
-
-    private static AiBackend targetBackend(ModelTarget target, Map<ProviderId, AiProvider> providers) {
+    static AiBackend summaryBackend(Map<ProviderId, AiProvider> providers) {
+        ModelTarget target = ModelTarget.claude;
         AiProvider provider = providers.get(target.providerId());
         if (provider == null) {
             throw new IllegalStateException("No AI provider configured for " + target.providerId());

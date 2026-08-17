@@ -3,7 +3,6 @@ package chatmap.app;
 import java.util.List;
 import java.util.Map;
 
-import chatmap.application.port.ai.AiBackend;
 import chatmap.application.port.ai.AiProvider;
 import chatmap.application.port.ai.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
@@ -26,10 +25,6 @@ public final class DefaultServiceIntegrations {
 
     public static List<ChatProvider> chatProviders() {
         return DefaultChatProviders.ordered();
-    }
-
-    public static Map<String, AiBackend> promptBackends() {
-        return DefaultAiBackends.defaults();
     }
 
     public static Map<ProviderId, AiProvider> promptProviders() {

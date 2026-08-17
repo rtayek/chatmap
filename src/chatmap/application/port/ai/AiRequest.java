@@ -9,7 +9,7 @@ import java.util.Optional;
  * {@code commandFor()} may interpret in its own CLI's flag names --
  * {@code workingDirectory}, {@code permissionMode}, and {@code outputFormat}
  * exist so callers with unusual needs (e.g. running inside an isolated
- * worktree, skipping permission prompts) go through {@link AiBackend}
+ * worktree, skipping permission prompts) go through {@link AiProvider}
  * instead of building a command themselves.
  */
 public record AiRequest(
