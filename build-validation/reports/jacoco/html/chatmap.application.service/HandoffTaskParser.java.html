@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HandoffTaskParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.service</a> &gt; <span class="el_source">HandoffTaskParser.java</span></div><h1>HandoffTaskParser.java</h1><pre class="source lang-java linenums">package chatmap.application.service;
+
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import chatmap.domain.HandoffTask;
+
+/**
+ * Parses a handoff markdown file's YAML-style frontmatter
+ * ({@code ---\nkey: value\n---\n&lt;body&gt;}) into a {@link HandoffTask}. Only the
+ * trivial {@code key: value} line shape used by these files is supported --
+ * deliberately not a general YAML parser, since the format itself is fixed
+ * and simple (see {@code template.md} in the inbox repo).
+ */
+final class HandoffTaskParser {
+
+    private HandoffTaskParser() {
+    }
+
+    static HandoffTask parse(Path sourceFile, String projectKey, String rawText) {
+<span class="nc" id="L23">        List&lt;String&gt; lines = rawText.lines().toList();</span>
+<span class="nc bnc" id="L24" title="All 4 branches missed.">        if (lines.isEmpty() || !lines.get(0).strip().equals(&quot;---&quot;)) {</span>
+<span class="nc" id="L25">            throw new HandoffTaskParseException(sourceFile + &quot;: missing frontmatter (must start with ---)&quot;);</span>
+        }
+
+<span class="nc" id="L28">        Map&lt;String, String&gt; fields = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L29">        int bodyStart = -1;</span>
+<span class="nc bnc" id="L30" title="All 2 branches missed.">        for (int i = 1; i &lt; lines.size(); i++) {</span>
+<span class="nc" id="L31">            String line = lines.get(i);</span>
+<span class="nc bnc" id="L32" title="All 2 branches missed.">            if (line.strip().equals(&quot;---&quot;)) {</span>
+<span class="nc" id="L33">                bodyStart = i + 1;</span>
+<span class="nc" id="L34">                break;</span>
+            }
+<span class="nc" id="L36">            int colon = line.indexOf(':');</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">            if (colon &lt;= 0) {</span>
+<span class="nc" id="L38">                continue;</span>
+            }
+<span class="nc" id="L40">            String key = line.substring(0, colon).strip();</span>
+<span class="nc" id="L41">            String value = line.substring(colon + 1).strip();</span>
+<span class="nc" id="L42">            fields.put(key, value);</span>
+        }
+<span class="nc bnc" id="L44" title="All 2 branches missed.">        if (bodyStart &lt; 0) {</span>
+<span class="nc" id="L45">            throw new HandoffTaskParseException(sourceFile + &quot;: frontmatter was never closed with a second ---&quot;);</span>
+        }
+
+<span class="nc" id="L48">        String agent = fields.get(&quot;agent&quot;);</span>
+<span class="nc" id="L49">        String branch = fields.get(&quot;branch&quot;);</span>
+<span class="nc bnc" id="L50" title="All 4 branches missed.">        if (agent == null || agent.isBlank()) {</span>
+<span class="nc" id="L51">            throw new HandoffTaskParseException(sourceFile + &quot;: frontmatter is missing a nonblank 'agent' field&quot;);</span>
+        }
+<span class="nc bnc" id="L53" title="All 4 branches missed.">        if (branch == null || branch.isBlank()) {</span>
+<span class="nc" id="L54">            throw new HandoffTaskParseException(sourceFile + &quot;: frontmatter is missing a nonblank 'branch' field&quot;);</span>
+        }
+
+<span class="nc" id="L57">        String body = String.join(&quot;\n&quot;, lines.subList(bodyStart, lines.size())).strip();</span>
+<span class="nc" id="L58">        return new HandoffTask(sourceFile, projectKey, agent, branch, body);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

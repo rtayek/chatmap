@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<checkstyle version="10.18.0">
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\ApplicationBootstrap.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\bootstrap\ChatMapPaths.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\bootstrap\LoggingBootstrap.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\ChatMapRuntime.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\DefaultServiceIntegrations.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\HandoffOrchestratorBootstrap.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\SerializedTaskExecutor.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\app\ServiceGraph.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\model\ChatExportModel.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\model\ImportedChat.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\model\ProjectHandoffModel.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiBackend.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiBackendException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiBackendExecutionException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiBackendStartupException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiBackendUnsupportedRequestException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiCapability.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiRequest.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\AiResponse.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\BackendId.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\CommandBackedAiProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\CommandBackedRun.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\ModelTarget.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\OutputFormat.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\PermissionMode.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\PromptProfile.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\ai\ProviderId.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\command\CommandExecutionException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\command\CommandExecutor.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\command\CommandRequest.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\command\CommandResult.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\exporting\ChatExportFormatter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\exporting\ProjectHandoffFormatter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\handoff\HandoffFileStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\handoff\HandoffFileStoreException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\importing\ChatArchiveReader.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\importing\ConversationFileReader.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\ChatStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\MessageStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\ProjectStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\SearchStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\SummaryStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\TagStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\persistence\TransactionManager.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\provider\ChatProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\provider\ChatProviderException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\port\provider\NoImportableContentException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\BackendDescriptor.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\ChatContentHasher.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\ChatGptArchiveImportService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\ConversationInventoryService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\ExportService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\HandoffOrchestratorService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\HandoffRunResult.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\HandoffTaskParseException.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\HandoffTaskParser.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\ImportService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\LiveChatFetchService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\ProjectService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\PromptResult.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\PromptService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\SearchService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\SummaryService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\TagService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\service\WorkspaceScanService.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\support\Locks.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\application\support\Log.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\Chat.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\ChatOrigin.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\ChatSummary.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\ConversationCandidate.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\ConversationInventory.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\HandoffTask.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\ImportMetadata.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\InventoryEntry.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\Message.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\MessageRole.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\Project.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\ProviderInventory.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\SearchOptions.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\SearchResult.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\Source.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\domain\Tag.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\AntigravityCliProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\ClaudeCliProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\CliAiProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\CodexCliProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\DefaultAiBackends.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\JShellBackend.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\OllamaCliProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\ai\StructuredCliOutput.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\command\CommandRunner.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\exporter\HandoffExporter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\exporter\Markdown.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\exporter\MarkdownExporter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\handoff\FileSystemHandoffFileStore.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\ChatGptArchiveImporter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\ChatGptConversationParser.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\ChatGptImportCounter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\ChatGptJsonImporter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\ChatGptMapping.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\DefaultConversationFileReader.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\MarkdownImporter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\PlainTextImporter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\importer\RolePrefixedTranscriptParser.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\ChatRepository.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\ChatRowMapper.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\Database.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\MessageRepository.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\ProjectRepository.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\SearchRepository.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\SummaryRepository.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\TagRepository.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\persistence\sqlite\TransactionRunner.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\ClaudeCodeHistoryProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\ClaudeTurn.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\CodexCliHistoryProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\DefaultChatProviders.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\GeminiCliHistoryProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\LocalCliHistoryProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\LocalCliSessions.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\ProviderIdentity.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\SessionLines.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\CdpBrowserConnection.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\CdpPage.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\CdpTranscriptAdapter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\CdpTransport.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\CdpWebChatProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\ChatGptWebAdapter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\ChatGptWebChatProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\ChromeCdpLauncher.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\ClaudeWebAdapter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\ClaudeWebChatProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\DiscoveryStatus.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\GeminiWebAdapter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\GeminiWebChatProvider.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\WebDiscoveryResult.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\infrastructure\provider\web\WebTranscripts.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\ChatConsolidatorCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\CliBootstrap.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\ConversationInventoryCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\HandoffOrchestratorCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\ImportAllChatsCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\ImportChatGptArchiveCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\LiveSourceExchanges.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\RunPromptCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\cli\SummarizeChatCli.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\BackgroundActionRunner.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatDetailRenderer.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatFilterCriteria.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatListMode.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatListState.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapApp.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapController.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapControllerFactory.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapDialogs.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapLauncher.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapSelectionCoordinator.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ChatMapViewBuilder.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\ConversationInventoryFormatter.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\chatmap\presentation\ui\FontSizeState.java">
+</file>
+<file name="C:\Users\ray\eclipse-workspace\cjatmanager\src\junk\Facets.java">
+</file>
+</checkstyle>

@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatGptWebAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">ChatGptWebAdapter.java</span></div><h1>ChatGptWebAdapter.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+
+import chatmap.infrastructure.provider.ClaudeTurn;
+import chatmap.infrastructure.provider.ProviderIdentity;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.LongConsumer;
+
+/**
+ * Reads the most recent chatgpt.com conversation over CDP.
+ *
+ * Conversation links in the sidebar are {@code /c/&lt;id&gt;} (mirroring MyClaw's
+ * listChatGPTChats), newest-first. Message turns carry a
+ * {@code data-message-author-role} attribute (&quot;user&quot; / &quot;assistant&quot; / &quot;system&quot; /
+ * &quot;tool&quot;); only user and assistant turns are kept — system/tool turns are not
+ * conversation content.
+ *
+ * Verified against the live logged-in page (2026-08-04): the sidebar
+ * {@code a[href*='/c/']} links and the {@code data-message-author-role} turn
+ * markers both matched and read a real conversation correctly.
+ */
+public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
+<span class="nc" id="L38">    private static final Logger LOG = Log.of(ChatGptWebAdapter.class);</span>
+
+
+    static final String BASE_URL = &quot;https://chatgpt.com&quot;;
+
+    ChatGptWebAdapter(String cdpUrl) {
+<span class="nc" id="L44">        super(cdpUrl);</span>
+<span class="nc" id="L45">    }</span>
+
+    @Override
+    String siteBaseUrl() {
+<span class="nc" id="L49">        return BASE_URL;</span>
+    }
+
+    @Override
+    List&lt;ChatWebSummary&gt; listChats(CdpPage page) {
+<span class="nc" id="L54">        Objects.requireNonNull(page, &quot;page&quot;);</span>
+        try {
+<span class="nc" id="L56">            page.waitForSelector(&quot;a[href*='/c/']&quot;, 5000);</span>
+<span class="nc" id="L57">        } catch (Exception ignored) {</span>
+<span class="nc" id="L58">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L59">        }</span>
+
+<span class="nc" id="L61">        List&lt;ChatWebSummary&gt; summaries = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L62">        Set&lt;String&gt; seenUrls = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L63">        CdpPage.CdpLocator links = page.locator(&quot;a[href*='/c/']&quot;);</span>
+<span class="nc" id="L64">        int count = links.count();</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        for (int i = 0; i &lt; count; i++) {</span>
+<span class="nc" id="L66">            CdpPage.CdpLocator link = links.nth(i);</span>
+<span class="nc" id="L67">            String href = link.getAttribute(&quot;href&quot;);</span>
+<span class="nc bnc" id="L68" title="All 4 branches missed.">            if (href == null || href.isBlank()) {</span>
+<span class="nc" id="L69">                continue;</span>
+            }
+<span class="nc bnc" id="L71" title="All 2 branches missed.">            String fullUrl = href.startsWith(&quot;/&quot;) ? BASE_URL + href : href;</span>
+<span class="nc" id="L72">            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.firstNonBlank(</span>
+<span class="nc" id="L73">                    WebTranscripts.safeInnerText(link), link.getAttribute(&quot;title&quot;),</span>
+<span class="nc" id="L74">                    link.getAttribute(&quot;aria-label&quot;)));</span>
+<span class="nc bnc" id="L75" title="All 4 branches missed.">            if (title == null || title.isBlank()) {</span>
+<span class="nc" id="L76">                title = &quot;Untitled Chat&quot;;</span>
+            }
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            if (seenUrls.add(fullUrl)) {</span>
+<span class="nc" id="L79">                summaries.add(new ChatWebSummary(title, fullUrl));</span>
+            }
+        }
+<span class="nc" id="L82">        return summaries;</span>
+    }
+
+    @Override
+    List&lt;ClaudeTurn&gt; readTurns(CdpPage page) {
+<span class="nc" id="L87">        Objects.requireNonNull(page, &quot;page&quot;);</span>
+        try {
+<span class="nc" id="L89">            page.waitForSelector(&quot;[data-message-author-role]&quot;, 5000);</span>
+<span class="nc" id="L90">        } catch (Exception ignored) {</span>
+<span class="nc" id="L91">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L92">        }</span>
+
+<span class="nc" id="L94">        List&lt;ClaudeTurn&gt; turns = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L95">        CdpPage.CdpLocator messages = page.locator(&quot;[data-message-author-role]&quot;);</span>
+<span class="nc" id="L96">        int count = messages.count();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        for (int i = 0; i &lt; count; i++) {</span>
+<span class="nc" id="L98">            CdpPage.CdpLocator message = messages.nth(i);</span>
+<span class="nc" id="L99">            String role = mapRole(message.getAttribute(&quot;data-message-author-role&quot;));</span>
+<span class="nc bnc" id="L100" title="All 2 branches missed.">            if (role == null) {</span>
+<span class="nc" id="L101">                continue;</span>
+            }
+<span class="nc" id="L103">            String text = WebTranscripts.safeInnerText(message);</span>
+<span class="nc bnc" id="L104" title="All 4 branches missed.">            if (text != null &amp;&amp; !text.isBlank()) {</span>
+<span class="nc" id="L105">                turns.add(new ClaudeTurn(role, text.strip()));</span>
+            }
+        }
+<span class="nc" id="L108">        return turns;</span>
+    }
+
+    /** Maps ChatGPT's author-role attribute to a conversation role, or null to skip. */
+    static String mapRole(String authorRole) {
+<span class="nc bnc" id="L113" title="All 2 branches missed.">        if (authorRole == null) {</span>
+<span class="nc" id="L114">            return null;</span>
+        }
+<span class="nc bnc" id="L116" title="All 3 branches missed.">        return switch (authorRole.toLowerCase(java.util.Locale.ROOT)) {</span>
+<span class="nc" id="L117">            case &quot;user&quot; -&gt; chatmap.domain.MessageRole.user.dbValue();</span>
+<span class="nc" id="L118">            case &quot;assistant&quot; -&gt; chatmap.domain.MessageRole.assistant.dbValue();</span>
+<span class="nc" id="L119">            default -&gt; null; // Ignore system / tool roles</span>
+        };
+    }
+
+    @Override
+    String identityOf(ChatWebSummary summary) {
+<span class="nc" id="L125">        return ProviderIdentity.chatGptWebId(summary.url());</span>
+    }
+
+    @Override
+    String providerLabel() {
+<span class="nc" id="L130">        return &quot;ChatGPT (web)&quot;;</span>
+    }
+
+    private static final int PAGE_LIMIT = 28;
+    private static final int MAX_API_PAGES = 400;
+    private static final long PAGE_DELAY_MILLIS = 500;
+    private static final int MAX_RATE_LIMIT_RETRIES = 3;
+    private static final long MAX_RETRY_DELAY_MILLIS = 30_000;
+
+    /**
+     * Exhaustive discovery via chatgpt.com's own {@code /backend-api/conversations}
+     * listing endpoint. Unlike claude.ai, cookies alone are not sufficient here
+     * (verified live: an unauthenticated-looking request returns HTTP 200 with an
+     * empty list rather than an error) -- a bearer token from
+     * {@code /api/auth/session} is required. The token is read and used entirely
+     * within this single page-context {@code fetch()} call and never leaves the
+     * browser or gets logged/returned to Java. The response's own {@code total}
+     * field was verified live to NOT be the true grand total (it tracks
+     * {@code offset + page length}, not an actual count) so the real terminal
+     * signal used here is {@code items.length &lt; limit}. Archived conversations
+     * are enumerated with a second, separate paged pass ({@code is_archived=true})
+     * since the site supports querying them explicitly.
+     */
+    @Override
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+<span class="nc" id="L157">            page = openPage(siteBaseUrl());</span>
+<span class="nc" id="L158">        } catch (Exception unopenable) {</span>
+<span class="nc" id="L159">            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));</span>
+<span class="nc" id="L160">        }</span>
+
+<span class="nc" id="L162">        return enumerate(</span>
+<span class="nc" id="L163">                (offset, archived) -&gt; page.evaluate(conversationPageScript(offset, archived)),</span>
+<span class="nc" id="L164">                page::waitForTimeout,</span>
+                MAX_API_PAGES,
+                MAX_RATE_LIMIT_RETRIES);
+    }
+
+    @FunctionalInterface
+    interface ConversationPageFetcher {
+        Object fetch(int offset, boolean archived);
+    }
+
+    static WebDiscoveryResult enumerate(
+            ConversationPageFetcher fetcher,
+            LongConsumer sleeper,
+            int maxPages,
+            int maxRateLimitRetries) {
+<span class="nc" id="L179">        Map&lt;String, ChatWebSummary&gt; all = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L180">        PageResult activeResult = pageThrough(</span>
+                fetcher, sleeper, all, false, maxPages, maxRateLimitRetries);
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        if (activeResult.status() != DiscoveryStatus.complete) {</span>
+<span class="nc" id="L183">            return new WebDiscoveryResult(&quot;ChatGPT (web)&quot;, List.copyOf(all.values()), activeResult.status(),</span>
+<span class="nc" id="L184">                    activeResult.reason());</span>
+        }
+<span class="nc" id="L186">        int normalCount = activeResult.added();</span>
+<span class="nc" id="L187">        PageResult archivedResult = pageThrough(</span>
+                fetcher, sleeper, all, true, maxPages, maxRateLimitRetries);
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if (archivedResult.status() != DiscoveryStatus.complete) {</span>
+<span class="nc" id="L190">            return new WebDiscoveryResult(&quot;ChatGPT (web)&quot;, List.copyOf(all.values()), archivedResult.status(),</span>
+                    &quot;Normal conversation list complete (&quot; + normalCount + &quot;), but the archived list did not &quot;
+<span class="nc" id="L192">                    + &quot;reach a verified terminal condition: &quot; + archivedResult.reason());</span>
+        }
+<span class="nc" id="L194">        int archivedCount = archivedResult.added();</span>
+<span class="nc" id="L195">        int rateLimitRetries = activeResult.rateLimitRetries() + archivedResult.rateLimitRetries();</span>
+<span class="nc" id="L196">        return new WebDiscoveryResult(&quot;ChatGPT (web)&quot;, List.copyOf(all.values()), DiscoveryStatus.complete,</span>
+                &quot;Complete for the normal and archived conversation lists exposed by the current authenticated &quot;
+                + &quot;web UI (&quot; + normalCount + &quot; normal + &quot; + archivedCount + &quot; archived, &quot;
+                + &quot;terminal condition: a page shorter than the requested limit).&quot;
+<span class="nc bnc" id="L200" title="All 2 branches missed.">                + (rateLimitRetries == 0 ? &quot;&quot; : &quot; Recovered from &quot; + rateLimitRetries</span>
+<span class="nc" id="L201">                        + &quot; HTTP 429 rate-limit response(s) with bounded retries.&quot;));</span>
+    }
+
+<span class="nc" id="L204">    private record PageResult(DiscoveryStatus status, String reason, int added, int rateLimitRetries) {</span>
+    }
+
+    /**
+     * Pages through one conversation list (active or archived). A short delay
+     * before every request after the first spaces out the burst of same-origin
+     * fetches this makes -- observed live on 2026-08-12: back-to-back full-speed
+     * pagination reliably triggered an HTTP 429 from chatgpt.com's backend
+     * partway through a ~310-conversation account on a second run shortly after
+     * a first. This must never regress to a false &quot;complete&quot;: a 429 is still
+     * reported as incomplete with the exact offset and status, same as any
+     * other listing-API error.
+     */
+    private static PageResult pageThrough(
+            ConversationPageFetcher fetcher,
+            LongConsumer sleeper,
+            Map&lt;String, ChatWebSummary&gt; out,
+            boolean archived,
+            int maxPages,
+            int maxRateLimitRetries) {
+<span class="nc" id="L224">        int offset = 0;</span>
+<span class="nc" id="L225">        int added = 0;</span>
+<span class="nc" id="L226">        int rateLimitRetries = 0;</span>
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        for (int i = 0; i &lt; maxPages; i++) {</span>
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            if (i &gt; 0) {</span>
+<span class="nc" id="L229">                sleeper.accept(PAGE_DELAY_MILLIS);</span>
+            }
+<span class="nc" id="L231">            JsonObject parsed = null;</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">            for (int retry = 0; retry &lt;= maxRateLimitRetries; retry++) {</span>
+<span class="nc" id="L233">                parsed = parseOrNull(fetcher.fetch(offset, archived));</span>
+<span class="nc bnc" id="L234" title="All 4 branches missed.">                if (parsed == null || responseStatus(parsed) != 429) {</span>
+<span class="nc" id="L235">                    break;</span>
+                }
+<span class="nc bnc" id="L237" title="All 2 branches missed.">                if (retry == maxRateLimitRetries) {</span>
+<span class="nc" id="L238">                    return new PageResult(DiscoveryStatus.incomplete,</span>
+                            &quot;Conversation listing API exhausted &quot; + maxRateLimitRetries
+                            + &quot; retries after HTTP 429 at offset &quot; + offset + &quot;.&quot;,
+                            added, rateLimitRetries);
+                }
+<span class="nc" id="L243">                rateLimitRetries++;</span>
+<span class="nc" id="L244">                sleeper.accept(retryDelayMillis(parsed, retry));</span>
+            }
+<span class="nc bnc" id="L246" title="All 2 branches missed.">            if (parsed == null) {</span>
+<span class="nc" id="L247">                return new PageResult(DiscoveryStatus.incomplete,</span>
+                        &quot;Conversation listing API returned an unparseable response at offset &quot; + offset + &quot;.&quot;,
+                        added, rateLimitRetries);
+            }
+<span class="nc bnc" id="L251" title="All 2 branches missed.">            if (parsed.has(&quot;error&quot;)) {</span>
+<span class="nc" id="L252">                return new PageResult(DiscoveryStatus.incomplete,</span>
+                        &quot;Conversation listing API error at offset &quot; + offset + &quot;: &quot;
+<span class="nc" id="L254">                        + parsed.get(&quot;error&quot;).getAsString(), added, rateLimitRetries);</span>
+            }
+<span class="nc bnc" id="L256" title="All 4 branches missed.">            if (!parsed.has(&quot;items&quot;) || !parsed.get(&quot;items&quot;).isJsonArray()) {</span>
+<span class="nc" id="L257">                return new PageResult(DiscoveryStatus.incomplete,</span>
+                        &quot;Conversation listing API returned a malformed page at offset &quot; + offset + &quot;.&quot;,
+                        added, rateLimitRetries);
+            }
+<span class="nc" id="L261">            JsonArray items = parsed.getAsJsonArray(&quot;items&quot;);</span>
+<span class="nc bnc" id="L262" title="All 2 branches missed.">            for (JsonElement element : items) {</span>
+<span class="nc bnc" id="L263" title="All 2 branches missed.">                if (!element.isJsonObject()) {</span>
+<span class="nc" id="L264">                    continue;</span>
+                }
+<span class="nc" id="L266">                JsonObject o = element.getAsJsonObject();</span>
+<span class="nc" id="L267">                String id = stringField(o, &quot;id&quot;);</span>
+<span class="nc bnc" id="L268" title="All 4 branches missed.">                if (id == null || id.isBlank()) {</span>
+<span class="nc" id="L269">                    continue;</span>
+                }
+<span class="nc" id="L271">                String title = stringField(o, &quot;title&quot;);</span>
+<span class="nc" id="L272">                ChatWebSummary previous = out.putIfAbsent(id, new ChatWebSummary(</span>
+<span class="nc bnc" id="L273" title="All 4 branches missed.">                        title == null || title.isBlank() ? &quot;Untitled Chat&quot; : title,</span>
+                        BASE_URL + &quot;/c/&quot; + id));
+<span class="nc bnc" id="L275" title="All 2 branches missed.">                if (previous == null) {</span>
+<span class="nc" id="L276">                    added++;</span>
+                }
+<span class="nc" id="L278">            }</span>
+<span class="nc bnc" id="L279" title="All 2 branches missed.">            if (items.size() &lt; PAGE_LIMIT) {</span>
+<span class="nc" id="L280">                return new PageResult(DiscoveryStatus.complete, null, added, rateLimitRetries);</span>
+            }
+<span class="nc" id="L282">            offset += PAGE_LIMIT;</span>
+        }
+<span class="nc" id="L284">        return new PageResult(DiscoveryStatus.incomplete,</span>
+                &quot;Reached the API pagination safety limit (&quot; + maxPages + &quot; pages).&quot;,
+                added, rateLimitRetries);
+    }
+
+    private static String conversationPageScript(int offset, boolean archived) {
+<span class="nc" id="L290">        return &quot;(async () =&gt; { try {&quot;</span>
+                + &quot;let tok=globalThis.__chatmapAccessToken;&quot;
+                + &quot;if(!tok){const s=await fetch('/api/auth/session',{credentials:'include'}).then(r=&gt;r.json());&quot;
+                + &quot;tok=s&amp;&amp;s.accessToken;if(tok)globalThis.__chatmapAccessToken=tok;}&quot;
+                + &quot;if (!tok) return JSON.stringify({error:'no-access-token'});&quot;
+                + &quot;const res = await fetch('/backend-api/conversations?offset=&quot; + offset + &quot;&amp;limit=&quot;
+                + PAGE_LIMIT + &quot;&amp;order=updated&amp;is_archived=&quot; + archived + &quot;', &quot;
+                + &quot;{credentials:'include', headers:{Authorization:'Bearer '+tok}});&quot;
+                + &quot;if (!res.ok) return JSON.stringify({error:'HTTP '+res.status,status:res.status,&quot;
+                + &quot;retryAfter:res.headers.get('Retry-After')});&quot;
+                + &quot;return JSON.stringify(await res.json());&quot;
+                + &quot;} catch (e) { return JSON.stringify({error:String(e)}); } })()&quot;;
+    }
+
+    private static int responseStatus(JsonObject response) {
+<span class="nc" id="L305">        JsonElement status = response.get(&quot;status&quot;);</span>
+<span class="nc bnc" id="L306" title="All 4 branches missed.">        if (status == null || status.isJsonNull()) {</span>
+<span class="nc" id="L307">            return -1;</span>
+        }
+        try {
+<span class="nc" id="L310">            return status.getAsInt();</span>
+<span class="nc" id="L311">        } catch (RuntimeException malformed) {</span>
+<span class="nc" id="L312">            return -1;</span>
+        }
+    }
+
+    private static long retryDelayMillis(JsonObject response, int retry) {
+<span class="nc" id="L317">        String retryAfter = stringField(response, &quot;retryAfter&quot;);</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (retryAfter != null) {</span>
+            try {
+<span class="nc" id="L320">                long seconds = Long.parseLong(retryAfter.strip());</span>
+<span class="nc" id="L321">                long delay = Math.multiplyExact(seconds, 1000);</span>
+<span class="nc bnc" id="L322" title="All 4 branches missed.">                if (delay &gt;= 0 &amp;&amp; delay &lt;= MAX_RETRY_DELAY_MILLIS) {</span>
+<span class="nc" id="L323">                    return delay;</span>
+                }
+<span class="nc" id="L325">            } catch (ArithmeticException | NumberFormatException notDeltaSeconds) {</span>
+                try {
+<span class="nc" id="L327">                    long delay = java.time.ZonedDateTime.parse(</span>
+                            retryAfter, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)
+<span class="nc" id="L329">                            .toInstant().toEpochMilli() - System.currentTimeMillis();</span>
+<span class="nc bnc" id="L330" title="All 4 branches missed.">                    if (delay &gt;= 0 &amp;&amp; delay &lt;= MAX_RETRY_DELAY_MILLIS) {</span>
+<span class="nc" id="L331">                        return delay;</span>
+                    }
+<span class="nc" id="L333">                } catch (java.time.DateTimeException notHttpDate) {</span>
+<span class="nc" id="L334">                    LOG.trace(&quot;Failed to parse Retry-After as Date: {}&quot;, notHttpDate.getMessage());</span>
+<span class="nc" id="L335">                }</span>
+<span class="nc" id="L336">            }</span>
+<span class="nc" id="L337">            LOG.trace(&quot;Ignoring malformed or unreasonable Retry-After value: {}&quot;, retryAfter);</span>
+        }
+<span class="nc" id="L339">        return Math.min(PAGE_DELAY_MILLIS * (1L &lt;&lt; Math.min(retry, 3)), MAX_RETRY_DELAY_MILLIS);</span>
+    }
+
+    private static JsonObject parseOrNull(Object raw) {
+<span class="nc bnc" id="L343" title="All 2 branches missed.">        if (raw == null) {</span>
+<span class="nc" id="L344">            return null;</span>
+        }
+        try {
+<span class="nc" id="L347">            return JsonParser.parseString(raw.toString()).getAsJsonObject();</span>
+<span class="nc" id="L348">        } catch (RuntimeException malformed) {</span>
+<span class="nc" id="L349">            return null;</span>
+        }
+    }
+
+    private static String stringField(JsonObject object, String name) {
+<span class="nc" id="L354">        JsonElement value = object.get(name);</span>
+<span class="nc bnc" id="L355" title="All 4 branches missed.">        return value == null || value.isJsonNull() ? null : value.getAsString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

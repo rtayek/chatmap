@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatMapSelectionCoordinator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.ui</a> &gt; <span class="el_source">ChatMapSelectionCoordinator.java</span></div><h1>ChatMapSelectionCoordinator.java</h1><pre class="source lang-java linenums">package chatmap.presentation.ui;
+
+import chatmap.domain.ChatSummary;
+import chatmap.domain.SearchResult;
+import chatmap.application.model.ChatExportModel;
+import javafx.collections.FXCollections;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TextArea;
+
+/**
+ * Keeps the chat list selection, the detail pane, and the export/summarize
+ * button enabled-states in sync with each other and with the controller.
+ *
+ * {@code applyingListState} guards against reentrancy: {@link #applyListState}
+ * programmatically changes the list's selection, which fires the same
+ * selection listener a user click would ({@link #handleSelectedResult}); the
+ * flag suppresses that reentrant call while a snapshot is being applied.
+ */
+final class ChatMapSelectionCoordinator {
+
+    private final ChatMapController controller;
+    private final BackgroundActionRunner backgroundActions;
+    private final ListView&lt;SearchResult&gt; chatList;
+    private final TextArea detail;
+    private final Label status;
+    private final Button exportChatButton;
+    private final Button summarizeButton;
+    private boolean applyingListState;
+
+    ChatMapSelectionCoordinator(ChatMapController controller, BackgroundActionRunner backgroundActions,
+            ListView&lt;SearchResult&gt; chatList, TextArea detail, Label status,
+<span class="nc" id="L34">            Button exportChatButton, Button summarizeButton) {</span>
+<span class="nc" id="L35">        this.controller = controller;</span>
+<span class="nc" id="L36">        this.backgroundActions = backgroundActions;</span>
+<span class="nc" id="L37">        this.chatList = chatList;</span>
+<span class="nc" id="L38">        this.detail = detail;</span>
+<span class="nc" id="L39">        this.status = status;</span>
+<span class="nc" id="L40">        this.exportChatButton = exportChatButton;</span>
+<span class="nc" id="L41">        this.summarizeButton = summarizeButton;</span>
+<span class="nc" id="L42">    }</span>
+
+    void handleSelectedResult(SearchResult selectedResult) {
+<span class="nc bnc" id="L45" title="All 2 branches missed.">        if (applyingListState) {</span>
+<span class="nc" id="L46">            return;</span>
+        }
+<span class="nc" id="L48">        updateSelectionActionStates();</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">        if (selectedResult == null) {</span>
+<span class="nc" id="L50">            detail.clear();</span>
+<span class="nc" id="L51">            return;</span>
+        }
+<span class="nc" id="L53">        showChatDetails(selectedResult.chatId());</span>
+<span class="nc" id="L54">    }</span>
+
+    private void showChatDetails(long chatId) {
+<span class="nc" id="L57">        backgroundActions.runValue(null, null,</span>
+                () -&gt; {
+                    // Record the selection and load details on the DB lane, never on the FX
+                    // thread. summarize (claude CLI) and live fetch run on the separate
+                    // backend lane, so this queues only behind other DB-only work, not them.
+<span class="nc" id="L62">                    controller.selectChat(chatId);</span>
+<span class="nc" id="L63">                    ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">                    ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);</span>
+<span class="nc" id="L65">                    return new ChatDetail(model, summary);</span>
+                },
+<span class="nc" id="L67">                loaded -&gt; renderChatDetail(loaded.model(), loaded.summary()));</span>
+<span class="nc" id="L68">    }</span>
+
+    private void renderChatDetail(ChatExportModel model, ChatSummary summary) {
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (model == null) {</span>
+<span class="nc" id="L72">            detail.clear();</span>
+<span class="nc" id="L73">            status.setText(&quot;Selected chat no longer exists.&quot;);</span>
+<span class="nc" id="L74">            return;</span>
+        }
+<span class="nc" id="L76">        detail.setText(ChatDetailRenderer.render(model, summary));</span>
+<span class="nc" id="L77">    }</span>
+
+    void applyListState(ChatListState.Snapshot snapshot) {
+<span class="nc" id="L80">        applyingListState = true;</span>
+        try {
+<span class="nc" id="L82">            chatList.getSelectionModel().clearSelection();</span>
+<span class="nc" id="L83">            chatList.setItems(FXCollections.observableArrayList(snapshot.currentItems()));</span>
+        } finally {
+<span class="nc" id="L85">            applyingListState = false;</span>
+        }
+<span class="nc" id="L87">        status.setText(snapshot.statusText());</span>
+<span class="nc bnc" id="L88" title="All 2 branches missed.">        if (snapshot.selectedChatId() == null) {</span>
+<span class="nc" id="L89">            detail.clear();</span>
+<span class="nc" id="L90">            updateSelectionActionStates();</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        } else if (!selectChat(snapshot.selectedChatId())) {</span>
+<span class="nc" id="L92">            detail.clear();</span>
+<span class="nc" id="L93">            updateSelectionActionStates();</span>
+        }
+<span class="nc" id="L95">    }</span>
+
+    private boolean selectChat(long chatId) {
+<span class="nc bnc" id="L98" title="All 2 branches missed.">        for (SearchResult result : chatList.getItems()) {</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            if (result.chatId() == chatId) {</span>
+<span class="nc" id="L100">                chatList.getSelectionModel().select(result);</span>
+<span class="nc" id="L101">                return true;</span>
+            }
+<span class="nc" id="L103">        }</span>
+<span class="nc" id="L104">        return false;</span>
+    }
+
+    void updateSelectionActionStates() {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        boolean noSelection = chatList.getSelectionModel().getSelectedItem() == null;</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (exportChatButton != null) {</span>
+<span class="nc" id="L110">            exportChatButton.setDisable(noSelection);</span>
+        }
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        if (summarizeButton != null) {</span>
+<span class="nc" id="L113">            summarizeButton.setDisable(noSelection);</span>
+        }
+<span class="nc" id="L115">    }</span>
+
+    Long selectedChatId() {
+<span class="nc" id="L118">        SearchResult selected = chatList.getSelectionModel().getSelectedItem();</span>
+<span class="nc bnc" id="L119" title="All 2 branches missed.">        return selected == null ? null : selected.chatId();</span>
+    }
+
+    /** Carrier for a chat's export model plus its latest summary, loaded off the FX thread. */
+<span class="nc" id="L123">    private record ChatDetail(ChatExportModel model, ChatSummary summary) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

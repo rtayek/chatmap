@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HandoffOrchestratorBootstrap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.app</a> &gt; <span class="el_source">HandoffOrchestratorBootstrap.java</span></div><h1>HandoffOrchestratorBootstrap.java</h1><pre class="source lang-java linenums">package chatmap.app;
+
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Map;
+
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.ProviderId;
+import chatmap.application.port.handoff.HandoffFileStore;
+import chatmap.application.service.HandoffOrchestratorService;
+import chatmap.infrastructure.ai.DefaultAiBackends;
+import chatmap.infrastructure.command.CommandRunner;
+import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
+
+/** Wires the infrastructure adapters into {@link HandoffOrchestratorService} for the CLI entry point. */
+public final class HandoffOrchestratorBootstrap {
+
+    /** Generous relative to a normal interactive prompt: an agent may be editing a real codebase unattended. */
+<span class="nc" id="L21">    private static final Duration AGENT_TIMEOUT = Duration.ofMinutes(30);</span>
+
+    private HandoffOrchestratorBootstrap() {
+    }
+
+    public static HandoffOrchestratorService create(Map&lt;String, Path&gt; projectRegistry, Clock clock, boolean autoPush) {
+<span class="nc" id="L27">        CommandRunner commandExecutor = new CommandRunner();</span>
+<span class="nc" id="L28">        Map&lt;ProviderId, AiProvider&gt; providers = DefaultAiBackends.providers(commandExecutor, AGENT_TIMEOUT);</span>
+<span class="nc" id="L29">        Map&lt;String, ModelTarget&gt; agentTargets = Map.of(</span>
+                &quot;claude&quot;, ModelTarget.claude,
+                &quot;codex&quot;, ModelTarget.codex,
+                &quot;agy&quot;, ModelTarget.agy);
+<span class="nc" id="L33">        HandoffFileStore fileStore = new FileSystemHandoffFileStore();</span>
+<span class="nc" id="L34">        return new HandoffOrchestratorService(commandExecutor, providers, agentTargets,</span>
+                fileStore, projectRegistry, clock, autoPush);
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

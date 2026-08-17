@@ -265,6 +265,44 @@ final class PromptServiceTest {
     }
 
     @Test
+    void listSessionsReturnsKnownDatabaseSessionsForTarget() throws Exception {
+        try (java.sql.Connection conn = new chatmap.infrastructure.persistence.sqlite.Database("jdbc:sqlite::memory:")
+                .openAndInitialize()) {
+            chatmap.infrastructure.persistence.sqlite.ChatRepository chats =
+                    new chatmap.infrastructure.persistence.sqlite.ChatRepository(conn);
+            chatmap.infrastructure.persistence.sqlite.MessageRepository messages =
+                    new chatmap.infrastructure.persistence.sqlite.MessageRepository(conn);
+            ImportService importService = new ImportService(chats, messages,
+                    new chatmap.infrastructure.importer.DefaultConversationFileReader());
+            Clock clock = Clock.fixed(Instant.parse("2026-08-06T12:00:00Z"), ZoneOffset.UTC);
+
+            CapturingBackend claude = new CapturingBackend(new CommandBackedRun(
+                    new AiResponse("Claude answer", new BackendId("Claude"), Duration.ofMillis(10),
+                            ModelTarget.claude, null),
+                    new CommandResult(0, "Claude answer", "", Duration.ofMillis(10), false),
+                    List.of("claude", "-p")));
+            CapturingBackend codex = new CapturingBackend(new CommandBackedRun(
+                    new AiResponse("Codex answer", new BackendId("Codex"), Duration.ofMillis(10),
+                            ModelTarget.codex, null),
+                    new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false),
+                    List.of("codex", "exec")));
+            Map<ProviderId, AiProvider> configured = providers(Map.of(
+                    ProviderId.claudeCli, claude,
+                    ProviderId.codexCli, codex));
+            PromptService service = new PromptService(configured, importService, clock, tempDir);
+
+            service.submit("claude", "First", "session-b");
+            service.submit("claude", "Second", "session-a");
+            service.submit("claude", "Third", "session-b");
+            service.submit("codex", "Other target", "session-a");
+
+            assertEquals(List.of("session-a", "session-b"), service.listSessions("claude"));
+            assertEquals(List.of("session-a"), service.listSessions("codex"));
+            assertEquals(List.of(), service.listSessions("agy"));
+        }
+    }
+
+    @Test
     void appendedSessionKeepsContentHashConsistentWithFullTranscript() throws Exception {
         try (java.sql.Connection conn = new chatmap.infrastructure.persistence.sqlite.Database("jdbc:sqlite::memory:").openAndInitialize()) {
             chatmap.infrastructure.persistence.sqlite.ChatRepository chats = new chatmap.infrastructure.persistence.sqlite.ChatRepository(conn);

@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CdpPage.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">CdpPage.java</span></div><h1>CdpPage.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.WebSocket;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+final class CdpPage implements AutoCloseable {
+<span class="nc" id="L28">    private static final Logger LOG = Log.of(CdpPage.class);</span>
+
+
+<span class="nc" id="L31">    private static final Duration COMMAND_TIMEOUT = Duration.ofSeconds(8);</span>
+    private static final long POLL_INTERVAL_MILLIS = 100;
+<span class="nc" id="L33">    private static final Gson GSON = new Gson();</span>
+
+    private final CdpTransport transport;
+    private final Runnable onClose;
+
+    /**
+     * {@code onClose} runs after the transport closes — e.g. to close a browser tab this page owns.
+     * Takes the caller's {@link HttpClient} rather than building one per page: each client owns its
+     * own selector/executor threads, and a CDP run opens and closes many pages in quick succession
+     * (one per fetched conversation), so a fresh client per page was a real source of contention.
+     */
+    CdpPage(String webSocketUrl, Runnable onClose, HttpClient httpClient) {
+<span class="nc" id="L45">        this(new CdpSocket(webSocketUrl, httpClient), onClose);</span>
+<span class="nc" id="L46">    }</span>
+
+    CdpPage(CdpTransport transport) {
+<span class="nc" id="L49">        this(transport, () -&gt; { });</span>
+<span class="nc" id="L50">    }</span>
+
+<span class="nc" id="L52">    CdpPage(CdpTransport transport, Runnable onClose) {</span>
+<span class="nc" id="L53">        this.transport = transport;</span>
+<span class="nc" id="L54">        this.onClose = onClose;</span>
+<span class="nc" id="L55">    }</span>
+
+    void navigate(String url) {
+<span class="nc" id="L58">        transport.send(&quot;Page.navigate&quot;, Map.of(&quot;url&quot;, url));</span>
+<span class="nc" id="L59">        waitForReadyState(Duration.ofSeconds(8));</span>
+<span class="nc" id="L60">    }</span>
+
+    void bringToFront() {
+<span class="nc" id="L63">        transport.send(&quot;Page.bringToFront&quot;, Map.of());</span>
+<span class="nc" id="L64">    }</span>
+
+    String url() {
+<span class="nc" id="L67">        Object value = evaluate(&quot;() =&gt; location.href&quot;);</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        return value == null ? &quot;&quot; : value.toString();</span>
+    }
+
+    void waitForSelector(String selector, long timeoutMillis) {
+<span class="nc" id="L72">        long deadline = System.nanoTime() + Duration.ofMillis(timeoutMillis).toNanos();</span>
+<span class="nc bnc" id="L73" title="All 2 branches missed.">        while (System.nanoTime() &lt; deadline) {</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">            if (locator(selector).count() &gt; 0) {</span>
+<span class="nc" id="L75">                return;</span>
+            }
+<span class="nc" id="L77">            sleep(POLL_INTERVAL_MILLIS);</span>
+        }
+<span class="nc" id="L79">        throw new IllegalStateException(&quot;Selector not found: &quot; + selector);</span>
+    }
+
+    void waitForTimeout(long timeoutMillis) {
+<span class="nc" id="L83">        sleep(timeoutMillis);</span>
+<span class="nc" id="L84">    }</span>
+
+    Object evaluate(String script) {
+<span class="nc" id="L87">        JsonObject response = transport.send(&quot;Runtime.evaluate&quot;, Map.of(</span>
+<span class="nc" id="L88">                &quot;expression&quot;, expression(script),</span>
+<span class="nc" id="L89">                &quot;returnByValue&quot;, true,</span>
+<span class="nc" id="L90">                &quot;awaitPromise&quot;, true));</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">        if (response.has(&quot;error&quot;)) {</span>
+<span class="nc" id="L92">            throw new IllegalStateException(&quot;CDP command failed: Runtime.evaluate&quot;);</span>
+        }
+<span class="nc" id="L94">        JsonObject result = response.getAsJsonObject(&quot;result&quot;);</span>
+<span class="nc bnc" id="L95" title="All 4 branches missed.">        if (result == null || result.has(&quot;exceptionDetails&quot;)) {</span>
+<span class="nc" id="L96">            throw new IllegalStateException(&quot;CDP evaluation failed&quot;);</span>
+        }
+<span class="nc" id="L98">        JsonObject remoteObject = result.getAsJsonObject(&quot;result&quot;);</span>
+<span class="nc bnc" id="L99" title="All 4 branches missed.">        if (remoteObject == null || !remoteObject.has(&quot;value&quot;)) {</span>
+<span class="nc" id="L100">            return null;</span>
+        }
+<span class="nc" id="L102">        return toJavaValue(remoteObject.get(&quot;value&quot;));</span>
+    }
+
+    CdpLocator locator(String selector) {
+<span class="nc" id="L106">        return new CdpLocator(this, selector);</span>
+    }
+
+    @Override
+    public void close() {
+<span class="nc" id="L111">        transport.close();</span>
+        try {
+<span class="nc" id="L113">            onClose.run();</span>
+<span class="nc" id="L114">        } catch (RuntimeException ignored) {</span>
+<span class="nc" id="L115">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L116">        }</span>
+<span class="nc" id="L117">    }</span>
+
+    private void waitForReadyState(Duration timeout) {
+<span class="nc" id="L120">        long deadline = System.nanoTime() + timeout.toNanos();</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">        while (System.nanoTime() &lt; deadline) {</span>
+<span class="nc" id="L122">            Object readyState = evaluate(&quot;() =&gt; document.readyState&quot;);</span>
+<span class="nc bnc" id="L123" title="All 2 branches missed.">            if (!&quot;loading&quot;.equals(readyState)) {</span>
+<span class="nc" id="L124">                return;</span>
+            }
+<span class="nc" id="L126">            sleep(POLL_INTERVAL_MILLIS);</span>
+<span class="nc" id="L127">        }</span>
+<span class="nc" id="L128">    }</span>
+
+    private static Object toJavaValue(JsonElement value) {
+<span class="nc bnc" id="L131" title="All 4 branches missed.">        if (value == null || value.isJsonNull()) {</span>
+<span class="nc" id="L132">            return null;</span>
+        }
+<span class="nc bnc" id="L134" title="All 2 branches missed.">        if (value.isJsonPrimitive()) {</span>
+<span class="nc" id="L135">            var primitive = value.getAsJsonPrimitive();</span>
+<span class="nc bnc" id="L136" title="All 2 branches missed.">            if (primitive.isBoolean()) {</span>
+<span class="nc" id="L137">                return primitive.getAsBoolean();</span>
+            }
+<span class="nc bnc" id="L139" title="All 2 branches missed.">            if (primitive.isNumber()) {</span>
+<span class="nc" id="L140">                return primitive.getAsNumber();</span>
+            }
+<span class="nc" id="L142">            return primitive.getAsString();</span>
+        }
+<span class="nc" id="L144">        return GSON.toJson(value);</span>
+    }
+
+    private static void sleep(long millis) {
+        try {
+<span class="nc" id="L149">            Thread.sleep(millis);</span>
+<span class="nc" id="L150">        } catch (InterruptedException interrupted) {</span>
+<span class="nc" id="L151">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L152">            throw new IllegalStateException(&quot;Interrupted while waiting for browser&quot;, interrupted);</span>
+<span class="nc" id="L153">        }</span>
+<span class="nc" id="L154">    }</span>
+
+    static String jsString(String value) {
+<span class="nc" id="L157">        return GSON.toJson(value);</span>
+    }
+
+    static String expression(String script) {
+<span class="nc" id="L161">        String trimmed = script.stripLeading();</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        return trimmed.startsWith(&quot;() =&gt;&quot;) ? &quot;(&quot; + script + &quot;)()&quot; : script;</span>
+    }
+
+    static final class CdpLocator {
+
+        private final CdpPage page;
+        private final String selector;
+        private final Optional&lt;Integer&gt; index;
+
+        CdpLocator(CdpPage page, String selector) {
+<span class="nc" id="L172">            this(page, selector, Optional.empty());</span>
+<span class="nc" id="L173">        }</span>
+
+<span class="nc" id="L175">        private CdpLocator(CdpPage page, String selector, Optional&lt;Integer&gt; index) {</span>
+<span class="nc" id="L176">            this.page = page;</span>
+<span class="nc" id="L177">            this.selector = selector;</span>
+<span class="nc" id="L178">            this.index = index;</span>
+<span class="nc" id="L179">        }</span>
+
+        int count() {
+<span class="nc" id="L182">            Object count = page.evaluate(&quot;() =&gt; document.querySelectorAll(&quot;</span>
+<span class="nc" id="L183">                    + jsString(selector) + &quot;).length&quot;);</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">            return count == null ? 0 : ((Number) count).intValue();</span>
+        }
+
+        CdpLocator nth(int elementIndex) {
+<span class="nc" id="L188">            return new CdpLocator(page, selector, Optional.of(elementIndex));</span>
+        }
+
+        CdpLocator first() {
+<span class="nc" id="L192">            return nth(0);</span>
+        }
+
+        String getAttribute(String name) {
+<span class="nc" id="L196">            Object value = page.evaluate(&quot;() =&gt; {&quot;</span>
+<span class="nc" id="L197">                    + &quot;const e=document.querySelectorAll(&quot; + jsString(selector) + &quot;)[&quot;</span>
+<span class="nc" id="L198">                    + requiredIndex() + &quot;];&quot;</span>
+<span class="nc" id="L199">                    + &quot;return e ? e.getAttribute(&quot; + jsString(name) + &quot;) : null;&quot;</span>
+                    + &quot;}&quot;);
+<span class="nc bnc" id="L201" title="All 2 branches missed.">            return value == null ? null : value.toString();</span>
+        }
+
+        String innerText() {
+<span class="nc" id="L205">            Object value = page.evaluate(&quot;() =&gt; {&quot;</span>
+<span class="nc" id="L206">                    + &quot;const e=document.querySelectorAll(&quot; + jsString(selector) + &quot;)[&quot;</span>
+<span class="nc" id="L207">                    + requiredIndex() + &quot;];&quot;</span>
+                    + &quot;return e ? (e.innerText || '') : null;&quot;
+                    + &quot;}&quot;);
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            return value == null ? null : value.toString();</span>
+        }
+
+        void click(long timeoutMillis) {
+<span class="nc" id="L214">            long deadline = System.nanoTime() + Duration.ofMillis(timeoutMillis).toNanos();</span>
+<span class="nc bnc" id="L215" title="All 2 branches missed.">            while (System.nanoTime() &lt; deadline) {</span>
+<span class="nc" id="L216">                Object clicked = page.evaluate(&quot;() =&gt; {&quot;</span>
+<span class="nc" id="L217">                        + &quot;const e=document.querySelectorAll(&quot; + jsString(selector) + &quot;)[&quot;</span>
+<span class="nc" id="L218">                        + requiredIndex() + &quot;];&quot;</span>
+                        + &quot;if (!e) return false;&quot;
+                        + &quot;e.click();&quot;
+                        + &quot;return true;&quot;
+                        + &quot;}&quot;);
+<span class="nc bnc" id="L223" title="All 2 branches missed.">                if (Boolean.TRUE.equals(clicked)) {</span>
+<span class="nc" id="L224">                    return;</span>
+                }
+<span class="nc" id="L226">                sleep(POLL_INTERVAL_MILLIS);</span>
+<span class="nc" id="L227">            }</span>
+<span class="nc" id="L228">            throw new IllegalStateException(&quot;Could not click selector: &quot; + selector);</span>
+        }
+
+        private int requiredIndex() {
+<span class="nc" id="L232">            return index.orElseThrow(() -&gt; new IllegalStateException(&quot;Locator index not selected&quot;));</span>
+        }
+    }
+
+    static JsonObject successfulValue(Object value) {
+<span class="nc" id="L237">        JsonObject response = new JsonObject();</span>
+<span class="nc" id="L238">        JsonObject result = new JsonObject();</span>
+<span class="nc" id="L239">        JsonObject remoteObject = new JsonObject();</span>
+<span class="nc" id="L240">        remoteObject.add(&quot;value&quot;, GSON.toJsonTree(value));</span>
+<span class="nc" id="L241">        result.add(&quot;result&quot;, remoteObject);</span>
+<span class="nc" id="L242">        response.add(&quot;result&quot;, result);</span>
+<span class="nc" id="L243">        return response;</span>
+    }
+
+    static JsonObject commandError(String message) {
+<span class="nc" id="L247">        JsonObject response = new JsonObject();</span>
+<span class="nc" id="L248">        JsonObject error = new JsonObject();</span>
+<span class="nc" id="L249">        error.addProperty(&quot;message&quot;, message);</span>
+<span class="nc" id="L250">        response.add(&quot;error&quot;, error);</span>
+<span class="nc" id="L251">        return response;</span>
+    }
+
+    private static final class CdpSocket implements WebSocket.Listener, CdpTransport {
+
+<span class="nc" id="L256">        private final AtomicLong nextId = new AtomicLong(1);</span>
+<span class="nc" id="L257">        private final Map&lt;Long, java.util.concurrent.CompletableFuture&lt;JsonObject&gt;&gt; pending =</span>
+                new ConcurrentHashMap&lt;&gt;();
+<span class="nc" id="L259">        private final Object textLock = new Object();</span>
+<span class="nc" id="L260">        private final StringBuilder text = new StringBuilder();</span>
+        private final WebSocket webSocket;
+
+<span class="nc" id="L263">        CdpSocket(String webSocketUrl, HttpClient httpClient) {</span>
+            try {
+<span class="nc" id="L265">                webSocket = httpClient</span>
+<span class="nc" id="L266">                        .newWebSocketBuilder()</span>
+<span class="nc" id="L267">                        .connectTimeout(COMMAND_TIMEOUT)</span>
+<span class="nc" id="L268">                        .buildAsync(URI.create(webSocketUrl), this)</span>
+<span class="nc" id="L269">                        .get(COMMAND_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);</span>
+<span class="nc" id="L270">            } catch (InterruptedException interrupted) {</span>
+<span class="nc" id="L271">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L272">                throw new IllegalStateException(&quot;Interrupted while connecting to CDP&quot;, interrupted);</span>
+<span class="nc" id="L273">            } catch (ExecutionException | TimeoutException failure) {</span>
+<span class="nc" id="L274">                throw new IllegalStateException(&quot;Could not connect to CDP page websocket&quot;, failure);</span>
+<span class="nc" id="L275">            }</span>
+<span class="nc" id="L276">        }</span>
+
+        @Override
+        public void onOpen(WebSocket socket) {
+<span class="nc" id="L280">            socket.request(1);</span>
+<span class="nc" id="L281">        }</span>
+
+        @Override
+        public JsonObject send(String method, Map&lt;String, ?&gt; params) {
+<span class="nc" id="L285">            long id = nextId.getAndIncrement();</span>
+<span class="nc" id="L286">            java.util.concurrent.CompletableFuture&lt;JsonObject&gt; result = new java.util.concurrent.CompletableFuture&lt;&gt;();</span>
+<span class="nc" id="L287">            pending.put(id, result);</span>
+<span class="nc" id="L288">            JsonObject request = new JsonObject();</span>
+<span class="nc" id="L289">            request.addProperty(&quot;id&quot;, id);</span>
+<span class="nc" id="L290">            request.addProperty(&quot;method&quot;, method);</span>
+<span class="nc" id="L291">            request.add(&quot;params&quot;, GSON.toJsonTree(params));</span>
+<span class="nc" id="L292">            webSocket.sendText(GSON.toJson(request), true).join();</span>
+            try {
+<span class="nc" id="L294">                JsonObject response = result.get(COMMAND_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">                if (response.has(&quot;error&quot;)) {</span>
+<span class="nc" id="L296">                    throw new IllegalStateException(&quot;CDP command failed: &quot; + method);</span>
+                }
+<span class="nc" id="L298">                return response;</span>
+<span class="nc" id="L299">            } catch (InterruptedException interrupted) {</span>
+<span class="nc" id="L300">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L301">                throw new IllegalStateException(&quot;Interrupted while waiting for CDP command&quot;, interrupted);</span>
+<span class="nc" id="L302">            } catch (ExecutionException | TimeoutException failure) {</span>
+<span class="nc" id="L303">                throw new IllegalStateException(&quot;Timed out waiting for CDP command: &quot; + method, failure);</span>
+            } finally {
+<span class="nc" id="L305">                pending.remove(id);</span>
+            }
+        }
+
+        @Override
+        public CompletionStage&lt;?&gt; onText(WebSocket socket, CharSequence data, boolean last) {
+<span class="nc" id="L311">            String fullMessage = null;</span>
+<span class="nc" id="L312">            synchronized (textLock) {</span>
+<span class="nc" id="L313">                text.append(data);</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">                if (last) {</span>
+<span class="nc" id="L315">                    fullMessage = text.toString();</span>
+<span class="nc" id="L316">                    text.setLength(0);</span>
+                }
+<span class="nc" id="L318">            }</span>
+<span class="nc bnc" id="L319" title="All 4 branches missed.">            if (fullMessage != null &amp;&amp; !fullMessage.isBlank()) {</span>
+                try {
+<span class="nc" id="L321">                    JsonElement parsed = JsonParser.parseString(fullMessage);</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">                    if (parsed.isJsonObject()) {</span>
+<span class="nc" id="L323">                        JsonObject message = parsed.getAsJsonObject();</span>
+<span class="nc" id="L324">                        JsonElement idElement = message.get(&quot;id&quot;);</span>
+<span class="nc bnc" id="L325" title="All 4 branches missed.">                        if (idElement != null &amp;&amp; !idElement.isJsonNull()) {</span>
+<span class="nc" id="L326">                            java.util.concurrent.CompletableFuture&lt;JsonObject&gt; future =</span>
+<span class="nc" id="L327">                                    pending.get(idElement.getAsLong());</span>
+<span class="nc bnc" id="L328" title="All 2 branches missed.">                            if (future != null) {</span>
+<span class="nc" id="L329">                                future.complete(message);</span>
+                            }
+                        }
+                    }
+<span class="nc" id="L333">                } catch (Exception ignored) {</span>
+<span class="nc" id="L334">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L335">        }</span>
+            }
+<span class="nc" id="L337">            socket.request(1);</span>
+<span class="nc" id="L338">            return null;</span>
+        }
+
+        @Override
+        public void onError(WebSocket socket, Throwable error) {
+<span class="nc" id="L343">            List&lt;java.util.concurrent.CompletableFuture&lt;JsonObject&gt;&gt; futures =</span>
+<span class="nc" id="L344">                    new ArrayList&lt;&gt;(pending.values());</span>
+<span class="nc" id="L345">            futures.forEach(future -&gt; future.completeExceptionally(error));</span>
+<span class="nc" id="L346">        }</span>
+
+        @Override
+        public CompletionStage&lt;?&gt; onClose(WebSocket socket, int statusCode, String reason) {
+<span class="nc" id="L350">            List&lt;java.util.concurrent.CompletableFuture&lt;JsonObject&gt;&gt; futures =</span>
+<span class="nc" id="L351">                    new ArrayList&lt;&gt;(pending.values());</span>
+<span class="nc" id="L352">            futures.forEach(future -&gt; future.completeExceptionally(</span>
+                    new IllegalStateException(&quot;CDP websocket closed: &quot; + statusCode + &quot; &quot; + reason)));
+<span class="nc" id="L354">            return null;</span>
+        }
+
+        @Override
+        public void close() {
+            try {
+<span class="nc" id="L360">                webSocket.sendClose(WebSocket.NORMAL_CLOSURE, &quot;done&quot;).join();</span>
+<span class="nc" id="L361">            } catch (Exception ignored) {</span>
+<span class="nc" id="L362">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L363">        }</span>
+<span class="nc" id="L364">        }</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

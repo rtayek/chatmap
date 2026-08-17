@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConversationInventoryService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.service</a> &gt; <span class="el_source">ConversationInventoryService.java</span></div><h1>ConversationInventoryService.java</h1><pre class="source lang-java linenums">package chatmap.application.service;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.provider.ChatProvider;
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.ConversationInventory;
+import chatmap.domain.InventoryEntry;
+import chatmap.domain.ProviderInventory;
+
+/** Read-only inventory of all conversations discoverable from configured providers. */
+public final class ConversationInventoryService {
+
+    private final List&lt;ChatProvider&gt; providers;
+    private final ChatStore chats;
+
+<span class="nc" id="L23">    public ConversationInventoryService(List&lt;ChatProvider&gt; providers, ChatStore chats) {</span>
+<span class="nc" id="L24">        this.providers = List.copyOf(providers);</span>
+<span class="nc" id="L25">        this.chats = chats;</span>
+<span class="nc" id="L26">    }</span>
+
+    public ConversationInventory inventory() throws SQLException {
+<span class="nc" id="L29">        List&lt;ProviderDiscovery&gt; discoveries = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L30">        List&lt;ConversationCandidate&gt; allCandidates = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L31" title="All 2 branches missed.">        for (ChatProvider provider : providers) {</span>
+<span class="nc" id="L32">            ProviderDiscovery discovery = discover(provider);</span>
+<span class="nc" id="L33">            discoveries.add(discovery);</span>
+<span class="nc" id="L34">            allCandidates.addAll(discovery.candidates());</span>
+<span class="nc" id="L35">        }</span>
+
+<span class="nc" id="L37">        Map&lt;String, Long&gt; importedIds = chats.findImportedIdsByExternalIdentity(allCandidates);</span>
+<span class="nc" id="L38">        List&lt;ProviderInventory&gt; inventories = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (ProviderDiscovery discovery : discoveries) {</span>
+<span class="nc" id="L40">            List&lt;InventoryEntry&gt; entries = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">            for (ConversationCandidate candidate : discovery.candidates()) {</span>
+<span class="nc" id="L42">                Long importedChatId = null;</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">                if (candidate.externalConversationId() != null</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">                        &amp;&amp; !candidate.externalConversationId().isBlank()) {</span>
+<span class="nc" id="L45">                    importedChatId = importedIds.get(ChatStore.identityKey(</span>
+<span class="nc" id="L46">                            candidate.source(), candidate.externalConversationId()));</span>
+                }
+<span class="nc" id="L48">                entries.add(new InventoryEntry(candidate, importedChatId));</span>
+<span class="nc" id="L49">            }</span>
+<span class="nc" id="L50">            inventories.add(new ProviderInventory(discovery.providerName(), entries,</span>
+<span class="nc" id="L51">                    discovery.complete(), discovery.diagnostic()));</span>
+<span class="nc" id="L52">        }</span>
+<span class="nc" id="L53">        return new ConversationInventory(inventories);</span>
+    }
+
+    private static ProviderDiscovery discover(ChatProvider provider) {
+        try {
+<span class="nc" id="L58">            DedupedCandidates deduped = dedupe(provider.listChats());</span>
+<span class="nc" id="L59">            String diagnostic = provider.inventoryDiagnostic().orElse(&quot;&quot;);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">            if (deduped.removed() &gt; 0) {</span>
+<span class="nc" id="L61">                diagnostic = appendDiagnostic(diagnostic,</span>
+<span class="nc" id="L62">                        &quot;Removed &quot; + deduped.removed() + &quot; duplicate candidate(s).&quot;);</span>
+            }
+<span class="nc" id="L64">            return new ProviderDiscovery(provider.name(), deduped.candidates(),</span>
+<span class="nc" id="L65">                    provider.inventoryComplete(), diagnostic);</span>
+<span class="nc" id="L66">        } catch (Exception failure) {</span>
+<span class="nc" id="L67">            return new ProviderDiscovery(provider.name(), List.of(), false, diagnostic(failure));</span>
+        }
+    }
+
+    private static DedupedCandidates dedupe(Collection&lt;ConversationCandidate&gt; candidates) {
+<span class="nc" id="L72">        Map&lt;String, ConversationCandidate&gt; byKey = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L73">        int duplicates = 0;</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        for (ConversationCandidate candidate : candidates) {</span>
+<span class="nc" id="L75">            String key = candidateKey(candidate);</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (byKey.containsKey(key)) {</span>
+<span class="nc" id="L77">                duplicates++;</span>
+            } else {
+<span class="nc" id="L79">                byKey.put(key, candidate);</span>
+            }
+<span class="nc" id="L81">        }</span>
+<span class="nc" id="L82">        return new DedupedCandidates(List.copyOf(byKey.values()), duplicates);</span>
+    }
+
+    private static String candidateKey(ConversationCandidate candidate) {
+<span class="nc bnc" id="L86" title="All 2 branches missed.">        if (candidate.externalConversationId() != null</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">                &amp;&amp; !candidate.externalConversationId().isBlank()) {</span>
+<span class="nc" id="L88">            return candidate.source().dbValue() + &quot;\u001f&quot; + candidate.externalConversationId();</span>
+        }
+<span class="nc" id="L90">        return candidate.source().dbValue() + &quot;\u001f&quot; + candidate.sourceUri();</span>
+    }
+
+    private static String appendDiagnostic(String existing, String addition) {
+<span class="nc bnc" id="L94" title="All 4 branches missed.">        if (existing == null || existing.isBlank()) {</span>
+<span class="nc" id="L95">            return addition;</span>
+        }
+<span class="nc" id="L97">        return existing + &quot; &quot; + addition;</span>
+    }
+
+    private static String diagnostic(Exception failure) {
+<span class="nc" id="L101">        String message = failure.getMessage();</span>
+<span class="nc bnc" id="L102" title="All 4 branches missed.">        if (message == null || message.isBlank()) {</span>
+<span class="nc" id="L103">            return failure.getClass().getSimpleName();</span>
+        }
+<span class="nc" id="L105">        return failure.getClass().getSimpleName() + &quot;: &quot; + message;</span>
+    }
+
+<span class="nc" id="L108">    private record ProviderDiscovery(</span>
+            String providerName,
+            List&lt;ConversationCandidate&gt; candidates,
+            boolean complete,
+            String diagnostic) {
+    }
+
+<span class="nc" id="L115">    private record DedupedCandidates(List&lt;ConversationCandidate&gt; candidates, int removed) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

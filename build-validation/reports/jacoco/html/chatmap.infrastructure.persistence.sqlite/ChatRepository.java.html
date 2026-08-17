@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.persistence.sqlite</a> &gt; <span class="el_source">ChatRepository.java</span></div><h1>ChatRepository.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.persistence.sqlite;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.domain.Chat;
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.Source;
+import chatmap.application.support.Locks;
+
+/**
+ * CRUD for chats. Holds a Connection supplied by the caller; does not own it.
+ * (Single shared connection also keeps :memory: test databases coherent.)
+ */
+public final class ChatRepository implements ChatStore {
+
+    private final Connection conn;
+    private final TransactionRunner transactions;
+
+    public ChatRepository(Connection conn) {
+<span class="nc" id="L31">        this(conn, new TransactionRunner(conn));</span>
+<span class="nc" id="L32">    }</span>
+
+<span class="nc" id="L34">    private ChatRepository(Connection conn, TransactionRunner transactions) {</span>
+<span class="nc" id="L35">        this.conn = conn;</span>
+<span class="nc" id="L36">        this.transactions = transactions;</span>
+<span class="nc" id="L37">    }</span>
+
+    /**
+     * The runner serializing transactions on this repository's connection.
+     * Services built over this repository share it so their transactional
+     * writes and the repositories' per-statement locking use one monitor.
+     */
+    public TransactionRunner transactions() {
+<span class="nc" id="L45">        return transactions;</span>
+    }
+
+    private &lt;T, E extends Exception&gt; T locked(Locks.Work&lt;T, E&gt; work) throws E {
+<span class="nc" id="L49">        return Locks.locked(conn, work);</span>
+    }
+
+    /** Inserts a chat; the id field of the argument is ignored. Returns the stored chat with its new id. */
+    public Chat insert(Chat chat) throws SQLException {
+<span class="nc" id="L54">        return locked(() -&gt; {</span>
+<span class="nc" id="L55">            String sql = &quot;INSERT INTO chats (projectId, source, title, createdAt, updatedAt, importedAt, archived, &quot;</span>
+                    + &quot;externalConversationId, sourceUri, contentHash, sourceUpdatedAt, lastImportedAt, originatedBy, &quot;
+                    + &quot;providerId, modelTargetId, providerModelName, providerSessionId) &quot;
+                    + &quot;VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)&quot;;
+<span class="nc" id="L59">            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {</span>
+<span class="nc" id="L60">                setNullableLong(ps, 1, chat.projectId());</span>
+<span class="nc" id="L61">                ps.setString(2, chat.source().dbValue());</span>
+<span class="nc" id="L62">                ps.setString(3, chat.title());</span>
+<span class="nc" id="L63">                ps.setString(4, chat.createdAt());</span>
+<span class="nc" id="L64">                ps.setString(5, chat.updatedAt());</span>
+<span class="nc" id="L65">                ps.setString(6, chat.importedAt());</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">                ps.setInt(7, chat.archived() ? 1 : 0);</span>
+<span class="nc" id="L67">                ps.setString(8, chat.externalConversationId());</span>
+<span class="nc" id="L68">                ps.setString(9, chat.sourceUri());</span>
+<span class="nc" id="L69">                ps.setString(10, chat.contentHash());</span>
+<span class="nc" id="L70">                ps.setString(11, chat.sourceUpdatedAt());</span>
+<span class="nc" id="L71">                ps.setString(12, chat.lastImportedAt());</span>
+<span class="nc" id="L72">                ps.setString(13, chat.originatedBy().dbValue());</span>
+<span class="nc" id="L73">                ps.setString(14, chat.providerId());</span>
+<span class="nc" id="L74">                ps.setString(15, chat.modelTargetId());</span>
+<span class="nc" id="L75">                ps.setString(16, chat.providerModelName());</span>
+<span class="nc" id="L76">                ps.setString(17, chat.providerSessionId());</span>
+<span class="nc" id="L77">                ps.executeUpdate();</span>
+<span class="nc" id="L78">                try (ResultSet keys = ps.getGeneratedKeys()) {</span>
+<span class="nc" id="L79">                    keys.next();</span>
+<span class="nc" id="L80">                    long id = keys.getLong(1);</span>
+<span class="nc" id="L81">                    return chat.toBuilder().id(id).build();</span>
+                }
+            }
+        });
+    }
+
+    public Optional&lt;Chat&gt; findById(long id) throws SQLException {
+<span class="nc" id="L88">        return locked(() -&gt; {</span>
+<span class="nc" id="L89">            String sql = ChatRowMapper.selectColumns()</span>
+                    + &quot;FROM chats WHERE id = ?&quot;;
+<span class="nc" id="L91">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L92">                ps.setLong(1, id);</span>
+<span class="nc" id="L93">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L94" title="All 2 branches missed.">                    if (!rs.next()) {</span>
+<span class="nc" id="L95">                        return Optional.empty();</span>
+                    }
+<span class="nc" id="L97">                    return Optional.of(ChatRowMapper.read(rs));</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">                }</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            }</span>
+        });
+    }
+
+    public List&lt;Chat&gt; findAll() throws SQLException {
+<span class="nc" id="L104">        return locked(() -&gt; {</span>
+<span class="nc" id="L105">            String sql = ChatRowMapper.selectColumns()</span>
+                    + &quot;FROM chats ORDER BY importedAt, id&quot;;
+<span class="nc" id="L107">            try (PreparedStatement ps = conn.prepareStatement(sql);</span>
+<span class="nc" id="L108">                    ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc" id="L109">                return readAll(rs);</span>
+            }
+        });
+    }
+
+    /** The most recently imported non-archived chat. Archiving a chat removes it from this fallback. */
+    public Optional&lt;Chat&gt; findMostRecent() throws SQLException {
+<span class="nc" id="L116">        return locked(() -&gt; {</span>
+<span class="nc" id="L117">            String sql = ChatRowMapper.selectColumns()</span>
+                    + &quot;FROM chats WHERE archived = 0 ORDER BY importedAt DESC, id DESC LIMIT 1&quot;;
+<span class="nc" id="L119">            try (PreparedStatement ps = conn.prepareStatement(sql);</span>
+<span class="nc" id="L120">                    ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L121" title="All 2 branches missed.">                if (!rs.next()) {</span>
+<span class="nc" id="L122">                    return Optional.empty();</span>
+                }
+<span class="nc" id="L124">                return Optional.of(ChatRowMapper.read(rs));</span>
+<span class="nc bnc" id="L125" title="All 4 branches missed.">            }</span>
+        });
+    }
+
+    /** Deletes the chat and its child messages so message FTS triggers fire, maintaining search index integrity. */
+    public void delete(long id) throws SQLException {
+<span class="nc" id="L131">        transactions.inTransaction(() -&gt; {</span>
+<span class="nc" id="L132">            try (PreparedStatement psMsg = conn.prepareStatement(&quot;DELETE FROM messages WHERE chatId = ?&quot;);</span>
+<span class="nc" id="L133">                    PreparedStatement psChat = conn.prepareStatement(&quot;DELETE FROM chats WHERE id = ?&quot;)) {</span>
+<span class="nc" id="L134">                psMsg.setLong(1, id);</span>
+<span class="nc" id="L135">                psMsg.executeUpdate();</span>
+
+<span class="nc" id="L137">                psChat.setLong(1, id);</span>
+<span class="nc" id="L138">                psChat.executeUpdate();</span>
+            }
+<span class="nc" id="L140">            return null;</span>
+        });
+<span class="nc" id="L142">    }</span>
+
+    public void setArchived(long id, boolean archived) throws SQLException {
+<span class="nc" id="L145">        locked(() -&gt; {</span>
+<span class="nc" id="L146">            try (PreparedStatement ps = conn.prepareStatement(&quot;UPDATE chats SET archived = ? WHERE id = ?&quot;)) {</span>
+<span class="nc bnc" id="L147" title="All 2 branches missed.">                ps.setInt(1, archived ? 1 : 0);</span>
+<span class="nc" id="L148">                ps.setLong(2, id);</span>
+<span class="nc" id="L149">                ps.executeUpdate();</span>
+            }
+<span class="nc" id="L151">            return null;</span>
+        });
+<span class="nc" id="L153">    }</span>
+
+    public void assignProject(long id, Long projectId) throws SQLException {
+<span class="nc" id="L156">        locked(() -&gt; {</span>
+<span class="nc" id="L157">            try (PreparedStatement ps = conn.prepareStatement(&quot;UPDATE chats SET projectId = ? WHERE id = ?&quot;)) {</span>
+<span class="nc" id="L158">                setNullableLong(ps, 1, projectId);</span>
+<span class="nc" id="L159">                ps.setLong(2, id);</span>
+<span class="nc" id="L160">                ps.executeUpdate();</span>
+            }
+<span class="nc" id="L162">            return null;</span>
+        });
+<span class="nc" id="L164">    }</span>
+
+    public List&lt;Chat&gt; findByProject(long projectId) throws SQLException {
+<span class="nc" id="L167">        return locked(() -&gt; {</span>
+<span class="nc" id="L168">            String sql = ChatRowMapper.selectColumns()</span>
+                    + &quot;FROM chats WHERE projectId = ? ORDER BY importedAt, id&quot;;
+<span class="nc" id="L170">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L171">                ps.setLong(1, projectId);</span>
+<span class="nc" id="L172">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc" id="L173">                    return readAll(rs);</span>
+                }
+            }
+        });
+    }
+
+    public List&lt;Chat&gt; findByTag(long tagId) throws SQLException {
+<span class="nc" id="L180">        return locked(() -&gt; {</span>
+<span class="nc" id="L181">            String sql = ChatRowMapper.SELECT_C_COLUMNS</span>
+                    + &quot;FROM chats c &quot;
+                    + &quot;JOIN chatTags ct ON ct.chatId = c.id &quot;
+                    + &quot;WHERE ct.tagId = ? &quot;
+                    + &quot;ORDER BY c.importedAt, c.id&quot;;
+<span class="nc" id="L186">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L187">                ps.setLong(1, tagId);</span>
+<span class="nc" id="L188">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc" id="L189">                    return readAll(rs);</span>
+                }
+            }
+        });
+    }
+
+    public void updateTitle(long id, String title) throws SQLException {
+<span class="nc" id="L196">        locked(() -&gt; {</span>
+<span class="nc" id="L197">            try (PreparedStatement ps = conn.prepareStatement(&quot;UPDATE chats SET title = ? WHERE id = ?&quot;)) {</span>
+<span class="nc" id="L198">                ps.setString(1, title);</span>
+<span class="nc" id="L199">                ps.setLong(2, id);</span>
+<span class="nc" id="L200">                ps.executeUpdate();</span>
+            }
+<span class="nc" id="L202">            return null;</span>
+        });
+<span class="nc" id="L204">    }</span>
+
+    public Optional&lt;Chat&gt; findByExternalIdentity(Source source, String externalConversationId)
+            throws SQLException {
+<span class="nc" id="L208">        return locked(() -&gt; {</span>
+<span class="nc bnc" id="L209" title="All 4 branches missed.">            if (externalConversationId == null || externalConversationId.isBlank()) {</span>
+<span class="nc" id="L210">                return Optional.empty();</span>
+            }
+<span class="nc" id="L212">            String sql = ChatRowMapper.selectColumns() + &quot;FROM chats WHERE source = ? AND externalConversationId = ?&quot;;</span>
+<span class="nc" id="L213">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L214">                ps.setString(1, source.dbValue());</span>
+<span class="nc" id="L215">                ps.setString(2, externalConversationId);</span>
+<span class="nc" id="L216">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                    if (!rs.next()) {</span>
+<span class="nc" id="L218">                        return Optional.empty();</span>
+                    }
+<span class="nc" id="L220">                    return Optional.of(ChatRowMapper.read(rs));</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">                }</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            }</span>
+        });
+    }
+
+    @Override
+    public Optional&lt;Chat&gt; findByPromptSession(String providerId, String modelTargetId, String providerSessionId)
+            throws SQLException {
+<span class="nc" id="L229">        return locked(() -&gt; {</span>
+<span class="nc bnc" id="L230" title="All 6 branches missed.">            if (providerId == null || providerId.isBlank()</span>
+<span class="nc bnc" id="L231" title="All 4 branches missed.">                    || modelTargetId == null || modelTargetId.isBlank()</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">                    || providerSessionId == null || providerSessionId.isBlank()) {</span>
+<span class="nc" id="L233">                return Optional.empty();</span>
+            }
+<span class="nc" id="L235">            String sql = ChatRowMapper.selectColumns()</span>
+                    + &quot;FROM chats WHERE providerId = ? AND modelTargetId = ? AND providerSessionId = ?&quot;;
+<span class="nc" id="L237">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L238">                ps.setString(1, providerId);</span>
+<span class="nc" id="L239">                ps.setString(2, modelTargetId);</span>
+<span class="nc" id="L240">                ps.setString(3, providerSessionId);</span>
+<span class="nc" id="L241">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L242" title="All 2 branches missed.">                    if (!rs.next()) {</span>
+<span class="nc" id="L243">                        return Optional.empty();</span>
+                    }
+<span class="nc" id="L245">                    return Optional.of(ChatRowMapper.read(rs));</span>
+<span class="nc bnc" id="L246" title="All 2 branches missed.">                }</span>
+<span class="nc bnc" id="L247" title="All 2 branches missed.">            }</span>
+        });
+    }
+
+    @Override
+    public List&lt;String&gt; findPromptSessions(String providerId, String modelTargetId) throws SQLException {
+<span class="nc" id="L253">        return locked(() -&gt; {</span>
+<span class="nc bnc" id="L254" title="All 8 branches missed.">            if (providerId == null || providerId.isBlank() || modelTargetId == null || modelTargetId.isBlank()) {</span>
+<span class="nc" id="L255">                return List.of();</span>
+            }
+<span class="nc" id="L257">            String sql = &quot;SELECT DISTINCT providerSessionId FROM chats &quot;</span>
+                    + &quot;WHERE providerId = ? AND modelTargetId = ? AND providerSessionId IS NOT NULL &quot;
+                    + &quot;AND providerSessionId &lt;&gt; '' ORDER BY providerSessionId&quot;;
+<span class="nc" id="L260">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L261">                ps.setString(1, providerId);</span>
+<span class="nc" id="L262">                ps.setString(2, modelTargetId);</span>
+<span class="nc" id="L263">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc" id="L264">                    List&lt;String&gt; sessions = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L265" title="All 2 branches missed.">                    while (rs.next()) {</span>
+<span class="nc" id="L266">                        sessions.add(rs.getString(&quot;providerSessionId&quot;));</span>
+                    }
+<span class="nc" id="L268">                    return sessions;</span>
+                }
+            }
+        });
+    }
+
+    public Map&lt;String, Long&gt; findImportedIdsByExternalIdentity(
+            Collection&lt;ConversationCandidate&gt; candidates) throws SQLException {
+<span class="nc" id="L276">        return locked(() -&gt; {</span>
+<span class="nc" id="L277">            Map&lt;String, Long&gt; importedIds = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L278" title="All 2 branches missed.">            if (candidates.isEmpty()) {</span>
+<span class="nc" id="L279">                return importedIds;</span>
+            }
+<span class="nc" id="L281">            try (PreparedStatement ps = conn.prepareStatement(</span>
+                    &quot;SELECT source, externalConversationId, id FROM chats &quot;
+                            + &quot;WHERE externalConversationId IS NOT NULL&quot;);
+<span class="nc" id="L284">                    ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">                while (rs.next()) {</span>
+<span class="nc" id="L286">                    importedIds.put(identityKey(</span>
+<span class="nc" id="L287">                            Source.fromDbValue(rs.getString(&quot;source&quot;)),</span>
+<span class="nc" id="L288">                            rs.getString(&quot;externalConversationId&quot;)),</span>
+<span class="nc" id="L289">                            rs.getLong(&quot;id&quot;));</span>
+                }
+            }
+<span class="nc" id="L292">            Map&lt;String, Long&gt; matches = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            for (ConversationCandidate candidate : candidates) {</span>
+<span class="nc bnc" id="L294" title="All 2 branches missed.">                if (candidate.externalConversationId() == null</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">                        || candidate.externalConversationId().isBlank()) {</span>
+<span class="nc" id="L296">                    continue;</span>
+                }
+<span class="nc" id="L298">                String key = identityKey(candidate.source(), candidate.externalConversationId());</span>
+<span class="nc" id="L299">                Long id = importedIds.get(key);</span>
+<span class="nc bnc" id="L300" title="All 2 branches missed.">                if (id != null) {</span>
+<span class="nc" id="L301">                    matches.put(key, id);</span>
+                }
+<span class="nc" id="L303">            }</span>
+<span class="nc" id="L304">            return matches;</span>
+        });
+    }
+
+    public static String identityKey(Source source, String externalConversationId) {
+<span class="nc" id="L309">        return ChatStore.identityKey(source, externalConversationId);</span>
+    }
+
+    /**
+     * True if the exception is a violation of one of chats' unique indexes
+     * ({@code chatsExternalIdentityIndex} or {@code chatsContentHashIndex}, see
+     * {@link Database#applyMigrations}) — i.e. a concurrent writer (e.g. another
+     * process sharing the same database file) won a race to insert the same
+     * identity or content this caller was also trying to insert. Callers fall
+     * back to a lookup instead of failing outright, the same pattern
+     * {@link ProjectRepository#isDuplicateNameViolation} uses.
+     */
+    public static boolean isUniqueConstraintViolation(SQLException e) {
+<span class="nc" id="L322">        return e instanceof org.sqlite.SQLiteException sqliteException</span>
+<span class="nc bnc" id="L323" title="All 4 branches missed.">                &amp;&amp; sqliteException.getResultCode() == org.sqlite.SQLiteErrorCode.SQLITE_CONSTRAINT_UNIQUE;</span>
+    }
+
+    @Override
+    public boolean isUniqueConstraintError(SQLException failure) {
+<span class="nc" id="L328">        return isUniqueConstraintViolation(failure);</span>
+    }
+
+    public Optional&lt;Chat&gt; findBySourceAndContentHash(Source source, String contentHash)
+            throws SQLException {
+<span class="nc" id="L333">        return locked(() -&gt; {</span>
+<span class="nc bnc" id="L334" title="All 4 branches missed.">            if (contentHash == null || contentHash.isBlank()) {</span>
+<span class="nc" id="L335">                return Optional.empty();</span>
+            }
+<span class="nc" id="L337">            String sql = ChatRowMapper.selectColumns()</span>
+                    + &quot;FROM chats WHERE source = ? AND externalConversationId IS NULL AND contentHash = ? &quot;
+                    + &quot;ORDER BY importedAt, id LIMIT 1&quot;;
+<span class="nc" id="L340">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L341">                ps.setString(1, source.dbValue());</span>
+<span class="nc" id="L342">                ps.setString(2, contentHash);</span>
+<span class="nc" id="L343">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L344" title="All 2 branches missed.">                    if (!rs.next()) {</span>
+<span class="nc" id="L345">                        return Optional.empty();</span>
+                    }
+<span class="nc" id="L347">                    return Optional.of(ChatRowMapper.read(rs));</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                }</span>
+<span class="nc bnc" id="L349" title="All 2 branches missed.">            }</span>
+        });
+    }
+
+    public Chat updateImportMetadata(long id, String title, String sourceUri, String contentHash,
+            String sourceUpdatedAt, String lastImportedAt) throws SQLException {
+<span class="nc" id="L355">        return locked(() -&gt; {</span>
+<span class="nc" id="L356">            String sql = &quot;UPDATE chats SET title = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, &quot;</span>
+                    + &quot;lastImportedAt = ?, updatedAt = ? WHERE id = ?&quot;;
+<span class="nc" id="L358">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L359">                ps.setString(1, title);</span>
+<span class="nc" id="L360">                ps.setString(2, sourceUri);</span>
+<span class="nc" id="L361">                ps.setString(3, contentHash);</span>
+<span class="nc" id="L362">                ps.setString(4, sourceUpdatedAt);</span>
+<span class="nc" id="L363">                ps.setString(5, lastImportedAt);</span>
+<span class="nc" id="L364">                ps.setString(6, sourceUpdatedAt);</span>
+<span class="nc" id="L365">                ps.setLong(7, id);</span>
+<span class="nc" id="L366">                ps.executeUpdate();</span>
+            }
+<span class="nc" id="L368">            return findById(id).orElseThrow();</span>
+        });
+    }
+
+    public Chat updateFromSource(long id, Source source, String title, String createdAt, String updatedAt,
+            String externalConversationId, String sourceUri, String contentHash,
+            String sourceUpdatedAt, String lastImportedAt) throws SQLException {
+<span class="nc" id="L375">        return locked(() -&gt; {</span>
+<span class="nc" id="L376">            String sql = &quot;UPDATE chats SET source = ?, title = ?, createdAt = ?, updatedAt = ?, &quot;</span>
+                    + &quot;externalConversationId = ?, sourceUri = ?, contentHash = ?, sourceUpdatedAt = ?, &quot;
+                    + &quot;lastImportedAt = ?, originatedBy = ? WHERE id = ?&quot;;
+<span class="nc" id="L379">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L380">                ps.setString(1, source.dbValue());</span>
+<span class="nc" id="L381">                ps.setString(2, title);</span>
+<span class="nc" id="L382">                ps.setString(3, createdAt);</span>
+<span class="nc" id="L383">                ps.setString(4, updatedAt);</span>
+<span class="nc" id="L384">                ps.setString(5, externalConversationId);</span>
+<span class="nc" id="L385">                ps.setString(6, sourceUri);</span>
+<span class="nc" id="L386">                ps.setString(7, contentHash);</span>
+<span class="nc" id="L387">                ps.setString(8, sourceUpdatedAt);</span>
+<span class="nc" id="L388">                ps.setString(9, lastImportedAt);</span>
+                // updateFromSource is for imports.
+<span class="nc" id="L390">                ps.setString(10, chatmap.domain.ChatOrigin.imported.dbValue());</span>
+<span class="nc" id="L391">                ps.setLong(11, id);</span>
+<span class="nc" id="L392">                ps.executeUpdate();</span>
+            }
+<span class="nc" id="L394">            return findById(id).orElseThrow();</span>
+        });
+    }
+
+    private static List&lt;Chat&gt; readAll(ResultSet rs) throws SQLException {
+<span class="nc" id="L399">        List&lt;Chat&gt; chats = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L400" title="All 2 branches missed.">        while (rs.next()) {</span>
+<span class="nc" id="L401">            chats.add(ChatRowMapper.read(rs));</span>
+        }
+<span class="nc" id="L403">        return chats;</span>
+    }
+
+    private static void setNullableLong(PreparedStatement ps, int parameter, Long value)
+            throws SQLException {
+<span class="nc bnc" id="L408" title="All 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L409">            ps.setNull(parameter, java.sql.Types.INTEGER);</span>
+        } else {
+<span class="nc" id="L411">            ps.setLong(parameter, value);</span>
+        }
+<span class="nc" id="L413">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

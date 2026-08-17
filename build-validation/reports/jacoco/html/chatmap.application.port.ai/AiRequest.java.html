@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AiRequest.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.port.ai</a> &gt; <span class="el_source">AiRequest.java</span></div><h1>AiRequest.java</h1><pre class="source lang-java linenums">package chatmap.application.port.ai;
+
+import java.nio.file.Path;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * A prompt plus the small set of provider-agnostic capabilities a backend's
+ * {@code commandFor()} may interpret in its own CLI's flag names --
+ * {@code workingDirectory}, {@code permissionMode}, and {@code outputFormat}
+ * exist so callers with unusual needs (e.g. running inside an isolated
+ * worktree, skipping permission prompts) go through {@link AiBackend}
+ * instead of building a command themselves.
+ */
+public record AiRequest(
+        String prompt,
+        Optional&lt;String&gt; systemPrompt,
+        PromptProfile profile,
+        Optional&lt;String&gt; sessionId,
+        Optional&lt;Path&gt; workingDirectory,
+        PermissionMode permissionMode,
+        OutputFormat outputFormat,
+        Optional&lt;Path&gt; standardOutputPath,
+        Optional&lt;Path&gt; standardErrorPath
+) {
+<span class="fc" id="L26">    public AiRequest {</span>
+<span class="fc" id="L27">        Objects.requireNonNull(prompt, &quot;prompt&quot;);</span>
+<span class="fc" id="L28">        Objects.requireNonNull(systemPrompt, &quot;systemPrompt&quot;);</span>
+<span class="fc" id="L29">        Objects.requireNonNull(profile, &quot;profile&quot;);</span>
+<span class="fc" id="L30">        Objects.requireNonNull(sessionId, &quot;sessionId&quot;);</span>
+<span class="fc" id="L31">        Objects.requireNonNull(workingDirectory, &quot;workingDirectory&quot;);</span>
+<span class="fc" id="L32">        Objects.requireNonNull(permissionMode, &quot;permissionMode&quot;);</span>
+<span class="fc" id="L33">        Objects.requireNonNull(outputFormat, &quot;outputFormat&quot;);</span>
+<span class="fc" id="L34">        Objects.requireNonNull(standardOutputPath, &quot;standardOutputPath&quot;);</span>
+<span class="fc" id="L35">        Objects.requireNonNull(standardErrorPath, &quot;standardErrorPath&quot;);</span>
+<span class="fc" id="L36">    }</span>
+
+    public AiRequest(String prompt, Optional&lt;String&gt; systemPrompt, PromptProfile profile, Optional&lt;String&gt; sessionId) {
+<span class="fc" id="L39">        this(prompt, systemPrompt, profile, sessionId, Optional.empty(), PermissionMode.standard, OutputFormat.text,</span>
+<span class="fc" id="L40">                Optional.empty(), Optional.empty());</span>
+<span class="fc" id="L41">    }</span>
+
+    public AiRequest(String prompt, Optional&lt;String&gt; systemPrompt, PromptProfile profile) {
+<span class="nc" id="L44">        this(prompt, systemPrompt, profile, Optional.empty());</span>
+<span class="nc" id="L45">    }</span>
+
+    public AiRequest(String prompt, Optional&lt;String&gt; systemPrompt) {
+<span class="nc" id="L48">        this(prompt, systemPrompt, PromptProfile.general, Optional.empty());</span>
+<span class="nc" id="L49">    }</span>
+
+    public static AiRequest of(String prompt) {
+<span class="fc" id="L52">        return new AiRequest(prompt, Optional.empty(), PromptProfile.general, Optional.empty());</span>
+    }
+
+    public static AiRequest withProfile(String prompt, PromptProfile profile) {
+<span class="nc" id="L56">        return new AiRequest(prompt, Optional.empty(), profile, Optional.empty());</span>
+    }
+
+    public static AiRequest withSession(String prompt, String sessionId) {
+<span class="fc" id="L60">        return new AiRequest(prompt, Optional.empty(), PromptProfile.general, Optional.ofNullable(sessionId));</span>
+    }
+
+    public static AiRequest withSession(String prompt, String sessionId, PromptProfile profile) {
+<span class="nc" id="L64">        return new AiRequest(prompt, Optional.empty(), profile, Optional.ofNullable(sessionId));</span>
+    }
+
+    public static AiRequest withSystemPrompt(String prompt, String systemPrompt) {
+<span class="fc" id="L68">        return new AiRequest(prompt, Optional.of(systemPrompt), PromptProfile.general, Optional.empty());</span>
+    }
+
+    public String effectivePrompt() {
+<span class="fc" id="L72">        return profile.applyTo(prompt);</span>
+    }
+
+    /** Copy requesting the backend's CLI be invoked inside {@code workingDirectory}. */
+    public AiRequest withWorkingDirectory(Path workingDirectory) {
+<span class="nc" id="L77">        return new AiRequest(prompt, systemPrompt, profile, sessionId, Optional.ofNullable(workingDirectory),</span>
+                permissionMode, outputFormat, standardOutputPath, standardErrorPath);
+    }
+
+    /** Copy requesting a different permission mode from the backend. */
+    public AiRequest withPermissionMode(PermissionMode permissionMode) {
+<span class="fc" id="L83">        return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,</span>
+<span class="fc" id="L84">                Objects.requireNonNull(permissionMode, &quot;permissionMode&quot;), outputFormat,</span>
+                standardOutputPath, standardErrorPath);
+    }
+
+    /** Copy requesting a different output format from the backend. */
+    public AiRequest withOutputFormat(OutputFormat outputFormat) {
+<span class="fc" id="L90">        return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,</span>
+<span class="fc" id="L91">                permissionMode, Objects.requireNonNull(outputFormat, &quot;outputFormat&quot;),</span>
+                standardOutputPath, standardErrorPath);
+    }
+
+    /** Copy requesting complete stdout/stderr be written to durable paths by command-backed providers. */
+    public AiRequest withOutputPaths(Path standardOutputPath, Path standardErrorPath) {
+<span class="nc" id="L97">        return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,</span>
+<span class="nc" id="L98">                permissionMode, outputFormat, Optional.ofNullable(standardOutputPath),</span>
+<span class="nc" id="L99">                Optional.ofNullable(standardErrorPath));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

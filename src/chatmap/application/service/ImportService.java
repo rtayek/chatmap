@@ -16,6 +16,7 @@ import chatmap.application.port.importing.ConversationFileReader;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.application.model.ImportedChat;
+import chatmap.application.port.ai.ModelTarget;
 
 /** Imports selected files through format-specific importers, then persists normalized data. */
 public final class ImportService {
@@ -86,6 +87,11 @@ public final class ImportService {
      */
     public PersistResult appendToConversation(Chat chatTemplate, List<Message> newMessages) throws SQLException {
         return transactions.inTransaction(() -> appendInTransaction(chatTemplate, newMessages));
+    }
+
+    public List<String> listPromptSessions(ModelTarget target) throws SQLException {
+        Objects.requireNonNull(target, "target");
+        return chats.findPromptSessions(target.providerId().name(), target.id());
     }
 
     private PersistResult appendInTransaction(Chat chatTemplate, List<Message> newMessages) throws SQLException {

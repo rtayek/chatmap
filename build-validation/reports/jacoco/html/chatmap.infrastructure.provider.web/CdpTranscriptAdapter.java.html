@@ -1,0 +1,356 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CdpTranscriptAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">CdpTranscriptAdapter.java</span></div><h1>CdpTranscriptAdapter.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+
+import chatmap.infrastructure.provider.ClaudeTurn;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Base for adapters that read a vendor's web chat over CDP from an already-running,
+ * already-logged-in Chrome. Handles the shared plumbing — attach to CDP only (never
+ * launch a browser here; {@link ChromeCdpLauncher} does that), find/open a page,
+ * read the newest conversation, release the connection — and leaves the
+ * site-specific selectors to subclasses.
+ *
+ * Subclasses provide the site's base URL, how to list conversations (most-recent
+ * first), and how to read a conversation's turns. Selectors are inherently
+ * best-effort and must be verified against the live site.
+ */
+abstract class CdpTranscriptAdapter implements AutoCloseable {
+<span class="nc" id="L30">    private static final Logger LOG = Log.of(CdpTranscriptAdapter.class);</span>
+
+
+    /** A conversation's display title and its full URL. */
+<span class="nc" id="L34">    record ChatWebSummary(String title, String url) {}</span>
+
+    /** The most recent conversation's title, URL, and turns, ready to import. */
+    record Transcript(String title, String url, List&lt;ClaudeTurn&gt; turns) {
+<span class="nc" id="L38">        Transcript {</span>
+<span class="nc" id="L39">            turns = List.copyOf(turns);</span>
+<span class="nc" id="L40">        }</span>
+    }
+
+    private final String cdpUrl;
+    private CdpBrowserConnection browser;
+<span class="nc" id="L45">    private final List&lt;CdpPage&gt; openPages = new ArrayList&lt;&gt;();</span>
+    private String lastUnavailableReason;
+
+<span class="nc" id="L48">    CdpTranscriptAdapter(String cdpUrl) {</span>
+<span class="nc" id="L49">        this.cdpUrl = Objects.requireNonNull(cdpUrl, &quot;cdpUrl&quot;);</span>
+<span class="nc" id="L50">    }</span>
+
+    /** The site's entry URL, opened to read the conversation list (e.g. https://chatgpt.com). */
+    abstract String siteBaseUrl();
+
+    /** Conversations from the sidebar, most-recent first (titles + urls only). */
+    abstract List&lt;ChatWebSummary&gt; listChats(CdpPage page);
+
+    /** The turns of an open conversation page, in order (role + text). */
+    abstract List&lt;ClaudeTurn&gt; readTurns(CdpPage page);
+
+    /** A newest conversation that has been opened: its title and the loaded page. */
+<span class="nc" id="L62">    record OpenConversation(String title, String url, CdpPage page) {}</span>
+
+    /**
+     * Opens the newest conversation and returns its title + loaded page. The
+     * default navigates by URL from {@link #listChats(CdpPage)}; sites whose sidebar
+     * navigates via JS (no conversation URL to open) override this to click.
+     */
+    Optional&lt;OpenConversation&gt; openLatestConversation() {
+<span class="nc" id="L70">        List&lt;ChatWebSummary&gt; chats = listChats(openPage(siteBaseUrl()));</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">        if (chats.isEmpty()) {</span>
+<span class="nc" id="L72">            return Optional.empty();</span>
+        }
+<span class="nc" id="L74">        ChatWebSummary latest = chats.get(0);</span>
+<span class="nc" id="L75">        return openConversation(latest);</span>
+    }
+
+    Optional&lt;OpenConversation&gt; openConversation(ChatWebSummary summary) {
+<span class="nc" id="L79">        return Optional.of(new OpenConversation(summary.title(), summary.url(), openPage(summary.url())));</span>
+    }
+
+    public final List&lt;ChatWebSummary&gt; discoverableChats() {
+<span class="nc" id="L83">        lastUnavailableReason = null;</span>
+        try {
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (!connectViaCdpOnly()) {</span>
+<span class="nc" id="L86">                return List.of();</span>
+            }
+<span class="nc" id="L88">            return List.copyOf(listChats(openPage(siteBaseUrl())));</span>
+<span class="nc" id="L89">        } catch (Exception unavailable) {</span>
+<span class="nc" id="L90">            lastUnavailableReason = diagnostic(unavailable);</span>
+<span class="nc" id="L91">            return List.of();</span>
+        } finally {
+<span class="nc" id="L93">            close();</span>
+        }
+    }
+
+    private static final int MAX_DISCOVERY_ROUNDS = 500;
+    private static final int STABLE_ROUNDS_REQUIRED = 3;
+    private static final long SCROLL_WAIT_MILLIS = 900;
+
+    /**
+     * Exhaustively discovers every conversation the current authenticated
+     * session can enumerate, until a verified terminal condition is reached
+     * (or the iteration budget/an error forces an honest incomplete/failed/
+     * unavailable result instead). Self-contained like the other public
+     * methods here: attaches, discovers, releases the CDP connection.
+     */
+    public final WebDiscoveryResult discoverAll() {
+<span class="nc" id="L109">        lastUnavailableReason = null;</span>
+        try {
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            if (!connectViaCdpOnly()) {</span>
+<span class="nc" id="L112">                return WebDiscoveryResult.unavailable(providerLabel(), &quot;CDP connection could not be established&quot;);</span>
+            }
+<span class="nc" id="L114">            WebDiscoveryResult result = doDiscoverAll();</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">            if (result.status() != DiscoveryStatus.complete) {</span>
+<span class="nc" id="L116">                lastUnavailableReason = result.reason();</span>
+            }
+<span class="nc" id="L118">            return result;</span>
+<span class="nc" id="L119">        } catch (Exception failure) {</span>
+<span class="nc" id="L120">            String reason = diagnostic(failure);</span>
+<span class="nc" id="L121">            lastUnavailableReason = reason;</span>
+<span class="nc" id="L122">            return WebDiscoveryResult.failed(providerLabel(), reason);</span>
+        } finally {
+<span class="nc" id="L124">            close();</span>
+        }
+    }
+
+    /** Display name used in discovery results; override if it should differ from the class name. */
+    String providerLabel() {
+<span class="nc" id="L130">        return getClass().getSimpleName();</span>
+    }
+
+    /**
+     * A durable identity for discovery-time deduplication, or null when the
+     * summary carries no durable id yet (the caller falls back to the
+     * summary's URL, which is still stable within one discovery run).
+     * Override with the site's real identity extraction; the default treats
+     * every summary as identity-less.
+     */
+    String identityOf(ChatWebSummary summary) {
+<span class="nc" id="L141">        return null;</span>
+    }
+
+    /** One scroll attempt: whether a scrollable container was found, and whether it actually moved. */
+<span class="nc" id="L145">    record ScrollAttempt(boolean found, double before, double after) {</span>
+        boolean moved() {
+<span class="nc bnc" id="L147" title="All 4 branches missed.">            return found &amp;&amp; after &gt; before + 1;</span>
+        }
+
+        static ScrollAttempt parse(String json) {
+            try {
+<span class="nc" id="L152">                JsonObject o = JsonParser.parseString(json).getAsJsonObject();</span>
+<span class="nc bnc" id="L153" title="All 4 branches missed.">                if (!o.has(&quot;found&quot;) || !o.get(&quot;found&quot;).getAsBoolean()) {</span>
+<span class="nc" id="L154">                    return new ScrollAttempt(false, 0, 0);</span>
+                }
+<span class="nc" id="L156">                return new ScrollAttempt(true, o.get(&quot;before&quot;).getAsDouble(), o.get(&quot;after&quot;).getAsDouble());</span>
+<span class="nc" id="L157">            } catch (RuntimeException malformed) {</span>
+<span class="nc" id="L158">                return new ScrollAttempt(false, 0, 0);</span>
+            }
+        }
+    }
+
+    /**
+     * Scrolls the site's conversation list one step further, if a scrollable
+     * container can be found. The default heuristic (the widest block-level
+     * element whose content overflows its own box) was verified live against
+     * claude.ai's and gemini.google.com's conversation lists on 2026-08-12;
+     * override for a site whose scroll container it cannot find.
+     */
+    ScrollAttempt scrollForMore(CdpPage page) {
+<span class="nc" id="L171">        Object raw = page.evaluate(&quot;() =&gt; {&quot;</span>
+                + &quot;const el=[...document.querySelectorAll('div')]&quot;
+                + &quot;.filter(e =&gt; e.scrollHeight &gt; e.clientHeight + 40&quot;
+                + &quot; &amp;&amp; e.clientHeight &gt; 80 &amp;&amp; e.clientHeight &lt; 2000)&quot;
+                + &quot;.sort((a,b) =&gt; b.scrollHeight - a.scrollHeight)[0];&quot;
+                + &quot;if (!el) return JSON.stringify({found:false});&quot;
+                + &quot;const before = el.scrollTop;&quot;
+                + &quot;el.scrollTop = el.scrollHeight;&quot;
+                + &quot;return JSON.stringify({found:true, before:before, after:el.scrollTop});&quot;
+                + &quot;}&quot;);
+<span class="nc bnc" id="L181" title="All 2 branches missed.">        return ScrollAttempt.parse(raw == null ? &quot;{\&quot;found\&quot;:false}&quot; : raw.toString());</span>
+    }
+
+    /**
+     * Default exhaustive strategy: repeatedly read the currently-rendered
+     * conversation summaries via {@link #listChats}, accumulate by identity,
+     * and scroll for more via {@link #scrollForMore}. Declares completion
+     * only once the scroll position has genuinely stopped advancing for
+     * several consecutive rounds — &quot;no new items this round&quot; alone is not
+     * trusted, since a slow lazy load could still be in flight. Adapters
+     * with a safer authenticated listing endpoint override this entirely
+     * rather than depending on DOM scrolling at all.
+     */
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+<span class="nc" id="L197">            page = openPage(siteBaseUrl());</span>
+<span class="nc" id="L198">        } catch (Exception unopenable) {</span>
+<span class="nc" id="L199">            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));</span>
+<span class="nc" id="L200">        }</span>
+<span class="nc" id="L201">        return accumulate(page);</span>
+    }
+
+    /** How long to wait after a scroll for lazy-loaded entries; overridable so tests run instantly. */
+    long scrollWaitMillis() {
+<span class="nc" id="L206">        return SCROLL_WAIT_MILLIS;</span>
+    }
+
+    /** Safety-net iteration cap; overridable so a &quot;never stabilizes&quot; test doesn't spin for real. */
+    int maxDiscoveryRounds() {
+<span class="nc" id="L211">        return MAX_DISCOVERY_ROUNDS;</span>
+    }
+
+    /**
+     * The scroll-and-accumulate loop itself, isolated from page-opening so it
+     * can be driven directly in tests against a hand-built {@link CdpPage}.
+     */
+    final WebDiscoveryResult accumulate(CdpPage page) {
+<span class="nc" id="L219">        LinkedHashMap&lt;String, ChatWebSummary&gt; byIdentity = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L220">        int stableRounds = 0;</span>
+<span class="nc" id="L221">        int limit = maxDiscoveryRounds();</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">        for (int round = 0; round &lt; limit; round++) {</span>
+            List&lt;ChatWebSummary&gt; batch;
+            try {
+<span class="nc" id="L225">                batch = listChats(page);</span>
+<span class="nc" id="L226">            } catch (Exception selectorFailure) {</span>
+<span class="nc" id="L227">                return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),</span>
+                        DiscoveryStatus.incomplete,
+<span class="nc" id="L229">                        &quot;Selector failure while reading the conversation list: &quot; + diagnostic(selectorFailure));</span>
+<span class="nc" id="L230">            }</span>
+<span class="nc" id="L231">            int before = byIdentity.size();</span>
+<span class="nc bnc" id="L232" title="All 2 branches missed.">            for (ChatWebSummary summary : batch) {</span>
+<span class="nc" id="L233">                String id = identityOf(summary);</span>
+<span class="nc bnc" id="L234" title="All 4 branches missed.">                byIdentity.putIfAbsent(id == null || id.isBlank() ? summary.url() : id, summary);</span>
+<span class="nc" id="L235">            }</span>
+<span class="nc bnc" id="L236" title="All 2 branches missed.">            boolean grew = byIdentity.size() &gt; before;</span>
+
+<span class="nc" id="L238">            ScrollAttempt attempt = scrollForMore(page);</span>
+<span class="nc bnc" id="L239" title="All 6 branches missed.">            stableRounds = (grew || attempt.moved() || !attempt.found()) ? 0 : stableRounds + 1;</span>
+
+<span class="nc bnc" id="L241" title="All 2 branches missed.">            if (stableRounds &gt;= STABLE_ROUNDS_REQUIRED) {</span>
+<span class="nc" id="L242">                return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),</span>
+                        DiscoveryStatus.complete,
+                        &quot;Complete for the normal conversation list exposed by the current authenticated web UI: &quot;
+                        + &quot;scroll position and discovered count both stayed unchanged across &quot;
+                        + STABLE_ROUNDS_REQUIRED + &quot; consecutive checks.&quot;);
+            }
+<span class="nc" id="L248">            page.waitForTimeout(scrollWaitMillis());</span>
+        }
+<span class="nc" id="L250">        return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),</span>
+                DiscoveryStatus.incomplete,
+                &quot;Reached the discovery iteration limit (&quot; + limit
+                + &quot;) without a verified terminal condition.&quot;);
+    }
+
+    /**
+     * The most recent conversation as title + merged turns, or empty when nothing
+     * is reachable (browser not running, not logged in, no chats, or the layout no
+     * longer matches). Never throws for the &quot;nothing available&quot; case. Self-contained:
+     * attaches, reads, and releases the CDP connection each call.
+     */
+    public final Optional&lt;Transcript&gt; latestTranscript() {
+<span class="nc" id="L263">        lastUnavailableReason = null;</span>
+        try {
+<span class="nc bnc" id="L265" title="All 2 branches missed.">            if (!connectViaCdpOnly()) {</span>
+<span class="nc" id="L266">                return Optional.empty();</span>
+            }
+<span class="nc" id="L268">            Optional&lt;OpenConversation&gt; conversation = openLatestConversation();</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">            if (conversation.isEmpty()) {</span>
+<span class="nc" id="L270">                return Optional.empty();</span>
+            }
+<span class="nc" id="L272">            List&lt;ClaudeTurn&gt; turns =</span>
+<span class="nc" id="L273">                    WebTranscripts.mergeConsecutiveSameRole(readTurns(conversation.get().page()));</span>
+<span class="nc bnc" id="L274" title="All 2 branches missed.">            if (turns.isEmpty()) {</span>
+<span class="nc" id="L275">                return Optional.empty();</span>
+            }
+<span class="nc" id="L277">            return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));</span>
+<span class="nc" id="L278">        } catch (Exception unavailable) {</span>
+<span class="nc" id="L279">            lastUnavailableReason = diagnostic(unavailable);</span>
+<span class="nc" id="L280">            return Optional.empty();</span>
+        } finally {
+<span class="nc" id="L282">            close(); // release the CDP connection (does not close the user's Chrome)</span>
+        }
+    }
+
+    public final Optional&lt;Transcript&gt; transcript(ChatWebSummary summary) {
+<span class="nc" id="L287">        lastUnavailableReason = null;</span>
+        try {
+<span class="nc bnc" id="L289" title="All 2 branches missed.">            if (!connectViaCdpOnly()) {</span>
+<span class="nc" id="L290">                return Optional.empty();</span>
+            }
+<span class="nc" id="L292">            Optional&lt;OpenConversation&gt; conversation = openConversation(summary);</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">            if (conversation.isEmpty()) {</span>
+<span class="nc" id="L294">                return Optional.empty();</span>
+            }
+<span class="nc" id="L296">            List&lt;ClaudeTurn&gt; turns =</span>
+<span class="nc" id="L297">                    WebTranscripts.mergeConsecutiveSameRole(readTurns(conversation.get().page()));</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">            if (turns.isEmpty()) {</span>
+<span class="nc" id="L299">                return Optional.empty();</span>
+            }
+<span class="nc" id="L301">            return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));</span>
+<span class="nc" id="L302">        } catch (Exception unavailable) {</span>
+<span class="nc" id="L303">            lastUnavailableReason = diagnostic(unavailable);</span>
+<span class="nc" id="L304">            return Optional.empty();</span>
+        } finally {
+<span class="nc" id="L306">            close();</span>
+        }
+    }
+
+    public final Optional&lt;String&gt; lastUnavailableReason() {
+<span class="nc" id="L311">        return Optional.ofNullable(lastUnavailableReason);</span>
+    }
+
+    /** Attaches to a running Chrome over CDP only; never launches a browser. */
+    final boolean connectViaCdpOnly() {
+<span class="nc bnc" id="L316" title="All 2 branches missed.">        if (browser != null) {</span>
+<span class="nc" id="L317">            return true;</span>
+        }
+<span class="nc" id="L319">        browser = new CdpBrowserConnection(cdpUrl);</span>
+<span class="nc" id="L320">        return true;</span>
+    }
+
+    /** Finds an already-open page for the URL or opens a new one. Uses the CDP browser only. */
+    final CdpPage openPage(String url) {
+        try {
+<span class="nc" id="L326">            CdpPage page = browser.openPage(url).orElseThrow();</span>
+<span class="nc" id="L327">            openPages.add(page);</span>
+<span class="nc" id="L328">            return page;</span>
+<span class="nc" id="L329">        } catch (Exception unavailable) {</span>
+<span class="nc" id="L330">            throw new IllegalStateException(&quot;Could not open CDP page&quot;, unavailable);</span>
+        }
+    }
+
+    @Override
+    public synchronized void close() {
+<span class="nc bnc" id="L336" title="All 2 branches missed.">        for (CdpPage page : openPages) {</span>
+            try {
+<span class="nc" id="L338">                page.close();</span>
+<span class="nc" id="L339">            } catch (Exception ignored) {</span>
+<span class="nc" id="L340">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L341">        }</span>
+<span class="nc" id="L342">        }</span>
+<span class="nc" id="L343">        openPages.clear();</span>
+<span class="nc" id="L344">        browser = null;</span>
+<span class="nc" id="L345">    }</span>
+
+    static String diagnostic(Exception failure) {
+<span class="nc" id="L348">        String simpleName = failure.getClass().getSimpleName();</span>
+<span class="nc" id="L349">        String message = failure.getMessage();</span>
+<span class="nc bnc" id="L350" title="All 4 branches missed.">        if (message == null || message.isBlank()) {</span>
+<span class="nc" id="L351">            return simpleName;</span>
+        }
+<span class="nc" id="L353">        return simpleName + &quot;: &quot; + message;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

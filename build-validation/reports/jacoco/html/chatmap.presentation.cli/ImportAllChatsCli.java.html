@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImportAllChatsCli.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.cli</a> &gt; <span class="el_source">ImportAllChatsCli.java</span></div><h1>ImportAllChatsCli.java</h1><pre class="source lang-java linenums">package chatmap.presentation.cli;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+
+import chatmap.application.port.provider.ChatProvider;
+import chatmap.application.port.provider.ChatProviderException;
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.provider.NoImportableContentException;
+import chatmap.app.DefaultServiceIntegrations;
+import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
+import chatmap.domain.ConversationCandidate;
+import chatmap.application.model.ImportedChat;
+import chatmap.application.service.ImportService;
+import chatmap.app.ServiceGraph;
+
+/**
+ * Imports every chat discoverable from the configured providers (all six by
+ * default: three CLI-history sources, three live web sources over CDP) and
+ * persists each one that isn't already imported.
+ *
+ * Unlike {@code ConversationInventoryCli} (read-only discovery) this actually
+ * fetches and persists. Already-imported conversations are skipped by
+ * checking external identity first, so a re-run doesn't re-fetch chats that
+ * are already stored — this matters most for the web providers, where a
+ * fetch is a real CDP round trip, not just a file read.
+ */
+<span class="nc" id="L29">public final class ImportAllChatsCli {</span>
+
+    private static final String USAGE =
+            &quot;Usage: importAllChats [--home &lt;directory&gt;] [--source &lt;name&gt;]\n&quot;
+            + &quot;  --source &lt;name&gt;   Only import from the provider whose name() matches &quot;
+            + &quot;(case-insensitive, e.g. \&quot;Claude Code\&quot;, \&quot;ChatGPT\&quot;). Default: all configured providers.&quot;;
+
+    public static void main(String[] args) {
+<span class="nc" id="L37">        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);</span>
+<span class="nc" id="L38">        List&lt;String&gt; remaining = parsedArguments.remainingArgs();</span>
+
+<span class="nc" id="L40">        String sourceFilter = null;</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        if (!remaining.isEmpty()) {</span>
+<span class="nc bnc" id="L42" title="All 4 branches missed.">            if (remaining.size() != 2 || !remaining.get(0).equals(&quot;--source&quot;)) {</span>
+<span class="nc" id="L43">                CliBootstrap.exitWithUsage(USAGE);</span>
+<span class="nc" id="L44">                return;</span>
+            }
+<span class="nc" id="L46">            sourceFilter = remaining.get(1);</span>
+        }
+
+<span class="nc" id="L49">        List&lt;ChatProvider&gt; providers = DefaultServiceIntegrations.chatProviders();</span>
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (sourceFilter != null) {</span>
+<span class="nc" id="L51">            String wanted = sourceFilter;</span>
+<span class="nc" id="L52">            providers = providers.stream()</span>
+<span class="nc" id="L53">                    .filter(p -&gt; p.name().equalsIgnoreCase(wanted))</span>
+<span class="nc" id="L54">                    .toList();</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">            if (providers.isEmpty()) {</span>
+<span class="nc" id="L56">                System.err.println(&quot;No configured provider named \&quot;&quot; + sourceFilter + &quot;\&quot;.&quot;);</span>
+<span class="nc" id="L57">                System.err.println(&quot;Configured providers: &quot;</span>
+<span class="nc" id="L58">                        + DefaultServiceIntegrations.chatProviders().stream().map(ChatProvider::name).toList());</span>
+<span class="nc" id="L59">                System.exit(1);</span>
+<span class="nc" id="L60">                return;</span>
+            }
+        }
+
+<span class="nc" id="L64">        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {</span>
+<span class="nc" id="L65">            ServiceGraph services = context.services();</span>
+<span class="nc" id="L66">            int totalInserted = 0;</span>
+<span class="nc" id="L67">            int totalUpdated = 0;</span>
+<span class="nc" id="L68">            int totalSkipped = 0;</span>
+<span class="nc" id="L69">            int totalNoContent = 0;</span>
+<span class="nc" id="L70">            int totalFailed = 0;</span>
+
+<span class="nc bnc" id="L72" title="All 2 branches missed.">            for (ChatProvider provider : providers) {</span>
+<span class="nc" id="L73">                System.out.println();</span>
+<span class="nc" id="L74">                System.out.println(&quot;== &quot; + provider.name() + &quot; ==&quot;);</span>
+
+                // Local CLI-history providers throw here on a genuine I/O failure; live web
+                // providers never do (see ChatProvider#listChats) -- their unavailability
+                // shows up below instead, as an empty list plus inventoryComplete()/
+                // inventoryDiagnostic(), so both branches matter for full coverage.
+                List&lt;ConversationCandidate&gt; candidates;
+                try {
+<span class="nc" id="L82">                    candidates = provider.listChats();</span>
+<span class="nc" id="L83">                } catch (ChatProviderException unavailable) {</span>
+<span class="nc" id="L84">                    System.out.println(&quot;  unavailable: &quot; + unavailable.getMessage());</span>
+<span class="nc" id="L85">                    continue;</span>
+<span class="nc" id="L86">                }</span>
+<span class="nc" id="L87">                boolean providerComplete = provider.inventoryComplete();</span>
+<span class="nc" id="L88">                String providerDiagnostic = provider.inventoryDiagnostic().orElse(null);</span>
+
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                if (candidates.isEmpty()) {</span>
+<span class="nc" id="L91">                    System.out.println(&quot;  no chats found&quot;);</span>
+<span class="nc" id="L92">                    printCompleteness(providerComplete, providerDiagnostic);</span>
+<span class="nc" id="L93">                    continue;</span>
+                }
+
+                Map&lt;String, Long&gt; alreadyImported;
+                try {
+<span class="nc" id="L98">                    alreadyImported = services.chats().findImportedIdsByExternalIdentity(candidates);</span>
+<span class="nc" id="L99">                } catch (SQLException e) {</span>
+<span class="nc" id="L100">                    System.out.println(&quot;  failed to check already-imported chats: &quot; + e.getMessage());</span>
+<span class="nc" id="L101">                    continue;</span>
+<span class="nc" id="L102">                }</span>
+
+<span class="nc" id="L104">                int inserted = 0;</span>
+<span class="nc" id="L105">                int updated = 0;</span>
+<span class="nc" id="L106">                int skipped = 0;</span>
+<span class="nc" id="L107">                int noContent = 0;</span>
+<span class="nc" id="L108">                int failed = 0;</span>
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">                for (ConversationCandidate candidate : candidates) {</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">                    boolean knownImported = candidate.externalConversationId() != null</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">                            &amp;&amp; !candidate.externalConversationId().isBlank()</span>
+<span class="nc bnc" id="L113" title="All 2 branches missed.">                            &amp;&amp; alreadyImported.containsKey(ChatStore.identityKey(</span>
+<span class="nc" id="L114">                                    candidate.source(), candidate.externalConversationId()));</span>
+<span class="nc bnc" id="L115" title="All 2 branches missed.">                    if (knownImported) {</span>
+<span class="nc" id="L116">                        skipped++;</span>
+<span class="nc" id="L117">                        continue;</span>
+                    }
+
+                    try {
+<span class="nc" id="L121">                        ImportedChat imported = provider.fetch(candidate);</span>
+<span class="nc" id="L122">                        ImportService.PersistResult result = services.importService().persist(imported);</span>
+<span class="nc bnc" id="L123" title="All 4 branches missed.">                        switch (result.outcome()) {</span>
+                            case inserted -&gt; {
+<span class="nc" id="L125">                                inserted++;</span>
+<span class="nc" id="L126">                                System.out.println(&quot;  + &quot; + result.chat().title());</span>
+<span class="nc" id="L127">                            }</span>
+<span class="nc" id="L128">                            case updated -&gt; updated++;</span>
+<span class="nc" id="L129">                            case unchanged -&gt; skipped++;</span>
+                        }
+<span class="nc" id="L131">                    } catch (NoImportableContentException noContentFound) {</span>
+                        // The candidate was read successfully but has no real turns (e.g. a
+                        // Codex rollout for an abandoned session, or a Gemini CLI session file
+                        // that's only injected setup context). Not a failure -- don't print a
+                        // per-candidate line for it, just count it, so a provider with thousands
+                        // of these doesn't bury the genuine failures below.
+<span class="nc" id="L137">                        noContent++;</span>
+<span class="nc" id="L138">                    } catch (Exception e) {</span>
+<span class="nc" id="L139">                        failed++;</span>
+<span class="nc" id="L140">                        System.out.println(&quot;  ! failed: &quot; + candidate.title() + &quot; (&quot; + e.getMessage() + &quot;)&quot;);</span>
+<span class="nc" id="L141">                    }</span>
+<span class="nc" id="L142">                }</span>
+
+<span class="nc" id="L144">                System.out.println(&quot;  &quot; + inserted + &quot; new, &quot; + updated + &quot; updated, &quot;</span>
+                        + skipped + &quot; already imported, &quot; + noContent + &quot; no content, &quot; + failed + &quot; failed&quot;);
+<span class="nc" id="L146">                printCompleteness(providerComplete, providerDiagnostic);</span>
+<span class="nc" id="L147">                totalInserted += inserted;</span>
+<span class="nc" id="L148">                totalUpdated += updated;</span>
+<span class="nc" id="L149">                totalSkipped += skipped;</span>
+<span class="nc" id="L150">                totalNoContent += noContent;</span>
+<span class="nc" id="L151">                totalFailed += failed;</span>
+<span class="nc" id="L152">            }</span>
+
+<span class="nc" id="L154">            System.out.println();</span>
+<span class="nc" id="L155">            System.out.println(&quot;Total: &quot; + totalInserted + &quot; new, &quot; + totalUpdated + &quot; updated, &quot;</span>
+                    + totalSkipped + &quot; already imported, &quot; + totalNoContent + &quot; no content, &quot;
+                    + totalFailed + &quot; failed&quot;);
+<span class="nc" id="L158">        } catch (Exception e) {</span>
+<span class="nc" id="L159">            System.err.println(&quot;Fatal error: &quot; + e.getMessage());</span>
+<span class="nc" id="L160">            System.exit(1);</span>
+<span class="nc" id="L161">        }</span>
+<span class="nc" id="L162">    }</span>
+
+    /** Reports whether this provider's discovery reached a verified terminal condition. */
+    private static void printCompleteness(boolean complete, String diagnostic) {
+<span class="nc bnc" id="L166" title="All 2 branches missed.">        if (complete) {</span>
+<span class="nc" id="L167">            System.out.println(&quot;  complete&quot;</span>
+<span class="nc bnc" id="L168" title="All 4 branches missed.">                    + (diagnostic == null || diagnostic.isBlank() ? &quot;&quot; : &quot;: &quot; + diagnostic));</span>
+        } else {
+<span class="nc" id="L170">            System.out.println(&quot;  incomplete&quot;</span>
+<span class="nc bnc" id="L171" title="All 4 branches missed.">                    + (diagnostic == null || diagnostic.isBlank() ? &quot;&quot; : &quot;: &quot; + diagnostic));</span>
+        }
+<span class="nc" id="L173">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatDetailRenderer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.ui</a> &gt; <span class="el_source">ChatDetailRenderer.java</span></div><h1>ChatDetailRenderer.java</h1><pre class="source lang-java linenums">package chatmap.presentation.ui;
+
+import chatmap.domain.ChatSummary;
+import chatmap.domain.Message;
+import chatmap.application.model.ChatExportModel;
+
+/** Formats the selected chat detail panel. */
+final class ChatDetailRenderer {
+    private ChatDetailRenderer() {
+    }
+
+    static String render(ChatExportModel model, ChatSummary summary) {
+<span class="nc" id="L13">        StringBuilder out = new StringBuilder();</span>
+<span class="nc" id="L14">        out.append(model.chat().title()).append(&quot;\n&quot;);</span>
+<span class="nc" id="L15">        out.append(&quot;Source: &quot;).append(model.chat().source().displayName()).append(&quot;\n&quot;);</span>
+<span class="nc" id="L16">        out.append(&quot;Imported: &quot;).append(model.chat().importedAt()).append(&quot;\n\n&quot;);</span>
+<span class="nc bnc" id="L17" title="All 2 branches missed.">        if (summary != null) {</span>
+<span class="nc" id="L18">            out.append(&quot;AI Summary (&quot;).append(summary.generatedBy()).append(&quot;): &quot;)</span>
+<span class="nc" id="L19">                    .append(summary.summary()).append(&quot;\n\n&quot;);</span>
+        }
+<span class="nc bnc" id="L21" title="All 2 branches missed.">        for (Message message : model.messages()) {</span>
+<span class="nc" id="L22">            out.append(&quot;[&quot;).append(message.role().displayName()).append(&quot;]\n&quot;);</span>
+<span class="nc" id="L23">            out.append(message.text()).append(&quot;\n\n&quot;);</span>
+<span class="nc" id="L24">        }</span>
+<span class="nc" id="L25">        return out.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

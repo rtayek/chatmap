@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImportService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.service</a> &gt; <span class="el_source">ImportService.java</span></div><h1>ImportService.java</h1><pre class="source lang-java linenums">package chatmap.application.service;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import chatmap.application.port.persistence.ChatStore;
+import chatmap.application.port.persistence.MessageStore;
+import chatmap.application.port.persistence.TransactionManager;
+import chatmap.application.port.importing.ConversationFileReader;
+import chatmap.domain.Chat;
+import chatmap.domain.Message;
+import chatmap.application.model.ImportedChat;
+import chatmap.application.port.ai.ModelTarget;
+
+/** Imports selected files through format-specific importers, then persists normalized data. */
+public final class ImportService {
+
+<span class="nc" id="L24">    public enum Outcome {</span>
+<span class="nc" id="L25">        inserted,</span>
+<span class="nc" id="L26">        updated,</span>
+<span class="nc" id="L27">        unchanged</span>
+    }
+
+<span class="nc" id="L30">    public record PersistResult(Chat chat, Outcome outcome) {</span>
+    }
+
+    private final ChatStore chats;
+    private final MessageStore messages;
+    private final TransactionManager transactions;
+    private final ConversationFileReader fileReader;
+
+    public ImportService(ChatStore chats, MessageStore messages) {
+<span class="nc" id="L39">        this(chats, messages, chats.transactions(), null);</span>
+<span class="nc" id="L40">    }</span>
+
+    public ImportService(ChatStore chats, MessageStore messages, ConversationFileReader fileReader) {
+<span class="nc" id="L43">        this(chats, messages, chats.transactions(), fileReader);</span>
+<span class="nc" id="L44">    }</span>
+
+    public ImportService(ChatStore chats, MessageStore messages, TransactionManager transactions) {
+<span class="nc" id="L47">        this(chats, messages, transactions, null);</span>
+<span class="nc" id="L48">    }</span>
+
+    public ImportService(ChatStore chats, MessageStore messages, TransactionManager transactions,
+<span class="nc" id="L51">            ConversationFileReader fileReader) {</span>
+<span class="nc" id="L52">        this.chats = chats;</span>
+<span class="nc" id="L53">        this.messages = messages;</span>
+<span class="nc" id="L54">        this.transactions = transactions;</span>
+<span class="nc" id="L55">        this.fileReader = fileReader;</span>
+<span class="nc" id="L56">    }</span>
+
+    public Chat importFile(Path file) throws IOException, SQLException {
+<span class="nc bnc" id="L59" title="All 2 branches missed.">        if (fileReader == null) {</span>
+<span class="nc" id="L60">            throw new IllegalStateException(&quot;No conversation file reader is configured&quot;);</span>
+        }
+<span class="nc" id="L62">        List&lt;ImportedChat&gt; imported = fileReader.read(file, Instant.now().toString());</span>
+
+<span class="nc" id="L64">        Chat firstStored = null;</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">        for (ImportedChat candidate : imported) {</span>
+<span class="nc" id="L66">            Chat stored = persist(candidate).chat();</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">            if (firstStored == null) {</span>
+<span class="nc" id="L68">                firstStored = stored;</span>
+            }
+<span class="nc" id="L70">        }</span>
+<span class="nc" id="L71">        return firstStored;</span>
+    }
+
+    public PersistResult persist(ImportedChat imported) throws SQLException {
+<span class="nc" id="L75">        return transactions.inTransaction(() -&gt; persistInTransaction(imported));</span>
+    }
+
+    /**
+     * Appends {@code newMessages} to the chat already identified by imported
+     * external identity or generated prompt-session provenance,
+     * preserving its existing messages and title. Unlike {@link #persist},
+     * which replaces the whole message set whenever the incoming content hash
+     * differs (correct for a re-imported file that IS the full transcript
+     * each time), this is for incrementally building up one conversation
+     * turn by turn. Creates a new chat via {@link #persist} if none exists
+     * yet for that identity.
+     */
+    public PersistResult appendToConversation(Chat chatTemplate, List&lt;Message&gt; newMessages) throws SQLException {
+<span class="nc" id="L89">        return transactions.inTransaction(() -&gt; appendInTransaction(chatTemplate, newMessages));</span>
+    }
+
+    public List&lt;String&gt; listPromptSessions(ModelTarget target) throws SQLException {
+<span class="nc" id="L93">        Objects.requireNonNull(target, &quot;target&quot;);</span>
+<span class="nc" id="L94">        return chats.findPromptSessions(target.providerId().name(), target.id());</span>
+    }
+
+    private PersistResult appendInTransaction(Chat chatTemplate, List&lt;Message&gt; newMessages) throws SQLException {
+<span class="nc" id="L98">        Optional&lt;Chat&gt; existing = existingConversation(chatTemplate);</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (existing.isEmpty()) {</span>
+<span class="nc" id="L100">            return persistInTransaction(new ImportedChat(chatTemplate, newMessages));</span>
+        }
+
+<span class="nc" id="L103">        Chat stored = existing.get();</span>
+<span class="nc" id="L104">        int nextSequence = messages.findByChat(stored.id()).stream().mapToInt(Message::sequence).max().orElse(-1) + 1;</span>
+<span class="nc" id="L105">        List&lt;Message&gt; sequenced = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L106" title="All 2 branches missed.">        for (int i = 0; i &lt; newMessages.size(); i++) {</span>
+<span class="nc" id="L107">            Message m = newMessages.get(i);</span>
+<span class="nc" id="L108">            sequenced.add(new Message(0, 0, m.role(), m.text(), nextSequence + i, m.timestamp(), m.rawJson()));</span>
+        }
+<span class="nc" id="L110">        insertMessages(stored.id(), sequenced);</span>
+
+<span class="nc bnc" id="L112" title="All 2 branches missed.">        String touchedAt = sequenced.isEmpty() ? stored.updatedAt() : sequenced.getLast().timestamp();</span>
+<span class="nc" id="L113">        String contentHash = ChatContentHasher.hash(messages.findByChat(stored.id()));</span>
+<span class="nc" id="L114">        Chat updated = chats.updateImportMetadata(stored.id(), stored.title(), stored.sourceUri(),</span>
+                contentHash, touchedAt, touchedAt);
+<span class="nc" id="L116">        return new PersistResult(updated, Outcome.updated);</span>
+    }
+
+    private Optional&lt;Chat&gt; existingConversation(Chat chatTemplate) throws SQLException {
+<span class="nc bnc" id="L120" title="All 4 branches missed.">        if (chatTemplate.providerSessionId() != null &amp;&amp; !chatTemplate.providerSessionId().isBlank()) {</span>
+<span class="nc" id="L121">            return chats.findByPromptSession(chatTemplate.providerId(), chatTemplate.modelTargetId(),</span>
+<span class="nc" id="L122">                    chatTemplate.providerSessionId());</span>
+        }
+<span class="nc" id="L124">        String externalConversationId = Objects.requireNonNull(chatTemplate.externalConversationId(),</span>
+                &quot;chatTemplate must carry an externalConversationId or providerSessionId&quot;);
+<span class="nc" id="L126">        return chats.findByExternalIdentity(chatTemplate.source(), externalConversationId);</span>
+    }
+
+    private PersistResult persistInTransaction(ImportedChat imported) throws SQLException {
+<span class="nc" id="L130">        String transcriptHash = ChatContentHasher.hash(imported.messages());</span>
+<span class="nc" id="L131">        Chat incoming = withComputedImportMetadata(imported.chat(), transcriptHash);</span>
+
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (incoming.externalConversationId() != null) {</span>
+<span class="nc" id="L134">            return persistWithExternalIdentity(incoming, imported.messages());</span>
+        }
+
+        // No external identity to dedup by (true for every plainText/markdown import, and
+        // for any provider fetch that didn't supply one) — content hash is the only
+        // remaining way to recognize &quot;this is the same conversation again.&quot;
+<span class="nc" id="L140">        var exactDuplicate = chats.findBySourceAndContentHash(incoming.source(), transcriptHash);</span>
+<span class="nc bnc" id="L141" title="All 2 branches missed.">        if (exactDuplicate.isPresent()) {</span>
+<span class="nc" id="L142">            return unchangedResult(exactDuplicate.get(), incoming, transcriptHash);</span>
+        }
+
+        try {
+<span class="nc" id="L146">            Chat storedChat = chats.insert(incoming);</span>
+<span class="nc" id="L147">            insertMessages(storedChat.id(), imported.messages());</span>
+<span class="nc" id="L148">            return new PersistResult(storedChat, Outcome.inserted);</span>
+<span class="nc" id="L149">        } catch (SQLException e) {</span>
+<span class="nc bnc" id="L150" title="All 2 branches missed.">            if (!chats.isUniqueConstraintError(e)) {</span>
+<span class="nc" id="L151">                throw e;</span>
+            }
+            // chatsContentHashIndex backstop: another writer (e.g. ChatConsolidatorCli
+            // running alongside the GUI, a separate process with its own serialized
+            // executor) inserted the same (source, contentHash) between our check above
+            // and this insert. Treat it the same as if we'd found it there.
+<span class="nc" id="L157">            Chat winner = chats.findBySourceAndContentHash(incoming.source(), transcriptHash).orElseThrow(() -&gt; e);</span>
+<span class="nc" id="L158">            return unchangedResult(winner, incoming, transcriptHash);</span>
+        }
+    }
+
+    private PersistResult unchangedResult(Chat existing, Chat incoming, String transcriptHash) throws SQLException {
+<span class="nc" id="L163">        Chat updated = chats.updateImportMetadata(existing.id(), incoming.title(), incoming.sourceUri(),</span>
+<span class="nc" id="L164">                transcriptHash, incoming.sourceUpdatedAt(), incoming.lastImportedAt());</span>
+<span class="nc" id="L165">        return new PersistResult(updated, Outcome.unchanged);</span>
+    }
+
+    private PersistResult persistWithExternalIdentity(Chat incoming, List&lt;Message&gt; incomingMessages)
+            throws SQLException {
+<span class="nc" id="L170">        var existing = chats.findByExternalIdentity(incoming.source(), incoming.externalConversationId());</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        if (existing.isEmpty()) {</span>
+            try {
+<span class="nc" id="L173">                Chat storedChat = chats.insert(incoming);</span>
+<span class="nc" id="L174">                insertMessages(storedChat.id(), incomingMessages);</span>
+<span class="nc" id="L175">                return new PersistResult(storedChat, Outcome.inserted);</span>
+<span class="nc" id="L176">            } catch (SQLException e) {</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">                if (!chats.isUniqueConstraintError(e)) {</span>
+<span class="nc" id="L178">                    throw e;</span>
+                }
+                // chatsExternalIdentityIndex backstop: another writer won this identity
+                // between our check above and this insert. Fall back to it, same as the
+                // &quot;already exists&quot; branch below.
+<span class="nc" id="L183">                existing = Optional.of(chats.findByExternalIdentity(incoming.source(), incoming.externalConversationId())</span>
+<span class="nc" id="L184">                        .orElseThrow(() -&gt; e));</span>
+            }
+        }
+
+<span class="nc" id="L188">        Chat stored = existing.get();</span>
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if (incoming.contentHash().equals(stored.contentHash())) {</span>
+<span class="nc" id="L190">            Chat updated = chats.updateImportMetadata(stored.id(), incoming.title(), incoming.sourceUri(),</span>
+<span class="nc" id="L191">                    incoming.contentHash(), incoming.sourceUpdatedAt(), incoming.lastImportedAt());</span>
+<span class="nc" id="L192">            return new PersistResult(updated, Outcome.unchanged);</span>
+        }
+
+<span class="nc" id="L195">        chats.updateFromSource(stored.id(), incoming.source(), incoming.title(), incoming.createdAt(), incoming.updatedAt(),</span>
+<span class="nc" id="L196">                incoming.externalConversationId(), incoming.sourceUri(), incoming.contentHash(),</span>
+<span class="nc" id="L197">                incoming.sourceUpdatedAt(), incoming.lastImportedAt());</span>
+<span class="nc" id="L198">        messages.deleteByChat(stored.id());</span>
+<span class="nc" id="L199">        insertMessages(stored.id(), incomingMessages);</span>
+<span class="nc" id="L200">        return new PersistResult(chats.findById(stored.id()).orElseThrow(), Outcome.updated);</span>
+    }
+
+    private void insertMessages(long chatId, List&lt;Message&gt; incomingMessages) throws SQLException {
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (incomingMessages.isEmpty()) {</span>
+<span class="nc" id="L205">            return;</span>
+        }
+<span class="nc" id="L207">        List&lt;Message&gt; prepared = incomingMessages.stream()</span>
+<span class="nc" id="L208">                .map(message -&gt; new Message(0, chatId, message.role(), message.text(),</span>
+<span class="nc" id="L209">                        message.sequence(), message.timestamp(), message.rawJson()))</span>
+<span class="nc" id="L210">                .toList();</span>
+<span class="nc" id="L211">        messages.insertAll(prepared);</span>
+<span class="nc" id="L212">    }</span>
+
+    private static Chat withComputedImportMetadata(Chat chat, String contentHash) {
+<span class="nc bnc" id="L215" title="All 2 branches missed.">        String lastImportedAt = chat.lastImportedAt() == null ? chat.importedAt() : chat.lastImportedAt();</span>
+<span class="nc bnc" id="L216" title="All 2 branches missed.">        String sourceUpdatedAt = chat.sourceUpdatedAt() == null ? chat.updatedAt() : chat.sourceUpdatedAt();</span>
+<span class="nc" id="L217">        return chat.toBuilder()</span>
+<span class="nc" id="L218">                .externalConversationId(blankToNull(chat.externalConversationId()))</span>
+<span class="nc" id="L219">                .sourceUri(blankToNull(chat.sourceUri()))</span>
+<span class="nc" id="L220">                .contentHash(contentHash)</span>
+<span class="nc" id="L221">                .sourceUpdatedAt(sourceUpdatedAt)</span>
+<span class="nc" id="L222">                .lastImportedAt(lastImportedAt)</span>
+<span class="nc" id="L223">                .providerId(blankToNull(chat.providerId()))</span>
+<span class="nc" id="L224">                .modelTargetId(blankToNull(chat.modelTargetId()))</span>
+<span class="nc" id="L225">                .providerModelName(blankToNull(chat.providerModelName()))</span>
+<span class="nc" id="L226">                .providerSessionId(blankToNull(chat.providerSessionId()))</span>
+<span class="nc" id="L227">                .build();</span>
+    }
+
+    private static String blankToNull(String value) {
+<span class="nc bnc" id="L231" title="All 4 branches missed.">        return value == null || value.isBlank() ? null : value;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

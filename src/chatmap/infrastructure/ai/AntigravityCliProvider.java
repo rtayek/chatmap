@@ -7,10 +7,12 @@ import java.util.Set;
 
 import chatmap.application.port.ai.AiCapability;
 import chatmap.application.port.ai.AiRequest;
+import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.OutputFormat;
 import chatmap.application.port.ai.PermissionMode;
 import chatmap.application.port.command.CommandExecutor;
+import chatmap.application.port.command.CommandResult;
 
 public final class AntigravityCliProvider extends CliAiProvider {
     public AntigravityCliProvider(CommandExecutor commandExecutor, Duration timeout) {
@@ -30,14 +32,20 @@ public final class AntigravityCliProvider extends CliAiProvider {
             command.add("--conversation");
             command.add(id);
         });
-        command.add("--print");
         if (request.permissionMode() == PermissionMode.unrestricted) {
             command.add("--dangerously-skip-permissions");
         }
-        if (request.outputFormat() == OutputFormat.streamJson) {
-            command.add("--output-format");
-            command.add("stream-json");
-        }
+        command.add("--output-format");
+        command.add(request.outputFormat() == OutputFormat.streamJson ? "stream-json" : "json");
+        command.add("--print");
+        command.add(request.effectivePrompt());
         return command;
+    }
+
+    @Override
+    protected AiResponse parseResponse(ModelTarget target, AiRequest request, CommandResult result) {
+        StructuredCliOutput.Parsed parsed = StructuredCliOutput.parse(
+                result.standardOutput(), request.sessionId().orElse(null));
+        return new AiResponse(parsed.text(), backendId(target), result.duration(), target, parsed.sessionId());
     }
 }

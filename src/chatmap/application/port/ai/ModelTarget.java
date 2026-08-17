@@ -13,6 +13,17 @@ public enum ModelTarget {
     codex("codex", "Codex", ProviderId.codexCli, "default", Source.codexCliPrompt),
     agy("agy", "Antigravity", ProviderId.antigravityCli, "default", Source.agyCliPrompt),
     ollama("ollama", "Ollama llama3", ProviderId.ollama, "llama3", Source.ollamaPrompt),
+    ollamaGlm4("ollama-glm4", "Ollama GLM4 9B", ProviderId.ollama, "glm4:9b", Source.ollamaPrompt),
+    ollamaQwenOpenclaw("ollama-qwen-openclaw", "Ollama Qwen OpenClaw", ProviderId.ollama,
+            "qwen-openclaw:latest", Source.ollamaPrompt),
+    ollamaQwenOpenclawLarge("ollama-qwen-openclaw-large", "Ollama Qwen OpenClaw Large", ProviderId.ollama,
+            "qwen-openclaw-large:latest", Source.ollamaPrompt),
+    ollamaQwenOpenclawSmall("ollama-qwen-openclaw-small", "Ollama Qwen OpenClaw Small", ProviderId.ollama,
+            "qwen-openclaw-small:latest", Source.ollamaPrompt),
+    ollamaQwen2532k("ollama-qwen2.5-32k", "Ollama Qwen 2.5 32K", ProviderId.ollama,
+            "qwen2.5-32k:latest", Source.ollamaPrompt),
+    ollamaQwen257b("ollama-qwen2.5-7b", "Ollama Qwen 2.5 7B", ProviderId.ollama,
+            "qwen2.5:7b", Source.ollamaPrompt),
     jshell("jshell", "JShell Harness", ProviderId.jshell, "default", Source.jshellHarness);
 
     private final String id;

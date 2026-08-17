@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AiResponse.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.port.ai</a> &gt; <span class="el_source">AiResponse.java</span></div><h1>AiResponse.java</h1><pre class="source lang-java linenums">package chatmap.application.port.ai;
+
+import java.time.Duration;
+import java.util.Objects;
+import java.util.Optional;
+
+public record AiResponse(
+        String text,
+        BackendId backendId,
+        Duration duration,
+        ProviderId providerId,
+        String targetId,
+        String providerModelName,
+        String providerSessionId
+) {
+<span class="fc" id="L16">    public AiResponse {</span>
+<span class="fc" id="L17">        Objects.requireNonNull(text, &quot;text&quot;);</span>
+<span class="fc" id="L18">        Objects.requireNonNull(backendId, &quot;backendId&quot;);</span>
+<span class="fc" id="L19">        Objects.requireNonNull(duration, &quot;duration&quot;);</span>
+<span class="fc" id="L20">        Objects.requireNonNull(providerId, &quot;providerId&quot;);</span>
+<span class="fc" id="L21">        Objects.requireNonNull(targetId, &quot;targetId&quot;);</span>
+<span class="fc" id="L22">        Objects.requireNonNull(providerModelName, &quot;providerModelName&quot;);</span>
+<span class="fc" id="L23">    }</span>
+
+    public AiResponse(String text, BackendId backendId, Duration duration, ModelTarget target, String providerSessionId) {
+<span class="fc" id="L26">        this(text, backendId, duration, target.providerId(), target.id(), target.providerModelName(), providerSessionId);</span>
+<span class="fc" id="L27">    }</span>
+
+    public Optional&lt;String&gt; sessionId() {
+<span class="pc bpc" id="L30" title="1 of 2 branches missed.">        return Optional.ofNullable(providerSessionId).filter(value -&gt; !value.isBlank());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

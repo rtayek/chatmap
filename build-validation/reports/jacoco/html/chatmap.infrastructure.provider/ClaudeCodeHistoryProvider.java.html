@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClaudeCodeHistoryProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider</a> &gt; <span class="el_source">ClaudeCodeHistoryProvider.java</span></div><h1>ClaudeCodeHistoryProvider.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider;
+
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
+import chatmap.domain.Source;
+
+/**
+ * Reads the most recent Claude Code CLI session as a chat.
+ *
+ * Sessions live at {@code ~/.claude/projects/&lt;encoded-project&gt;/&lt;session-id&gt;.jsonl}
+ * — one JSONL file per session, one JSON object per line. Verified against real
+ * files on disk: message lines have {@code type} = &quot;user&quot;/&quot;assistant&quot; and a
+ * {@code message} object whose {@code content} is either a plain string or an
+ * array of blocks (text / thinking / tool_use / tool_result). Only the text
+ * content of user and assistant turns is kept; thinking and tool blocks are
+ * transcript noise, not conversation. A title comes from an {@code ai-title} or
+ * {@code custom-title} line when present.
+ */
+public final class ClaudeCodeHistoryProvider extends LocalCliHistoryProvider {
+
+    public ClaudeCodeHistoryProvider() {
+<span class="nc" id="L28">        this(Path.of(System.getProperty(&quot;user.home&quot;), &quot;.claude&quot;, &quot;projects&quot;));</span>
+<span class="nc" id="L29">    }</span>
+
+    ClaudeCodeHistoryProvider(Path root) {
+<span class="nc" id="L32">        super(root, Source.claudeCode, &quot;Claude Code (CLI)&quot;, &quot;Claude Code session&quot;);</span>
+<span class="nc" id="L33">    }</span>
+
+    @Override
+    Parsed parseSession(Path file) {
+<span class="nc" id="L37">        return parse(file);</span>
+    }
+
+    static Parsed parse(Path file) {
+<span class="nc" id="L41">        List&lt;ClaudeTurn&gt; turns = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L42">        String title = null;</span>
+<span class="nc bnc" id="L43" title="All 2 branches missed.">        for (String line : SessionLines.read(file)) {</span>
+<span class="nc" id="L44">            JsonObject o = SessionLines.asObject(line);</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">            if (o == null) {</span>
+<span class="nc" id="L46">                continue;</span>
+            }
+<span class="nc" id="L48">            String type = SessionLines.string(o, &quot;type&quot;);</span>
+<span class="nc bnc" id="L49" title="All 2 branches missed.">            if (&quot;ai-title&quot;.equals(type)) {</span>
+<span class="nc" id="L50">                title = SessionLines.string(o, &quot;aiTitle&quot;);</span>
+<span class="nc bnc" id="L51" title="All 4 branches missed.">            } else if (&quot;custom-title&quot;.equals(type) &amp;&amp; title == null) {</span>
+<span class="nc" id="L52">                title = SessionLines.string(o, &quot;customTitle&quot;);</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">            } else if (chatmap.domain.MessageRole.user.dbValue().equals(type)</span>
+<span class="nc bnc" id="L54" title="All 2 branches missed.">                    || chatmap.domain.MessageRole.assistant.dbValue().equals(type)) {</span>
+<span class="nc bnc" id="L55" title="All 4 branches missed.">                JsonObject message = o.has(&quot;message&quot;) &amp;&amp; o.get(&quot;message&quot;).isJsonObject()</span>
+<span class="nc" id="L56">                        ? o.getAsJsonObject(&quot;message&quot;) : null;</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">                if (message == null) {</span>
+<span class="nc" id="L58">                    continue;</span>
+                }
+<span class="nc" id="L60">                String text = textContent(message.get(&quot;content&quot;));</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">                if (!text.isBlank()) {</span>
+<span class="nc" id="L62">                    turns.add(new ClaudeTurn(type, text.strip()));</span>
+                }
+            }
+<span class="nc" id="L65">        }</span>
+<span class="nc" id="L66">        return new Parsed(title, turns);</span>
+    }
+
+    /** Text of a Claude Code content value: the string itself, or the concatenated text blocks. */
+    private static String textContent(JsonElement content) {
+<span class="nc bnc" id="L71" title="All 4 branches missed.">        if (content == null || content.isJsonNull()) {</span>
+<span class="nc" id="L72">            return &quot;&quot;;</span>
+        }
+<span class="nc bnc" id="L74" title="All 2 branches missed.">        if (content.isJsonPrimitive()) {</span>
+<span class="nc" id="L75">            return content.getAsString();</span>
+        }
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (content.isJsonArray()) {</span>
+<span class="nc" id="L78">            StringBuilder sb = new StringBuilder();</span>
+<span class="nc bnc" id="L79" title="All 2 branches missed.">            for (JsonElement element : content.getAsJsonArray()) {</span>
+<span class="nc bnc" id="L80" title="All 2 branches missed.">                if (!element.isJsonObject()) {</span>
+<span class="nc" id="L81">                    continue;</span>
+                }
+<span class="nc" id="L83">                JsonObject block = element.getAsJsonObject();</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">                if (&quot;text&quot;.equals(SessionLines.string(block, &quot;type&quot;))) {</span>
+<span class="nc" id="L85">                    String text = SessionLines.string(block, &quot;text&quot;);</span>
+<span class="nc bnc" id="L86" title="All 4 branches missed.">                    if (text != null &amp;&amp; !text.isBlank()) {</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">                        if (sb.length() &gt; 0) {</span>
+<span class="nc" id="L88">                            sb.append(&quot;\n\n&quot;);</span>
+                        }
+<span class="nc" id="L90">                        sb.append(text);</span>
+                    }
+                }
+<span class="nc" id="L93">            }</span>
+<span class="nc" id="L94">            return sb.toString();</span>
+        }
+<span class="nc" id="L96">        return &quot;&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

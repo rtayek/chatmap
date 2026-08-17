@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Facets.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">junk</a> &gt; <span class="el_source">Facets.java</span></div><h1>Facets.java</h1><pre class="source lang-java linenums">package junk;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+interface Facet {
+}
+
+<span class="nc" id="L9">enum Dog3 implements Facet {</span>
+<span class="nc" id="L10">	collie, mongrel;</span>
+}
+
+<span class="nc" id="L13">enum PC3 implements Facet {</span>
+<span class="nc" id="L14">	pc, mac;</span>
+}
+
+<span class="nc" id="L17">class Chat3 {</span>
+<span class="nc" id="L18">	final Set&lt;Facet&gt; facets = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L19">	String chat = &quot;my dog ate my mac but i still had my pc.&quot;;</span>
+}
+
+<span class="nc" id="L22">public class Facets {</span>
+	public static void main(String[] args) {
+<span class="nc" id="L24">		Chat3 chat = new Chat3();</span>
+<span class="nc" id="L25">		chat.facets.add(Dog3.collie);</span>
+<span class="nc" id="L26">		chat.facets.add(PC3.pc);</span>
+<span class="nc" id="L27">		chat.facets.add(PC3.mac);</span>
+
+<span class="nc" id="L29">		System.out.println(chat.facets);</span>
+<span class="nc" id="L30">		System.out.println(&quot;facet mac: &quot; + chat.facets.contains(PC3.mac));</span>
+
+<span class="nc bnc" id="L32" title="All 2 branches missed.">		for (Facet facet : chat.facets) {</span>
+<span class="nc" id="L33">			System.out.println(facet.getClass().getSimpleName() + &quot;.&quot; + facet);</span>
+<span class="nc" id="L34">		}</span>
+		
+<span class="nc" id="L36">		System.out.println(chat.chat);</span>
+<span class="nc" id="L37">	}</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

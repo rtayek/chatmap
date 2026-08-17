@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>GeminiWebAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">GeminiWebAdapter.java</span></div><h1>GeminiWebAdapter.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+
+import chatmap.infrastructure.provider.SessionLines;
+
+import chatmap.infrastructure.provider.ClaudeTurn;
+import chatmap.infrastructure.provider.ProviderIdentity;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.LongConsumer;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+/**
+ * Reads the most recent gemini.google.com conversation over CDP.
+ *
+ * Verified against the live logged-in page (2026-08-10). Gemini is an Angular app;
+ * conversations are {@code [data-test-id=&quot;conversation&quot;]} sidebar items, each
+ * wrapping a single {@code &lt;a href=&quot;/app/&lt;id&gt;&quot;&gt;} with a durable per-conversation
+ * URL. That URL is read directly off the anchor and navigated to — no click is
+ * needed to discover or open a conversation. (An earlier version of this adapter
+ * clicked the sidebar item itself to navigate, which doesn't work: {@code .click()}
+ * on a wrapper element dispatches a click that bubbles up through ancestors, not
+ * down into a child anchor, so the router never saw a real anchor click and the
+ * page silently stayed on the zero-state &quot;new chat&quot; screen.) Once loaded, turns are
+ * {@code &lt;user-query&gt;} and {@code &lt;model-response&gt;} custom elements; the clean text
+ * is in {@code .query-text} (user) and {@code .markdown} (model) — the elements'
+ * own innerText carries &quot;You said…&quot; / &quot;Gemini said…&quot; accessibility prefixes, which
+ * reading the inner content elements avoids.
+ */
+public final class GeminiWebAdapter extends CdpTranscriptAdapter {
+<span class="nc" id="L43">    private static final Logger LOG = Log.of(GeminiWebAdapter.class);</span>
+
+
+    static final String BASE_URL = &quot;https://gemini.google.com/app&quot;;
+    static final String SIDEBAR_URI_PREFIX = &quot;gemini-sidebar-index:&quot;;
+    private static final String CONVERSATION_SELECTOR = &quot;[data-test-id='conversation']&quot;;
+    private static final String CONVERSATION_LINK_SELECTOR = &quot;[data-test-id='conversation'] a&quot;;
+    private static final int STABLE_TERMINAL_ROUNDS = 3;
+    private static final int MAX_GEMINI_DISCOVERY_ROUNDS = 40;
+    private static final long GEMINI_SCROLL_WAIT_MILLIS = 1_000;
+
+    GeminiWebAdapter(String cdpUrl) {
+<span class="nc" id="L55">        super(cdpUrl);</span>
+<span class="nc" id="L56">    }</span>
+
+    @Override
+    String siteBaseUrl() {
+<span class="nc" id="L60">        return BASE_URL;</span>
+    }
+
+    @Override
+    List&lt;ChatWebSummary&gt; listChats(CdpPage page) {
+<span class="nc" id="L65">        CdpPage.CdpLocator links = ensureSidebarExpanded(page);</span>
+<span class="nc" id="L66">        CdpPage.CdpLocator conversations = page.locator(CONVERSATION_SELECTOR);</span>
+<span class="nc" id="L67">        int count = links.count();</span>
+<span class="nc" id="L68">        List&lt;ChatWebSummary&gt; summaries = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        for (int i = 0; i &lt; count; i++) {</span>
+<span class="nc" id="L70">            CdpPage.CdpLocator conversation = conversations.nth(i);</span>
+<span class="nc" id="L71">            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(conversation));</span>
+<span class="nc" id="L72">            String uri = durableUrl(links.nth(i).getAttribute(&quot;href&quot;));</span>
+<span class="nc" id="L73">            summaries.add(new ChatWebSummary(</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">                    title == null || title.isBlank() ? &quot;Gemini conversation&quot; : title,</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">                    uri == null ? SIDEBAR_URI_PREFIX + i : uri));</span>
+        }
+<span class="nc" id="L77">        return summaries;</span>
+    }
+
+    @Override
+    Optional&lt;OpenConversation&gt; openLatestConversation() {
+<span class="nc" id="L82">        CdpPage page = openPage(siteBaseUrl());</span>
+        try {
+<span class="nc" id="L84">            CdpPage.CdpLocator links = ensureSidebarExpanded(page);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (links.count() == 0) {</span>
+<span class="nc" id="L86">                return Optional.empty();</span>
+            }
+<span class="nc" id="L88">            CdpPage.CdpLocator newest = page.locator(CONVERSATION_SELECTOR).first();</span>
+<span class="nc" id="L89">            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.safeInnerText(newest));</span>
+<span class="nc" id="L90">            String url = durableUrl(links.first().getAttribute(&quot;href&quot;));</span>
+<span class="nc bnc" id="L91" title="All 2 branches missed.">            if (url != null) {</span>
+<span class="nc" id="L92">                page.navigate(url);</span>
+            } else {
+                // No durable href found; fall back to clicking the anchor directly (not the
+                // wrapper -- see the class doc for why that distinction matters).
+<span class="nc" id="L96">                page.locator(CONVERSATION_LINK_SELECTOR).first().click(6000);</span>
+<span class="nc" id="L97">                page.waitForTimeout(3000);</span>
+            }
+<span class="nc" id="L99">            return Optional.of(new OpenConversation(</span>
+<span class="nc bnc" id="L100" title="All 4 branches missed.">                    title == null || title.isBlank() ? &quot;Gemini conversation&quot; : title, page.url(), page));</span>
+<span class="nc" id="L101">        } catch (Exception unavailable) {</span>
+<span class="nc" id="L102">            return Optional.empty();</span>
+        }
+    }
+
+    @Override
+    Optional&lt;OpenConversation&gt; openConversation(ChatWebSummary summary) {
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (summary.url().startsWith(SIDEBAR_URI_PREFIX)) {</span>
+<span class="nc" id="L109">            CdpPage page = openPage(siteBaseUrl());</span>
+<span class="nc" id="L110">            int index = Integer.parseInt(summary.url().substring(SIDEBAR_URI_PREFIX.length()));</span>
+<span class="nc" id="L111">            CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);</span>
+<span class="nc bnc" id="L112" title="All 2 branches missed.">            if (index &gt;= links.count()) {</span>
+<span class="nc" id="L113">                return Optional.empty();</span>
+            }
+<span class="nc" id="L115">            links.nth(index).click(6000);</span>
+<span class="nc" id="L116">            page.waitForTimeout(3000);</span>
+<span class="nc" id="L117">            return Optional.of(new OpenConversation(summary.title(), page.url(), page));</span>
+        }
+<span class="nc" id="L119">        return super.openConversation(summary);</span>
+    }
+
+    @Override
+    String identityOf(ChatWebSummary summary) {
+<span class="nc" id="L124">        return ProviderIdentity.geminiWebId(summary.url());</span>
+    }
+
+    @Override
+    String providerLabel() {
+<span class="nc" id="L129">        return &quot;Gemini (web)&quot;;</span>
+    }
+
+    /**
+     * Gemini's conversation list is driven by Google's undocumented, version-coupled
+     * {@code batchexecute} RPC protocol rather than a stable REST-style endpoint.
+     * Discovery therefore stays in the authenticated sidebar, but unlike the generic
+     * fallback it positively identifies the nearest scrollable ancestor of a known
+     * conversation row and requires repeated terminal-position observations.
+     */
+    @Override
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+<span class="nc" id="L143">            page = openPage(siteBaseUrl());</span>
+<span class="nc" id="L144">        } catch (Exception unopenable) {</span>
+<span class="nc" id="L145">            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));</span>
+<span class="nc" id="L146">        }</span>
+        try {
+<span class="nc" id="L148">            ensureSidebarExpanded(page);</span>
+<span class="nc" id="L149">        } catch (RuntimeException ignored) {</span>
+            // The provider-specific probe below distinguishes login, explicit empty,
+            // unhydrated, and selector-failure states more accurately than this
+            // best-effort expansion helper can.
+<span class="nc" id="L153">        }</span>
+<span class="nc" id="L154">        return discoverConversationList(</span>
+<span class="nc" id="L155">                () -&gt; inspectConversationList(page),</span>
+<span class="nc" id="L156">                page::waitForTimeout,</span>
+                MAX_GEMINI_DISCOVERY_ROUNDS);
+    }
+
+    @FunctionalInterface
+    interface ConversationListProbe {
+        ConversationListState inspect();
+    }
+
+    record ConversationListState(
+            List&lt;ChatWebSummary&gt; conversations,
+            boolean authenticatedUi,
+            boolean explicitEmptyState,
+            boolean loginPage,
+            boolean containerFound,
+            boolean atTerminal,
+            boolean moved) {
+
+<span class="nc" id="L174">        ConversationListState {</span>
+<span class="nc" id="L175">            conversations = List.copyOf(conversations);</span>
+<span class="nc" id="L176">        }</span>
+    }
+
+    static WebDiscoveryResult discoverConversationList(
+            ConversationListProbe probe, LongConsumer sleeper, int maxRounds) {
+<span class="nc" id="L181">        Map&lt;String, ChatWebSummary&gt; discovered = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L182">        int stableTerminalRounds = 0;</span>
+<span class="nc" id="L183">        boolean authenticatedUiSeen = false;</span>
+<span class="nc" id="L184">        boolean containerSeen = false;</span>
+
+<span class="nc bnc" id="L186" title="All 2 branches missed.">        for (int round = 0; round &lt; maxRounds; round++) {</span>
+            ConversationListState state;
+            try {
+<span class="nc" id="L189">                state = probe.inspect();</span>
+<span class="nc" id="L190">            } catch (RuntimeException selectorFailure) {</span>
+<span class="nc" id="L191">                return new WebDiscoveryResult(&quot;Gemini (web)&quot;, List.copyOf(discovered.values()),</span>
+                        DiscoveryStatus.incomplete,
+<span class="nc" id="L193">                        &quot;Could not inspect the Gemini conversation sidebar: &quot; + diagnostic(selectorFailure));</span>
+<span class="nc" id="L194">            }</span>
+
+<span class="nc bnc" id="L196" title="All 2 branches missed.">            if (state.loginPage()) {</span>
+<span class="nc" id="L197">                return new WebDiscoveryResult(&quot;Gemini (web)&quot;, List.copyOf(discovered.values()),</span>
+                        DiscoveryStatus.unavailable,
+                        &quot;Gemini displayed a login page instead of the authenticated conversation sidebar.&quot;);
+            }
+
+<span class="nc" id="L202">            authenticatedUiSeen |= state.authenticatedUi();</span>
+<span class="nc" id="L203">            containerSeen |= state.containerFound();</span>
+<span class="nc" id="L204">            int before = discovered.size();</span>
+<span class="nc bnc" id="L205" title="All 2 branches missed.">            for (ChatWebSummary summary : state.conversations()) {</span>
+<span class="nc" id="L206">                String id = ProviderIdentity.geminiWebId(summary.url());</span>
+<span class="nc bnc" id="L207" title="All 4 branches missed.">                if (id != null &amp;&amp; !id.isBlank()) {</span>
+<span class="nc" id="L208">                    discovered.putIfAbsent(id, summary);</span>
+                }
+<span class="nc" id="L210">            }</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">            boolean grew = discovered.size() &gt; before;</span>
+
+<span class="nc bnc" id="L213" title="All 4 branches missed.">            if (state.authenticatedUi() &amp;&amp; state.explicitEmptyState()</span>
+<span class="nc bnc" id="L214" title="All 4 branches missed.">                    &amp;&amp; state.conversations().isEmpty() &amp;&amp; discovered.isEmpty()) {</span>
+<span class="nc" id="L215">                return new WebDiscoveryResult(&quot;Gemini (web)&quot;, List.of(), DiscoveryStatus.complete,</span>
+                        &quot;Complete for the normal conversation list exposed by the authenticated Gemini sidebar: &quot;
+                        + &quot;the provider's explicit empty state was present. Archived or hidden conversations are &quot;
+                        + &quot;outside this verified scope.&quot;);
+            }
+
+<span class="nc bnc" id="L221" title="All 4 branches missed.">            if (state.authenticatedUi() &amp;&amp; state.containerFound()</span>
+<span class="nc bnc" id="L222" title="All 6 branches missed.">                    &amp;&amp; state.atTerminal() &amp;&amp; !state.moved() &amp;&amp; !grew) {</span>
+<span class="nc" id="L223">                stableTerminalRounds++;</span>
+            } else {
+<span class="nc" id="L225">                stableTerminalRounds = 0;</span>
+            }
+
+<span class="nc bnc" id="L228" title="All 2 branches missed.">            if (stableTerminalRounds &gt;= STABLE_TERMINAL_ROUNDS) {</span>
+<span class="nc" id="L229">                return new WebDiscoveryResult(&quot;Gemini (web)&quot;, List.copyOf(discovered.values()),</span>
+                        DiscoveryStatus.complete,
+                        &quot;Complete for the normal conversation list exposed by the authenticated Gemini sidebar: &quot;
+                        + &quot;its nearest scrollable ancestor remained at the terminal position with no new durable &quot;
+                        + &quot;conversation ids across &quot; + STABLE_TERMINAL_ROUNDS + &quot; checks. Archived or hidden &quot;
+                        + &quot;conversations are outside this verified scope.&quot;);
+            }
+<span class="nc" id="L236">            sleeper.accept(GEMINI_SCROLL_WAIT_MILLIS);</span>
+        }
+
+        String reason;
+<span class="nc bnc" id="L240" title="All 2 branches missed.">        if (!authenticatedUiSeen) {</span>
+<span class="nc" id="L241">            reason = &quot;The authenticated Gemini conversation UI or an explicit empty state could not be verified; &quot;</span>
+                    + &quot;the sidebar may be logged out, unhydrated, or its selectors may have changed.&quot;;
+<span class="nc bnc" id="L243" title="All 2 branches missed.">        } else if (!containerSeen) {</span>
+<span class="nc" id="L244">            reason = &quot;The Gemini conversation rows were found, but their conversation-list scroll container &quot;</span>
+                    + &quot;could not be identified.&quot;;
+        } else {
+<span class="nc" id="L247">            reason = &quot;The Gemini conversation-list container did not remain at a verified terminal position &quot;</span>
+                    + &quot;before the discovery iteration limit (&quot; + maxRounds + &quot;).&quot;;
+        }
+<span class="nc" id="L250">        return new WebDiscoveryResult(&quot;Gemini (web)&quot;, List.copyOf(discovered.values()),</span>
+                DiscoveryStatus.incomplete, reason);
+    }
+
+    private static ConversationListState inspectConversationList(CdpPage page) {
+<span class="nc" id="L255">        Object raw = page.evaluate(&quot;() =&gt; {&quot;</span>
+<span class="nc" id="L256">                + &quot;const rowSelector=&quot; + CdpPage.jsString(CONVERSATION_SELECTOR) + &quot;;&quot;</span>
+                + &quot;const rows=[...document.querySelectorAll(rowSelector)];&quot;
+                + &quot;const login=location.hostname==='accounts.google.com'&quot;
+                + &quot;||!!document.querySelector('a[href*=\&quot;accounts.google.com/ServiceLogin\&quot;]');&quot;
+                + &quot;const empty=!!document.querySelector(&quot;
+                + &quot;'[data-test-id=\&quot;conversation-list-empty-state\&quot;],'&quot;
+                + &quot;+'[data-test-id=\&quot;empty-conversation-list\&quot;]');&quot;
+                + &quot;let container=null;&quot;
+                + &quot;if(rows.length){for(let p=rows[0].parentElement;p;p=p.parentElement){&quot;
+                + &quot;const y=getComputedStyle(p).overflowY;&quot;
+                + &quot;if((y==='auto'||y==='scroll'||y==='overlay')&amp;&amp;p.clientHeight&gt;0){container=p;break;}}}&quot;
+                + &quot;let before=0,after=0,terminal=false;&quot;
+                + &quot;if(container){before=container.scrollTop;const max=Math.max(0,container.scrollHeight-container.clientHeight);&quot;
+                + &quot;terminal=before&gt;=max-2;container.scrollTop=max;after=container.scrollTop;}&quot;
+                + &quot;const chats=rows.map((row,index)=&gt;{const a=row.querySelector('a[href]');&quot;
+                + &quot;return {title:(row.innerText||'').trim(),href:a?a.href:null,index:index};});&quot;
+                + &quot;return JSON.stringify({chats:chats,authenticated:rows.length&gt;0||empty,empty:empty,login:login,&quot;
+                + &quot;container:!!container,terminal:terminal,moved:after&gt;before+1});&quot;
+                + &quot;}&quot;);
+<span class="nc bnc" id="L275" title="All 2 branches missed.">        return parseConversationListState(raw == null ? &quot;{}&quot; : raw.toString());</span>
+    }
+
+    private static ConversationListState parseConversationListState(String json) {
+        try {
+<span class="nc" id="L280">            JsonObject root = JsonParser.parseString(json).getAsJsonObject();</span>
+<span class="nc" id="L281">            List&lt;ChatWebSummary&gt; chats = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L282" title="All 4 branches missed.">            if (root.has(&quot;chats&quot;) &amp;&amp; root.get(&quot;chats&quot;).isJsonArray()) {</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">                for (JsonElement element : root.getAsJsonArray(&quot;chats&quot;)) {</span>
+<span class="nc bnc" id="L284" title="All 2 branches missed.">                    if (!element.isJsonObject()) {</span>
+<span class="nc" id="L285">                        continue;</span>
+                    }
+<span class="nc" id="L287">                    JsonObject chat = element.getAsJsonObject();</span>
+<span class="nc" id="L288">                    String href = SessionLines.string(chat, &quot;href&quot;);</span>
+<span class="nc" id="L289">                    String url = durableUrl(href);</span>
+<span class="nc bnc" id="L290" title="All 2 branches missed.">                    if (url == null) {</span>
+<span class="nc" id="L291">                        continue;</span>
+                    }
+<span class="nc" id="L293">                    String title = SessionLines.string(chat, &quot;title&quot;);</span>
+<span class="nc" id="L294">                    chats.add(new ChatWebSummary(</span>
+<span class="nc bnc" id="L295" title="All 4 branches missed.">                            title == null || title.isBlank() ? &quot;Gemini conversation&quot; : title, url));</span>
+<span class="nc" id="L296">                }</span>
+            }
+<span class="nc" id="L298">            return new ConversationListState(chats,</span>
+<span class="nc" id="L299">                    booleanField(root, &quot;authenticated&quot;), booleanField(root, &quot;empty&quot;),</span>
+<span class="nc" id="L300">                    booleanField(root, &quot;login&quot;), booleanField(root, &quot;container&quot;),</span>
+<span class="nc" id="L301">                    booleanField(root, &quot;terminal&quot;), booleanField(root, &quot;moved&quot;));</span>
+<span class="nc" id="L302">        } catch (RuntimeException malformed) {</span>
+<span class="nc" id="L303">            throw new IllegalStateException(&quot;Malformed Gemini conversation-list probe response&quot;, malformed);</span>
+        }
+    }
+
+    private static boolean booleanField(JsonObject object, String name) {
+<span class="nc bnc" id="L308" title="All 4 branches missed.">        return object.has(name) &amp;&amp; object.get(name).isJsonPrimitive()</span>
+<span class="nc bnc" id="L309" title="All 2 branches missed.">                &amp;&amp; object.getAsJsonPrimitive(name).isBoolean()</span>
+<span class="nc bnc" id="L310" title="All 2 branches missed.">                &amp;&amp; object.get(name).getAsBoolean();</span>
+    }
+
+    /** The absolute, durable conversation URL for a sidebar anchor's {@code href}, or null. */
+    private static String durableUrl(String href) {
+<span class="nc bnc" id="L315" title="All 4 branches missed.">        if (href == null || href.isBlank()) {</span>
+<span class="nc" id="L316">            return null;</span>
+        }
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        String url = href.startsWith(&quot;http&quot;) ? href : &quot;https://gemini.google.com&quot; + href;</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">        return ProviderIdentity.geminiWebId(url) == null ? null : url;</span>
+    }
+
+    @Override
+    List&lt;ClaudeTurn&gt; readTurns(CdpPage page) {
+<span class="nc" id="L324">        Objects.requireNonNull(page, &quot;page&quot;);</span>
+        try {
+<span class="nc" id="L326">            page.waitForSelector(&quot;user-query, model-response&quot;, 5000);</span>
+<span class="nc" id="L327">        } catch (Exception ignored) {</span>
+<span class="nc" id="L328">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L329">        }</span>
+
+        // Read each turn's clean content element (avoids the a11y &quot;You said&quot;/&quot;Gemini said&quot; prefix).
+<span class="nc" id="L332">        Object raw = page.evaluate(&quot;() =&gt; {&quot;</span>
+                + &quot;const out=[];&quot;
+                + &quot;document.querySelectorAll('user-query, model-response').forEach(n=&gt;{&quot;
+                + &quot;const isUser=n.tagName.toLowerCase()==='user-query';&quot;
+                + &quot;const c=isUser?(n.querySelector('.query-text')||n)&quot;
+                + &quot;:(n.querySelector('.markdown, message-content')||n);&quot;
+                // Strip Gemini's screen-reader &quot;You said&quot; / &quot;Gemini said&quot; turn prefix.
+                + &quot;const text=(c.innerText||'').trim().replace(/^(You said|Gemini said)\\s+/i,'');&quot;
+                + &quot;out.push({role:isUser?'user':'assistant',text});});&quot;
+                + &quot;return JSON.stringify(out);}&quot;);
+<span class="nc bnc" id="L342" title="All 2 branches missed.">        return parseTurnsJson(raw == null ? &quot;[]&quot; : raw.toString());</span>
+    }
+
+    /** Parses a {@code [{role,text},...]} JSON array into turns. Browser-free, so testable. */
+    static List&lt;ClaudeTurn&gt; parseTurnsJson(String json) {
+<span class="nc" id="L347">        List&lt;ClaudeTurn&gt; turns = new ArrayList&lt;&gt;();</span>
+        try {
+<span class="nc" id="L349">            JsonElement root = JsonParser.parseString(json);</span>
+<span class="nc bnc" id="L350" title="All 2 branches missed.">            if (!root.isJsonArray()) {</span>
+<span class="nc" id="L351">                return turns;</span>
+            }
+<span class="nc bnc" id="L353" title="All 2 branches missed.">            for (JsonElement element : root.getAsJsonArray()) {</span>
+<span class="nc bnc" id="L354" title="All 2 branches missed.">                if (!element.isJsonObject()) {</span>
+<span class="nc" id="L355">                    continue;</span>
+                }
+<span class="nc" id="L357">                JsonObject o = element.getAsJsonObject();</span>
+<span class="nc" id="L358">                String role = SessionLines.string(o, &quot;role&quot;);</span>
+<span class="nc" id="L359">                String text = SessionLines.string(o, &quot;text&quot;);</span>
+<span class="nc bnc" id="L360" title="All 4 branches missed.">                if (text == null || text.isBlank()) {</span>
+<span class="nc" id="L361">                    continue;</span>
+                }
+<span class="nc bnc" id="L363" title="All 2 branches missed.">                if (!chatmap.domain.MessageRole.user.dbValue().equals(role)</span>
+<span class="nc bnc" id="L364" title="All 2 branches missed.">                        &amp;&amp; !chatmap.domain.MessageRole.assistant.dbValue().equals(role)) {</span>
+<span class="nc" id="L365">                    continue;</span>
+                }
+<span class="nc" id="L367">                turns.add(new ClaudeTurn(role, text.strip()));</span>
+<span class="nc" id="L368">            }</span>
+<span class="nc" id="L369">        } catch (RuntimeException ignored) {</span>
+<span class="nc" id="L370">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L371">        }</span>
+<span class="nc" id="L372">        return turns;</span>
+    }
+
+    /**
+     * Returns a locator for the sidebar rows' anchors, expanding the sidebar first if needed.
+     *
+     * The {@code [data-test-id=&quot;conversation&quot;]} wrappers render as soon as the list itself
+     * mounts, but when the side nav is collapsed to its icon rail (aria-label &quot;Open sidebar&quot;,
+     * verified live) each row is just Angular comment placeholders with no {@code &lt;a href&gt;}
+     * inside -- the wrapper count alone is not a reliable &quot;ready&quot; signal. Clicking the nav's
+     * menu button expands it and populates the anchors.
+     */
+    private static CdpPage.CdpLocator ensureSidebarExpanded(CdpPage page) {
+<span class="nc" id="L385">        CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);</span>
+<span class="nc bnc" id="L386" title="All 2 branches missed.">        if (links.count() &gt; 0) {</span>
+<span class="nc" id="L387">            return links;</span>
+        }
+<span class="nc" id="L389">        page.locator(&quot;chat-app-side-nav-menu-button button, button[aria-label*='menu' i]&quot;)</span>
+<span class="nc" id="L390">                .first().click(4000);</span>
+<span class="nc" id="L391">        links = awaitLinksHydrated(page);</span>
+<span class="nc bnc" id="L392" title="All 2 branches missed.">        if (links.count() &gt; 0) {</span>
+<span class="nc" id="L393">            return links;</span>
+        }
+        // CdpBrowserConnection.openPage() reuses any already-open tab whose URL contains ours --
+        // for a bare &quot;/app&quot; base URL that's *any* open conversation tab -- and skips navigate()
+        // on reuse. A tab left mid-glitch (observed live: Gemini's own sidebar showing &quot;Couldn't
+        // connect&quot; after a background cookie-rotation) then never gets a fresh load and sits
+        // stuck. Force one here as a last resort.
+<span class="nc" id="L400">        page.navigate(BASE_URL);</span>
+<span class="nc" id="L401">        return awaitLinksHydrated(page);</span>
+    }
+
+    /** Polls for the sidebar anchors to populate (bounded), rather than a fixed blind sleep. */
+    private static CdpPage.CdpLocator awaitLinksHydrated(CdpPage page) {
+<span class="nc" id="L406">        CdpPage.CdpLocator links = page.locator(CONVERSATION_LINK_SELECTOR);</span>
+<span class="nc" id="L407">        long deadline = System.nanoTime() + Duration.ofSeconds(6).toNanos();</span>
+<span class="nc bnc" id="L408" title="All 2 branches missed.">        while (System.nanoTime() &lt; deadline) {</span>
+<span class="nc bnc" id="L409" title="All 2 branches missed.">            if (links.count() &gt; 0) {</span>
+<span class="nc" id="L410">                return links;</span>
+            }
+<span class="nc" id="L412">            page.waitForTimeout(150);</span>
+<span class="nc" id="L413">            links = page.locator(CONVERSATION_LINK_SELECTOR);</span>
+        }
+<span class="nc" id="L415">        return links;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

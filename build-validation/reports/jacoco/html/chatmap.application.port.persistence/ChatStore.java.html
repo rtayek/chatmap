@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.port.persistence</a> &gt; <span class="el_source">ChatStore.java</span></div><h1>ChatStore.java</h1><pre class="source lang-java linenums">package chatmap.application.port.persistence;
+
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import chatmap.domain.Chat;
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.Source;
+
+/** Application-facing persistence operations for chats. */
+public interface ChatStore {
+
+    TransactionManager transactions();
+
+    Chat insert(Chat chat) throws SQLException;
+
+    Optional&lt;Chat&gt; findById(long id) throws SQLException;
+
+    List&lt;Chat&gt; findAll() throws SQLException;
+
+    Optional&lt;Chat&gt; findMostRecent() throws SQLException;
+
+    void assignProject(long id, Long projectId) throws SQLException;
+
+    List&lt;Chat&gt; findByProject(long projectId) throws SQLException;
+
+    List&lt;Chat&gt; findByTag(long tagId) throws SQLException;
+
+    Optional&lt;Chat&gt; findByExternalIdentity(Source source, String externalConversationId) throws SQLException;
+
+    Optional&lt;Chat&gt; findByPromptSession(String providerId, String modelTargetId, String providerSessionId)
+            throws SQLException;
+
+    List&lt;String&gt; findPromptSessions(String providerId, String modelTargetId) throws SQLException;
+
+    Map&lt;String, Long&gt; findImportedIdsByExternalIdentity(Collection&lt;ConversationCandidate&gt; candidates)
+            throws SQLException;
+
+    Optional&lt;Chat&gt; findBySourceAndContentHash(Source source, String contentHash) throws SQLException;
+
+    Chat updateImportMetadata(long id, String title, String sourceUri, String contentHash,
+            String sourceUpdatedAt, String lastImportedAt) throws SQLException;
+
+    Chat updateFromSource(long id, Source source, String title, String createdAt, String updatedAt,
+            String externalConversationId, String sourceUri, String contentHash,
+            String sourceUpdatedAt, String lastImportedAt) throws SQLException;
+
+    boolean isUniqueConstraintError(SQLException failure);
+
+    static String identityKey(Source source, String externalConversationId) {
+<span class="nc" id="L54">        return source.dbValue() + &quot;\u001f&quot; + externalConversationId;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

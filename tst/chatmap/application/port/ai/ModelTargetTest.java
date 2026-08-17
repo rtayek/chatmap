@@ -51,7 +51,10 @@ final class ModelTargetTest {
 
     @Test
     void enumOrderDefinesDisplayOrder() {
-        assertEquals(List.of("claude", "codex", "agy", "ollama", "jshell"),
+        assertEquals(List.of("claude", "codex", "agy", "ollama", "ollama-glm4",
+                "ollama-qwen-openclaw", "ollama-qwen-openclaw-large",
+                "ollama-qwen-openclaw-small", "ollama-qwen2.5-32k",
+                "ollama-qwen2.5-7b", "jshell"),
                 java.util.Arrays.stream(ModelTarget.values()).map(ModelTarget::id).toList());
     }
 }

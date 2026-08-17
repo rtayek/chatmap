@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MarkdownImporter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.importer</a> &gt; <span class="el_source">MarkdownImporter.java</span></div><h1>MarkdownImporter.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.importer;
+
+import chatmap.application.model.ImportedChat;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.regex.Pattern;
+
+import chatmap.domain.Chat;
+import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
+import chatmap.domain.Source;
+
+/** Imports Markdown as a transcript when role prefixes are present. */
+<span class="nc" id="L15">public final class MarkdownImporter {</span>
+
+<span class="nc" id="L17">    private static final Pattern roleLine = Pattern.compile(</span>
+            &quot;^\\s*(user|assistant|system):.*$&quot;,
+            Pattern.CASE_INSENSITIVE);
+
+    public ImportedChat importMarkdown(String markdown, String fallbackTitle, String importedAt) {
+<span class="nc" id="L22">        Objects.requireNonNull(markdown, &quot;markdown&quot;);</span>
+<span class="nc" id="L23">        Objects.requireNonNull(fallbackTitle, &quot;fallbackTitle&quot;);</span>
+<span class="nc" id="L24">        Objects.requireNonNull(importedAt, &quot;importedAt&quot;);</span>
+
+<span class="nc" id="L26">        Chat chat = Chat.builder()</span>
+<span class="nc" id="L27">                .source(Source.markdown)</span>
+<span class="nc" id="L28">                .title(deriveTitle(markdown, fallbackTitle))</span>
+<span class="nc" id="L29">                .importedAt(importedAt)</span>
+<span class="nc" id="L30">                .build();</span>
+<span class="nc" id="L31">        List&lt;Message&gt; messages = RolePrefixedTranscriptParser.parse(markdownWithoutTitleHeading(markdown));</span>
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        if (messages.isEmpty()) {</span>
+<span class="nc" id="L33">            messages = List.of(new Message(0, 0, MessageRole.unknown, markdown, 0, null, null));</span>
+        }
+<span class="nc" id="L35">        return new ImportedChat(chat, messages);</span>
+    }
+
+    private static String deriveTitle(String markdown, String fallbackTitle) {
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        for (String line : markdown.split(&quot;\\R&quot;)) {</span>
+<span class="nc" id="L40">            String trimmed = line.trim();</span>
+<span class="nc bnc" id="L41" title="All 4 branches missed.">            if (trimmed.startsWith(&quot;# &quot;) &amp;&amp; !trimmed.substring(2).isBlank()) {</span>
+<span class="nc" id="L42">                return trimmed.substring(2).trim();</span>
+            }
+        }
+<span class="nc" id="L45">        return fallbackTitle;</span>
+    }
+
+    private static String markdownWithoutTitleHeading(String markdown) {
+<span class="nc" id="L49">        String[] lines = markdown.split(&quot;\\R&quot;, -1);</span>
+<span class="nc" id="L50">        int firstRoleLine = firstRoleLine(lines);</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        for (int i = 0; i &lt; lines.length; i++) {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">            if (i &gt; firstRoleLine) {</span>
+<span class="nc" id="L53">                break;</span>
+            }
+<span class="nc" id="L55">            String trimmed = lines[i].trim();</span>
+<span class="nc bnc" id="L56" title="All 4 branches missed.">            if (trimmed.startsWith(&quot;# &quot;) &amp;&amp; !trimmed.substring(2).isBlank()) {</span>
+<span class="nc" id="L57">                int next = i + 1;</span>
+<span class="nc bnc" id="L58" title="All 4 branches missed.">                while (next &lt; lines.length &amp;&amp; lines[next].isBlank()) {</span>
+<span class="nc" id="L59">                    next++;</span>
+                }
+<span class="nc" id="L61">                return joinWithoutRange(lines, i, next);</span>
+            }
+        }
+<span class="nc" id="L64">        return markdown;</span>
+    }
+
+    private static int firstRoleLine(String[] lines) {
+<span class="nc bnc" id="L68" title="All 2 branches missed.">        for (int i = 0; i &lt; lines.length; i++) {</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">            if (roleLine.matcher(lines[i]).matches()) {</span>
+<span class="nc" id="L70">                return i;</span>
+            }
+        }
+<span class="nc" id="L73">        return lines.length - 1;</span>
+    }
+
+    private static String joinWithoutRange(String[] lines, int fromInclusive, int toExclusive) {
+<span class="nc" id="L77">        StringBuilder result = new StringBuilder();</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        for (int i = 0; i &lt; lines.length; i++) {</span>
+<span class="nc bnc" id="L79" title="All 4 branches missed.">            if (i &gt;= fromInclusive &amp;&amp; i &lt; toExclusive) {</span>
+<span class="nc" id="L80">                continue;</span>
+            }
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            if (!result.isEmpty()) {</span>
+<span class="nc" id="L83">                result.append('\n');</span>
+            }
+<span class="nc" id="L85">            result.append(lines[i]);</span>
+        }
+<span class="nc" id="L87">        return result.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

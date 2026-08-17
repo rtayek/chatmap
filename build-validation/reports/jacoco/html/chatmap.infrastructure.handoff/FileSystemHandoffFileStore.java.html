@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileSystemHandoffFileStore.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.handoff</a> &gt; <span class="el_source">FileSystemHandoffFileStore.java</span></div><h1>FileSystemHandoffFileStore.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.handoff;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Comparator;
+import java.util.List;
+
+import chatmap.application.port.handoff.HandoffFileStore;
+import chatmap.application.port.handoff.HandoffFileStoreException;
+
+/** Real {@code java.nio.file}-backed implementation of {@link HandoffFileStore}. */
+<span class="nc" id="L17">public final class FileSystemHandoffFileStore implements HandoffFileStore {</span>
+<span class="nc" id="L18">    private static final Logger LOG = Log.of(FileSystemHandoffFileStore.class);</span>
+
+
+    @Override
+    public List&lt;Path&gt; listDirectories(Path dir) {
+<span class="nc" id="L23">        try (var entries = Files.list(dir)) {</span>
+<span class="nc" id="L24">            return entries.filter(Files::isDirectory).toList();</span>
+<span class="nc" id="L25">        } catch (IOException failure) {</span>
+<span class="nc" id="L26">            throw new HandoffFileStoreException(&quot;Could not list directories in &quot; + dir, failure);</span>
+        }
+    }
+
+    @Override
+    public List&lt;Path&gt; listFiles(Path dir) {
+<span class="nc" id="L32">        try (var entries = Files.list(dir)) {</span>
+<span class="nc" id="L33">            return entries.filter(Files::isRegularFile).toList();</span>
+<span class="nc" id="L34">        } catch (IOException failure) {</span>
+<span class="nc" id="L35">            throw new HandoffFileStoreException(&quot;Could not list files in &quot; + dir, failure);</span>
+        }
+    }
+
+    @Override
+    public String readString(Path file) {
+        try {
+<span class="nc" id="L42">            return Files.readString(file);</span>
+<span class="nc" id="L43">        } catch (IOException failure) {</span>
+<span class="nc" id="L44">            throw new HandoffFileStoreException(&quot;Could not read &quot; + file, failure);</span>
+        }
+    }
+
+    @Override
+    public void writeString(Path file, String content) {
+        try {
+<span class="nc" id="L51">            Files.writeString(file, content);</span>
+<span class="nc" id="L52">        } catch (IOException failure) {</span>
+<span class="nc" id="L53">            throw new HandoffFileStoreException(&quot;Could not write &quot; + file, failure);</span>
+<span class="nc" id="L54">        }</span>
+<span class="nc" id="L55">    }</span>
+
+    @Override
+    public Path archive(Path source, String archiveSubdirName) {
+<span class="nc" id="L59">        Path parent = source.getParent();</span>
+<span class="nc" id="L60">        Path fileName = source.getFileName();</span>
+<span class="nc bnc" id="L61" title="All 4 branches missed.">        if (parent == null || fileName == null) {</span>
+<span class="nc" id="L62">            throw new HandoffFileStoreException(</span>
+                    &quot;File has no parent directory or file name to archive: &quot; + source,
+                    new IOException(&quot;not archivable: &quot; + source));
+        }
+        try {
+<span class="nc" id="L67">            Path archiveDir = parent.resolve(archiveSubdirName);</span>
+<span class="nc" id="L68">            Files.createDirectories(archiveDir);</span>
+<span class="nc" id="L69">            Path destination = archiveDir.resolve(fileName);</span>
+<span class="nc" id="L70">            Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);</span>
+<span class="nc" id="L71">            return destination;</span>
+<span class="nc" id="L72">        } catch (IOException failure) {</span>
+<span class="nc" id="L73">            throw new HandoffFileStoreException(&quot;Could not archive &quot; + source, failure);</span>
+        }
+    }
+
+    @Override
+    public Path allocateWorktreeDirectory(String branchHint) {
+        try {
+<span class="nc" id="L80">            Path placeholder = Files.createTempDirectory(&quot;chatmap-handoff-&quot; + sanitize(branchHint) + &quot;-&quot;);</span>
+            // git worktree add requires the target path not already exist.
+<span class="nc" id="L82">            Files.delete(placeholder);</span>
+<span class="nc" id="L83">            return placeholder;</span>
+<span class="nc" id="L84">        } catch (IOException failure) {</span>
+<span class="nc" id="L85">            throw new HandoffFileStoreException(&quot;Could not allocate a worktree path&quot;, failure);</span>
+        }
+    }
+
+    private static String sanitize(String branch) {
+<span class="nc" id="L90">        return branch.replaceAll(&quot;[^A-Za-z0-9._-]&quot;, &quot;-&quot;);</span>
+    }
+
+    @Override
+    public void deleteRecursively(Path root) {
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (!Files.exists(root)) {</span>
+<span class="nc" id="L96">            return;</span>
+        }
+<span class="nc" id="L98">        try (var paths = Files.walk(root)) {</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {</span>
+<span class="nc" id="L100">                Files.deleteIfExists(path);</span>
+<span class="nc" id="L101">            }</span>
+<span class="nc" id="L102">        } catch (IOException ignored) {</span>
+<span class="nc" id="L103">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L104">        }</span>
+<span class="nc" id="L105">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

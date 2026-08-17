@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="chatmap.infrastructure.ai.OtherCliBackendsTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-08-17T21:46:56.784Z" hostname="I7-13700F" time="0.066">
+  <properties/>
+  <testcase name="codexCliBackendSupportsResumeSession()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.029"/>
+  <testcase name="ollamaCliProviderPipesPromptToStandardInput()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.001"/>
+  <testcase name="multipleOllamaTargetsShareOneProviderAndKeepDistinctModelNames()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.001"/>
+  <testcase name="agyCliBackendSupportsResumeSession()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.001"/>
+  <testcase name="ollamaCliProviderRejectsSystemPrompts()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.003"/>
+  <testcase name="codexExecutableSelectionIsPlatformSpecific()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.001"/>
+  <testcase name="codexUsesItsOwnPermissionSyntaxAndRejectsUnsupportedStreamJson()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.001"/>
+  <testcase name="codexCliBackendConstructsCorrectCommand()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.025"/>
+  <testcase name="agySupportsPermissionAndStreamJsonUsingItsOwnFlags()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.001"/>
+  <testcase name="sessionListingDoesNotShellOutForCodexAntigravityOrOllama()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.0"/>
+  <testcase name="agyCliBackendConstructsCorrectCommand()" classname="chatmap.infrastructure.ai.OtherCliBackendsTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

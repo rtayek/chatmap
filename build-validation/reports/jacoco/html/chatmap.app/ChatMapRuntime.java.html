@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatMapRuntime.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.app</a> &gt; <span class="el_source">ChatMapRuntime.java</span></div><h1>ChatMapRuntime.java</h1><pre class="source lang-java linenums">package chatmap.app;
+
+import java.nio.file.Files;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+
+import org.slf4j.Logger;
+
+import chatmap.app.bootstrap.ChatMapPaths;
+import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
+import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
+import chatmap.app.bootstrap.LoggingBootstrap;
+import chatmap.app.ServiceGraph;
+import chatmap.infrastructure.persistence.sqlite.Database;
+import chatmap.presentation.ui.ChatMapController;
+import chatmap.application.support.Log;
+
+/**
+ * Owns application paths, database/service wiring, background work, and shutdown.
+ *
+ * Background work runs on two independent lanes so a slow AI-backend or live web/CDP
+ * fetch (can run for minutes) never queues behind, or blocks, a fast DB-only action
+ * (search, chat-list load, import) and vice versa. Both lanes are single-threaded:
+ * storage access already serializes structurally inside the repositories
+ * (synchronized(conn), see ChatRepository), so neither lane needs more than one
+ * thread for correctness -- this only removes the queueing they forced on each other
+ * by sharing one thread.
+ */
+public final class ChatMapRuntime implements AutoCloseable {
+<span class="nc" id="L33">    private static final Duration shutdownTimeout = Duration.ofSeconds(5);</span>
+
+    private final Logger log;
+    private final ResolvedPaths paths;
+    private final ServiceGraph services;
+    private final ChatMapController controller;
+    private final SerializedTaskExecutor dbExecutor;
+    private final SerializedTaskExecutor backendExecutor;
+
+    private ChatMapRuntime(Logger log, ResolvedPaths paths, ServiceGraph services, ChatMapController controller,
+<span class="nc" id="L43">            SerializedTaskExecutor dbExecutor, SerializedTaskExecutor backendExecutor) {</span>
+<span class="nc" id="L44">        this.log = log;</span>
+<span class="nc" id="L45">        this.paths = paths;</span>
+<span class="nc" id="L46">        this.services = services;</span>
+<span class="nc" id="L47">        this.controller = controller;</span>
+<span class="nc" id="L48">        this.dbExecutor = dbExecutor;</span>
+<span class="nc" id="L49">        this.backendExecutor = backendExecutor;</span>
+<span class="nc" id="L50">    }</span>
+
+    public static ChatMapRuntime open(List&lt;String&gt; rawArguments) throws Exception {
+<span class="nc" id="L53">        ParsedArguments parsedArguments = LoggingBootstrap.bootstrap(rawArguments, ChatMapRuntime::validateArguments);</span>
+<span class="nc" id="L54">        ResolvedPaths paths = parsedArguments.paths();</span>
+<span class="nc" id="L55">        Logger log = Log.of(ChatMapRuntime.class);</span>
+<span class="nc" id="L56">        log.info(ChatMapPaths.diagnostics(paths));</span>
+<span class="nc" id="L57">        Files.createDirectories(paths.homeDirectory());</span>
+
+<span class="nc" id="L59">        var connection = new Database(&quot;jdbc:sqlite:&quot; + paths.databasePath()).openAndInitialize();</span>
+        try {
+<span class="nc" id="L61">            ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create(), paths);</span>
+<span class="nc" id="L62">            SerializedTaskExecutor dbExecutor = new SerializedTaskExecutor(&quot;chatmap-db&quot;);</span>
+<span class="nc" id="L63">            SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor(&quot;chatmap-ai-backend&quot;);</span>
+<span class="nc" id="L64">            return new ChatMapRuntime(log, paths, services, new ChatMapController(services), dbExecutor,</span>
+                    backendExecutor);
+<span class="nc" id="L66">        } catch (Exception failure) {</span>
+            try {
+<span class="nc" id="L68">                connection.close();</span>
+<span class="nc" id="L69">            } catch (SQLException closeFailure) {</span>
+<span class="nc" id="L70">                failure.addSuppressed(closeFailure);</span>
+<span class="nc" id="L71">            }</span>
+<span class="nc" id="L72">            throw failure;</span>
+        }
+    }
+
+    private static void validateArguments(ParsedArguments parsedArguments) {
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        if (!parsedArguments.remainingArgs().isEmpty()) {</span>
+<span class="nc" id="L78">            throw new IllegalArgumentException(&quot;Usage: ChatMap [--home &lt;directory&gt;]&quot;);</span>
+        }
+<span class="nc" id="L80">    }</span>
+
+    public ResolvedPaths paths() {
+<span class="nc" id="L83">        return paths;</span>
+    }
+
+    public ChatMapController controller() {
+<span class="nc" id="L87">        return controller;</span>
+    }
+
+    /** Fast lane: DB-only work (search, list, import, project/tag operations). */
+    public Future&lt;?&gt; submit(Runnable task) {
+<span class="nc" id="L92">        return dbExecutor.submit(task);</span>
+    }
+
+    /** Fast lane: DB-only work (search, list, import, project/tag operations). */
+    public &lt;T&gt; Future&lt;T&gt; submit(Callable&lt;T&gt; task) {
+<span class="nc" id="L97">        return dbExecutor.submit(task);</span>
+    }
+
+    /** Slow lane: AI backend calls (summarize) and live provider fetches (web/CDP). */
+    public Future&lt;?&gt; submitBackendWork(Runnable task) {
+<span class="nc" id="L102">        return backendExecutor.submit(task);</span>
+    }
+
+    /** Slow lane: AI backend calls (summarize) and live provider fetches (web/CDP). */
+    public &lt;T&gt; Future&lt;T&gt; submitBackendWork(Callable&lt;T&gt; task) {
+<span class="nc" id="L107">        return backendExecutor.submit(task);</span>
+    }
+
+    @Override
+    public void close() throws Exception {
+<span class="nc" id="L112">        boolean dbStopped = dbExecutor.shutdownAndAwait(shutdownTimeout);</span>
+<span class="nc" id="L113">        boolean backendStopped = backendExecutor.shutdownAndAwait(shutdownTimeout);</span>
+<span class="nc bnc" id="L114" title="All 4 branches missed.">        if (dbStopped &amp;&amp; backendStopped) {</span>
+<span class="nc" id="L115">            services.close();</span>
+        } else {
+<span class="nc" id="L117">            log.warn(&quot;Background work did not stop in time; &quot;</span>
+                    + &quot;leaving the database connection for the JVM to release on exit.&quot;);
+        }
+<span class="nc" id="L120">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

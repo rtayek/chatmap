@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WebTranscripts.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">WebTranscripts.java</span></div><h1>WebTranscripts.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+
+import chatmap.infrastructure.provider.ClaudeTurn;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import chatmap.domain.Chat;
+import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
+import chatmap.domain.Source;
+import chatmap.application.model.ImportedChat;
+
+/**
+ * Browser-free helpers shared by the web transcript adapters/providers: merging
+ * turns, cleaning titles, and building an {@link ImportedChat}. Kept separate so
+ * the logic that most needs testing does not require a live browser.
+ */
+final class WebTranscripts {
+<span class="nc" id="L24">    private static final Logger LOG = Log.of(WebTranscripts.class);</span>
+
+
+    private WebTranscripts() {
+    }
+
+    /** Merges runs of same-role turns into one, so a multi-paragraph answer is one message. */
+    static List&lt;ClaudeTurn&gt; mergeConsecutiveSameRole(List&lt;ClaudeTurn&gt; turns) {
+<span class="nc" id="L32">        List&lt;ClaudeTurn&gt; merged = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L33" title="All 2 branches missed.">        for (ClaudeTurn turn : turns) {</span>
+<span class="nc bnc" id="L34" title="All 4 branches missed.">            if (!merged.isEmpty() &amp;&amp; merged.get(merged.size() - 1).role().equals(turn.role())) {</span>
+<span class="nc" id="L35">                ClaudeTurn previous = merged.remove(merged.size() - 1);</span>
+<span class="nc" id="L36">                merged.add(new ClaudeTurn(previous.role(), previous.text() + &quot;\n\n&quot; + turn.text()));</span>
+<span class="nc" id="L37">            } else {</span>
+<span class="nc" id="L38">                merged.add(turn);</span>
+            }
+<span class="nc" id="L40">        }</span>
+<span class="nc" id="L41">        return merged;</span>
+    }
+
+    /** Joins the distinct non-blank lines of a value, collapsing adjacent repeats (split titles). */
+    static String collapseRepeatedLines(String text) {
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        if (text == null) {</span>
+<span class="nc" id="L47">            return null;</span>
+        }
+<span class="nc" id="L49">        StringBuilder sb = new StringBuilder();</span>
+<span class="nc" id="L50">        String previous = null;</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        for (String line : text.split(&quot;\\R&quot;)) {</span>
+<span class="nc" id="L52">            String trimmed = line.strip();</span>
+<span class="nc bnc" id="L53" title="All 4 branches missed.">            if (trimmed.isEmpty() || trimmed.equals(previous)) {</span>
+<span class="nc" id="L54">                continue;</span>
+            }
+<span class="nc bnc" id="L56" title="All 2 branches missed.">            if (sb.length() &gt; 0) {</span>
+<span class="nc" id="L57">                sb.append(' ');</span>
+            }
+<span class="nc" id="L59">            sb.append(trimmed);</span>
+<span class="nc" id="L60">            previous = trimmed;</span>
+        }
+<span class="nc" id="L62">        return sb.toString();</span>
+    }
+
+    static String firstNonBlank(String... values) {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        for (String value : values) {</span>
+<span class="nc bnc" id="L67" title="All 4 branches missed.">            if (value != null &amp;&amp; !value.isBlank()) {</span>
+<span class="nc" id="L68">                return value;</span>
+            }
+        }
+<span class="nc" id="L71">        return null;</span>
+    }
+
+    static String safeInnerText(CdpPage.CdpLocator locator) {
+        try {
+<span class="nc" id="L76">            return locator.innerText();</span>
+<span class="nc" id="L77">        } catch (Exception ignored) {</span>
+<span class="nc" id="L78">            LOG.trace(&quot;Silenced exception reading innerText: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L79">            return null;</span>
+        }
+    }
+
+    /**
+     * Builds an {@link ImportedChat} directly from role-ordered turns (no Markdown
+     * intermediary). A blank title falls back to {@code fallbackTitle}.
+     */
+    static ImportedChat toImportedChat(String title, List&lt;ClaudeTurn&gt; turns, String importedAt,
+            String fallbackTitle) {
+<span class="nc" id="L89">        return toImportedChat(title, turns, importedAt, fallbackTitle, Source.markdown, null, null);</span>
+    }
+
+    static ImportedChat toImportedChat(String title, List&lt;ClaudeTurn&gt; turns, String importedAt,
+            String fallbackTitle, Source source, String externalConversationId, String sourceUri) {
+<span class="nc bnc" id="L94" title="All 4 branches missed.">        String chatTitle = (title == null || title.isBlank()) ? fallbackTitle : title.strip();</span>
+<span class="nc" id="L95">        Chat chat = Chat.builder()</span>
+<span class="nc" id="L96">                .source(source)</span>
+<span class="nc" id="L97">                .title(chatTitle)</span>
+<span class="nc" id="L98">                .importedAt(importedAt)</span>
+<span class="nc" id="L99">                .externalConversationId(externalConversationId)</span>
+<span class="nc" id="L100">                .sourceUri(sourceUri)</span>
+<span class="nc" id="L101">                .lastImportedAt(importedAt)</span>
+<span class="nc" id="L102">                .build();</span>
+<span class="nc" id="L103">        List&lt;Message&gt; messages = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L104">        int sequence = 0;</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">        for (ClaudeTurn turn : turns) {</span>
+<span class="nc" id="L106">            messages.add(new Message(0, 0, MessageRole.fromDbValue(turn.role()), turn.text(), sequence++, null, null));</span>
+<span class="nc" id="L107">        }</span>
+<span class="nc" id="L108">        return new ImportedChat(chat, messages);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

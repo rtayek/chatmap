@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatMapDialogs.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.ui</a> &gt; <span class="el_source">ChatMapDialogs.java</span></div><h1>ChatMapDialogs.java</h1><pre class="source lang-java linenums">package chatmap.presentation.ui;
+
+import java.util.Optional;
+
+import chatmap.domain.ConversationInventory;
+import javafx.scene.control.Alert;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextInputDialog;
+
+/** Helper methods for creating standard JavaFX modal dialogs in ChatMap. */
+public final class ChatMapDialogs {
+
+    private ChatMapDialogs() {
+    }
+
+    public static Optional&lt;String&gt; requestName(String title, String prompt) {
+<span class="nc" id="L17">        TextInputDialog dialog = new TextInputDialog();</span>
+<span class="nc" id="L18">        dialog.setTitle(title);</span>
+<span class="nc" id="L19">        dialog.setHeaderText(null);</span>
+<span class="nc" id="L20">        dialog.setContentText(prompt);</span>
+<span class="nc" id="L21">        return dialog.showAndWait();</span>
+    }
+
+    public static void showError(String header, String message) {
+<span class="nc" id="L25">        Alert alert = new Alert(Alert.AlertType.ERROR);</span>
+<span class="nc" id="L26">        alert.setTitle(&quot;ChatMap&quot;);</span>
+<span class="nc" id="L27">        alert.setHeaderText(header);</span>
+<span class="nc" id="L28">        alert.setContentText(message);</span>
+<span class="nc" id="L29">        alert.showAndWait();</span>
+<span class="nc" id="L30">    }</span>
+
+    public static void showConversationInventory(ConversationInventory inventory, int fontSize) {
+<span class="nc" id="L33">        TextArea text = new TextArea(ConversationInventoryFormatter.format(inventory));</span>
+<span class="nc" id="L34">        text.setEditable(false);</span>
+<span class="nc" id="L35">        text.setWrapText(false);</span>
+<span class="nc" id="L36">        text.setPrefColumnCount(110);</span>
+<span class="nc" id="L37">        text.setPrefRowCount(28);</span>
+<span class="nc" id="L38">        text.setStyle(&quot;-fx-font-size: &quot; + fontSize + &quot;pt;&quot;);</span>
+
+<span class="nc" id="L40">        Alert alert = new Alert(Alert.AlertType.INFORMATION);</span>
+<span class="nc" id="L41">        alert.setTitle(&quot;ChatMap&quot;);</span>
+<span class="nc" id="L42">        alert.setHeaderText(&quot;All discoverable conversations&quot;);</span>
+<span class="nc" id="L43">        alert.getDialogPane().setContent(text);</span>
+<span class="nc" id="L44">        alert.setResizable(true);</span>
+<span class="nc" id="L45">        alert.showAndWait();</span>
+<span class="nc" id="L46">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,14 +1,11 @@
 package chatmap.infrastructure.ai;
 
-import chatmap.application.port.ai.AiBackendException;
 import chatmap.application.port.ai.AiRequest;
 import chatmap.application.port.ai.AiResponse;
 import chatmap.application.port.ai.ModelTarget;
 import chatmap.application.port.ai.OutputFormat;
 import chatmap.application.port.ai.PermissionMode;
 import chatmap.application.port.ai.PromptProfile;
-
-import chatmap.application.port.command.CommandExecutionException;
 
 import chatmap.application.port.command.CommandResult;
 
@@ -44,24 +41,29 @@ final class ClaudeCliBackendTest {
 
     @Test
     void successfulOutputBecomesAiResponseText() {
-        executor.result = new CommandResult(0, "OK\n", "", Duration.ofMillis(12), false);
+        executor.result = new CommandResult(0,
+                "{\"type\":\"result\",\"session_id\":\"claude-session-123\",\"result\":\"OK\"}\n",
+                "", Duration.ofMillis(12), false);
 
         AiResponse response = backend.execute(ModelTarget.claude, AiRequest.of("Say exactly: OK"));
 
-        assertEquals("OK\n", response.text());
+        assertEquals("OK", response.text());
+        assertEquals("claude-session-123", response.sessionId().orElseThrow());
         assertEquals("Claude", response.backendId().value());
         assertEquals(Duration.ofMillis(12), response.duration());
     }
 
     @Test
-    void streamJsonSessionIdIsReturnedWhenProviderCreatesOne() {
+    void streamJsonSessionIdAndAssistantTextAreReturnedWhenProviderCreatesOne() {
         executor.result = new CommandResult(0,
-                "{\"type\":\"assistant\",\"session_id\":\"claude-session-123\",\"message\":\"OK\"}\n",
+                "{\"type\":\"system\",\"session_id\":\"claude-session-123\"}\n"
+                        + "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"OK\"}]}}\n",
                 "", Duration.ofMillis(12), false);
 
         AiResponse response = backend.execute(ModelTarget.claude,
                 AiRequest.of("Say exactly: OK").withOutputFormat(OutputFormat.streamJson));
 
+        assertEquals("OK", response.text());
         assertEquals("claude-session-123", response.sessionId().orElseThrow());
     }
 
@@ -72,7 +74,7 @@ final class ClaudeCliBackendTest {
 
         backend.execute(ModelTarget.claude, AiRequest.of(prompt));
 
-        assertEquals(List.of("claude", "-p"), executor.request.command());
+        assertEquals(List.of("claude", "-p", "--output-format", "json"), executor.request.command());
         assertEquals(prompt, executor.request.standardInput());
     }
 
@@ -82,7 +84,8 @@ final class ClaudeCliBackendTest {
 
         backend.execute(ModelTarget.claude, AiRequest.withSession("Continue work", "sess-123-abc"));
 
-        assertEquals(List.of("claude", "--resume", "sess-123-abc", "-p"), executor.request.command());
+        assertEquals(List.of("claude", "--resume", "sess-123-abc", "-p", "--output-format", "json"),
+                executor.request.command());
         assertEquals("Continue work", executor.request.standardInput());
     }
 
@@ -93,7 +96,7 @@ final class ClaudeCliBackendTest {
         backend.execute(ModelTarget.claude,
                 AiRequest.withProfile("Help me understand fractions", PromptProfile.guidedTeaching));
 
-        assertEquals(List.of("claude", "-p"), executor.request.command());
+        assertEquals(List.of("claude", "-p", "--output-format", "json"), executor.request.command());
         assertTrue(executor.request.standardInput().contains("[GUIDED_TEACHING mode]"));
         assertTrue(executor.request.standardInput().contains("Help the learner understand"));
         assertTrue(executor.request.standardInput().contains("Match any requested technical level"));
@@ -104,7 +107,8 @@ final class ClaudeCliBackendTest {
     void nonzeroCommandResultBecomesClearBackendFailure() {
         executor.result = new CommandResult(7, "", "bad credentials", Duration.ofMillis(2), false);
 
-        AiBackendException exception = assertThrows(AiBackendException.class,
+        chatmap.application.port.ai.AiBackendException exception = assertThrows(
+                chatmap.application.port.ai.AiBackendException.class,
                 () -> backend.execute(ModelTarget.claude, AiRequest.of("hello")));
 
         assertEquals("Claude exited with status 7: bad credentials", exception.getMessage());
@@ -115,7 +119,8 @@ final class ClaudeCliBackendTest {
     void timeoutIsReportedClearly() {
         executor.result = new CommandResult(-1, "", "partial", Duration.ofSeconds(5), true);
 
-        AiBackendException exception = assertThrows(AiBackendException.class,
+        chatmap.application.port.ai.AiBackendException exception = assertThrows(
+                chatmap.application.port.ai.AiBackendException.class,
                 () -> backend.execute(ModelTarget.claude, AiRequest.of("hello")));
 
         assertTrue(exception.getMessage().contains("timed out"));
@@ -126,7 +131,8 @@ final class ClaudeCliBackendTest {
     void stderrIsRetainedInFailureDiagnostics() {
         executor.result = new CommandResult(1, "partial", "provider error", Duration.ofMillis(4), false);
 
-        AiBackendException exception = assertThrows(AiBackendException.class,
+        chatmap.application.port.ai.AiBackendException exception = assertThrows(
+                chatmap.application.port.ai.AiBackendException.class,
                 () -> backend.execute(ModelTarget.claude, AiRequest.of("hello")));
 
         assertEquals("provider error", exception.commandResult().orElseThrow().standardError());
@@ -139,7 +145,8 @@ final class ClaudeCliBackendTest {
         backend.executeWithResult(ModelTarget.claude,
                 AiRequest.of("hello").withPermissionMode(PermissionMode.unrestricted));
 
-        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions"), executor.request.command());
+        assertEquals(List.of("claude", "-p", "--dangerously-skip-permissions", "--output-format", "json"),
+                executor.request.command());
     }
 
     @Test
@@ -148,7 +155,8 @@ final class ClaudeCliBackendTest {
 
         backend.executeWithResult(ModelTarget.claude, AiRequest.of("hello").withOutputFormat(OutputFormat.streamJson));
 
-        assertEquals(List.of("claude", "-p", "--output-format", "stream-json", "--verbose"), executor.request.command());
+        assertEquals(List.of("claude", "-p", "--output-format", "stream-json", "--verbose"),
+                executor.request.command());
     }
 
     @Test
@@ -157,7 +165,7 @@ final class ClaudeCliBackendTest {
 
         backend.execute(ModelTarget.claude, AiRequest.of("hello"));
 
-        assertEquals(List.of("claude", "-p"), executor.request.command());
+        assertEquals(List.of("claude", "-p", "--output-format", "json"), executor.request.command());
     }
 
     @Test
@@ -180,43 +188,18 @@ final class ClaudeCliBackendTest {
     }
 
     @Test
-    void listSessionsReturnsEmptyListForGenuinelyNoSessions() {
-        executor.result = new CommandResult(0, "", "", Duration.ofMillis(1), false);
-
+    void listSessionsIsNotALiveUndocumentedCliCall() {
         assertEquals(List.of(), backend.listSessions(ModelTarget.claude));
-    }
-
-    @Test
-    void listSessionsThrowsInsteadOfSwallowingANonzeroExit() {
-        executor.result = new CommandResult(1, "", "not authenticated", Duration.ofMillis(1), false);
-
-        AiBackendException exception = assertThrows(AiBackendException.class,
-                () -> backend.listSessions(ModelTarget.claude));
-
-        assertTrue(exception.getMessage().contains("not authenticated"), exception.getMessage());
-    }
-
-    @Test
-    void listSessionsThrowsInsteadOfSwallowingAStartupFailure() {
-        executor.toThrow = new CommandExecutionException("claude not found on PATH");
-
-        AiBackendException exception = assertThrows(AiBackendException.class,
-                () -> backend.listSessions(ModelTarget.claude));
-
-        assertTrue(exception.getMessage().contains("claude not found on PATH"), exception.getMessage());
+        assertNull(executor.request);
     }
 
     private static final class CapturingExecutor implements CommandExecutor {
         CommandRequest request;
         CommandResult result;
-        CommandExecutionException toThrow;
 
         @Override
         public CommandResult run(CommandRequest request) {
             this.request = request;
-            if (toThrow != null) {
-                throw toThrow;
-            }
             return result;
         }
     }

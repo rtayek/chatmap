@@ -14,6 +14,7 @@ import chatmap.application.port.command.CommandExecutor;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -53,13 +54,11 @@ public final class DefaultAiBackends {
 
     public static Map<String, AiBackend> legacyBackends(CommandExecutor executor, Duration timeout) {
         Map<ProviderId, AiProvider> providers = providers(executor, timeout);
-        return Map.of(
-                "claude", targetBackend(ModelTarget.claude, providers),
-                "codex", targetBackend(ModelTarget.codex, providers),
-                "agy", targetBackend(ModelTarget.agy, providers),
-                "ollama", targetBackend(ModelTarget.ollama, providers),
-                "jshell", targetBackend(ModelTarget.jshell, providers)
-        );
+        Map<String, AiBackend> backends = new LinkedHashMap<>();
+        for (ModelTarget target : ModelTarget.values()) {
+            backends.put(target.id(), targetBackend(target, providers));
+        }
+        return Collections.unmodifiableMap(backends);
     }
 
     private static AiBackend targetBackend(ModelTarget target, Map<ProviderId, AiProvider> providers) {

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CliBootstrap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.cli</a> &gt; <span class="el_source">CliBootstrap.java</span></div><h1>CliBootstrap.java</h1><pre class="source lang-java linenums">package chatmap.presentation.cli;
+
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.function.IntConsumer;
+
+import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
+import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
+import chatmap.app.bootstrap.LoggingBootstrap;
+import chatmap.app.ApplicationBootstrap;
+import chatmap.app.ServiceGraph;
+
+/** Shared bootstrapping helper for CLI entry points. */
+public final class CliBootstrap {
+
+    private CliBootstrap() {
+    }
+
+    /**
+     * A CLI's ChatMap home paths plus the shared {@link ServiceGraph}. Reach
+     * repositories and services through {@link #services()} — the wiring lives in
+     * exactly one place ({@link ServiceGraph#create}).
+     */
+<span class="nc" id="L24">    public record CliContext(ServiceGraph services, ResolvedPaths paths) implements AutoCloseable {</span>
+
+        @Override
+        public void close() throws SQLException {
+<span class="nc" id="L28">            services.close();</span>
+<span class="nc" id="L29">        }</span>
+    }
+
+    public static CliContext open(String[] args) throws IOException, SQLException {
+<span class="nc" id="L33">        return open(parse(args));</span>
+    }
+
+    public static ParsedArguments parse(String[] args) {
+<span class="nc" id="L37">        return LoggingBootstrap.bootstrap(args);</span>
+    }
+
+    /**
+     * Parses CLI arguments, printing {@code e.getMessage()} plus {@code usage}
+     * and exiting with status 1 on failure instead of throwing.
+     */
+    public static ParsedArguments parseOrExit(String[] args, String usage) {
+<span class="nc" id="L45">        return parseOrExit(args, usage, System::exit);</span>
+    }
+
+    static ParsedArguments parseOrExit(String[] args, String usage, IntConsumer exitHandler) {
+        try {
+<span class="nc" id="L50">            return parse(args);</span>
+<span class="nc" id="L51">        } catch (IllegalArgumentException e) {</span>
+<span class="nc" id="L52">            System.err.println(e.getMessage());</span>
+<span class="nc" id="L53">            exitWithUsage(usage, exitHandler);</span>
+<span class="nc" id="L54">            throw new AssertionError(&quot;unreachable&quot;);</span>
+        }
+    }
+
+    /** Prints {@code usage} to stderr and exits with status 1. */
+    public static void exitWithUsage(String usage) {
+<span class="nc" id="L60">        exitWithUsage(usage, System::exit);</span>
+<span class="nc" id="L61">    }</span>
+
+    static void exitWithUsage(String usage, IntConsumer exitHandler) {
+<span class="nc" id="L64">        System.err.println(usage);</span>
+<span class="nc" id="L65">        exitHandler.accept(1);</span>
+<span class="nc" id="L66">    }</span>
+
+    public static CliContext open(ParsedArguments parsedArguments) throws IOException, SQLException {
+<span class="nc" id="L69">        return open(parsedArguments, ServiceGraph.Integrations.none());</span>
+    }
+
+    public static CliContext open(ParsedArguments parsedArguments, ServiceGraph.Integrations integrations)
+            throws IOException, SQLException {
+<span class="nc" id="L74">        ResolvedPaths paths = parsedArguments.paths();</span>
+<span class="nc" id="L75">        return new CliContext(ApplicationBootstrap.open(paths, integrations), paths);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

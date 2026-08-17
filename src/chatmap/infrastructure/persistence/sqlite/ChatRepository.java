@@ -248,6 +248,29 @@ public final class ChatRepository implements ChatStore {
         });
     }
 
+    @Override
+    public List<String> findPromptSessions(String providerId, String modelTargetId) throws SQLException {
+        return locked(() -> {
+            if (providerId == null || providerId.isBlank() || modelTargetId == null || modelTargetId.isBlank()) {
+                return List.of();
+            }
+            String sql = "SELECT DISTINCT providerSessionId FROM chats "
+                    + "WHERE providerId = ? AND modelTargetId = ? AND providerSessionId IS NOT NULL "
+                    + "AND providerSessionId <> '' ORDER BY providerSessionId";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, providerId);
+                ps.setString(2, modelTargetId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    List<String> sessions = new ArrayList<>();
+                    while (rs.next()) {
+                        sessions.add(rs.getString("providerSessionId"));
+                    }
+                    return sessions;
+                }
+            }
+        });
+    }
+
     public Map<String, Long> findImportedIdsByExternalIdentity(
             Collection<ConversationCandidate> candidates) throws SQLException {
         return locked(() -> {

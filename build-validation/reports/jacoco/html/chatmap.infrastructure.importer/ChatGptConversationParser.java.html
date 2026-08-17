@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatGptConversationParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.importer</a> &gt; <span class="el_source">ChatGptConversationParser.java</span></div><h1>ChatGptConversationParser.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.importer;
+
+import chatmap.application.model.ImportedChat;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
+import chatmap.domain.Chat;
+import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
+import chatmap.domain.Source;
+
+/** Shared parsing of a single ChatGPT conversation object. */
+public final class ChatGptConversationParser {
+
+    private ChatGptConversationParser() {
+    }
+
+    public static ImportedChat parse(JsonObject conversation, String defaultTitle, String sourceUri, String importedAt) {
+<span class="nc" id="L30">        return parse(conversation, defaultTitle, sourceUri, importedAt, null);</span>
+    }
+
+    public static ImportedChat parse(JsonObject conversation, String defaultTitle, String sourceUri, String importedAt, ChatGptImportCounter counter) {
+<span class="nc" id="L34">        String externalId = firstString(conversation, &quot;conversation_id&quot;, &quot;id&quot;);</span>
+<span class="nc" id="L35">        JsonObject mapping = ChatGptMapping.object(conversation.get(&quot;mapping&quot;));</span>
+<span class="nc bnc" id="L36" title="All 4 branches missed.">        if (mapping == null || mapping.isEmpty()) {</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">            String fallbackId = externalId != null ? externalId : &quot;missing-id&quot;;</span>
+<span class="nc" id="L38">            Chat emptyChat = Chat.builder()</span>
+<span class="nc" id="L39">                    .source(Source.chatgptJson)</span>
+<span class="nc" id="L40">                    .title(stringOr(conversation.get(&quot;title&quot;), defaultTitle))</span>
+<span class="nc" id="L41">                    .importedAt(importedAt)</span>
+<span class="nc" id="L42">                    .externalConversationId(fallbackId)</span>
+<span class="nc" id="L43">                    .sourceUri(sourceUri)</span>
+<span class="nc" id="L44">                    .lastImportedAt(importedAt)</span>
+<span class="nc" id="L45">                    .build();</span>
+<span class="nc" id="L46">            return new ImportedChat(emptyChat, List.of());</span>
+        }
+
+<span class="nc" id="L49">        String title = stringOr(conversation.get(&quot;title&quot;), defaultTitle);</span>
+<span class="nc" id="L50">        String createdAt = ChatGptMapping.isoTimestamp(conversation.get(&quot;create_time&quot;));</span>
+<span class="nc" id="L51">        String updatedAt = ChatGptMapping.isoTimestamp(conversation.get(&quot;update_time&quot;));</span>
+<span class="nc" id="L52">        String currentNode = ChatGptMapping.string(conversation.get(&quot;current_node&quot;));</span>
+
+<span class="nc" id="L54">        List&lt;MessageDraft&gt; drafts = orderedDrafts(mapping, currentNode, counter);</span>
+<span class="nc" id="L55">        List&lt;Message&gt; messages = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        for (int i = 0; i &lt; drafts.size(); i++) {</span>
+<span class="nc" id="L57">            MessageDraft draft = drafts.get(i);</span>
+<span class="nc" id="L58">            messages.add(new Message(0, 0, draft.role(), draft.text(), i, draft.timestamp(), draft.rawJson()));</span>
+        }
+
+<span class="nc" id="L61">        Chat chat = Chat.builder()</span>
+<span class="nc" id="L62">                .source(Source.chatgptJson)</span>
+<span class="nc" id="L63">                .title(title)</span>
+<span class="nc" id="L64">                .createdAt(createdAt)</span>
+<span class="nc" id="L65">                .updatedAt(updatedAt)</span>
+<span class="nc" id="L66">                .importedAt(importedAt)</span>
+<span class="nc" id="L67">                .externalConversationId(externalId)</span>
+<span class="nc" id="L68">                .sourceUri(sourceUri)</span>
+<span class="nc" id="L69">                .sourceUpdatedAt(updatedAt)</span>
+<span class="nc" id="L70">                .lastImportedAt(importedAt)</span>
+<span class="nc" id="L71">                .build();</span>
+<span class="nc" id="L72">        return new ImportedChat(chat, messages);</span>
+    }
+
+    private static List&lt;MessageDraft&gt; orderedDrafts(JsonObject mapping, String currentNode, ChatGptImportCounter counter) {
+<span class="nc bnc" id="L76" title="All 4 branches missed.">        if (currentNode != null &amp;&amp; mapping.has(currentNode)) {</span>
+<span class="nc" id="L77">            return activePathDrafts(mapping, currentNode, counter);</span>
+        }
+<span class="nc" id="L79">        boolean hasParentPointers = mapping.entrySet().stream()</span>
+<span class="nc" id="L80">                .map(e -&gt; ChatGptMapping.object(e.getValue()))</span>
+<span class="nc" id="L81">                .filter(Objects::nonNull)</span>
+<span class="nc bnc" id="L82" title="All 4 branches missed.">                .anyMatch(n -&gt; n.has(&quot;parent&quot;) &amp;&amp; !n.get(&quot;parent&quot;).isJsonNull());</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (hasParentPointers) {</span>
+<span class="nc" id="L84">            String fallbackLeaf = fallbackLeaf(mapping);</span>
+<span class="nc bnc" id="L85" title="All 2 branches missed.">            if (fallbackLeaf != null) {</span>
+<span class="nc" id="L86">                return activePathDrafts(mapping, fallbackLeaf, counter);</span>
+            }
+        }
+<span class="nc" id="L89">        return flatDraftsByTime(mapping, counter);</span>
+    }
+
+    private static List&lt;MessageDraft&gt; activePathDrafts(JsonObject mapping, String startNodeId, ChatGptImportCounter counter) {
+<span class="nc" id="L93">        List&lt;MessageDraft&gt; drafts = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L94">        int position = 0;</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        for (JsonObject node : ChatGptMapping.activePath(mapping, startNodeId)) {</span>
+<span class="nc" id="L96">            MessageDraft draft = draftOf(ChatGptMapping.object(node.get(&quot;message&quot;)), position, counter);</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">            if (draft != null) {</span>
+<span class="nc" id="L98">                drafts.add(draft);</span>
+            }
+<span class="nc" id="L100">            position++;</span>
+<span class="nc" id="L101">        }</span>
+<span class="nc" id="L102">        return drafts;</span>
+    }
+
+    private static List&lt;MessageDraft&gt; flatDraftsByTime(JsonObject mapping, ChatGptImportCounter counter) {
+<span class="nc" id="L106">        List&lt;MessageDraft&gt; drafts = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L107">        int position = 0;</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        for (var entry : mapping.entrySet()) {</span>
+<span class="nc" id="L109">            JsonObject node = ChatGptMapping.object(entry.getValue());</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            MessageDraft draft = node == null ? null : draftOf(ChatGptMapping.object(node.get(&quot;message&quot;)), position, counter);</span>
+<span class="nc bnc" id="L111" title="All 2 branches missed.">            if (draft != null) {</span>
+<span class="nc" id="L112">                drafts.add(draft);</span>
+            }
+<span class="nc" id="L114">            position++;</span>
+<span class="nc" id="L115">        }</span>
+<span class="nc" id="L116">        drafts.sort(Comparator</span>
+<span class="nc bnc" id="L117" title="All 2 branches missed.">                .comparing((MessageDraft draft) -&gt; draft.timestamp() == null)</span>
+<span class="nc bnc" id="L118" title="All 2 branches missed.">                .thenComparing(draft -&gt; draft.timestamp() == null ? &quot;&quot; : draft.timestamp())</span>
+<span class="nc" id="L119">                .thenComparingInt(MessageDraft::position));</span>
+<span class="nc" id="L120">        return drafts;</span>
+    }
+
+    private static String fallbackLeaf(JsonObject mapping) {
+<span class="nc" id="L124">        Set&lt;String&gt; parents = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L125">        Map&lt;String, JsonObject&gt; nodes = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L126" title="All 2 branches missed.">        for (var entry : mapping.entrySet()) {</span>
+<span class="nc" id="L127">            JsonObject node = ChatGptMapping.object(entry.getValue());</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">            if (node == null) {</span>
+<span class="nc" id="L129">                continue;</span>
+            }
+<span class="nc" id="L131">            nodes.put(entry.getKey(), node);</span>
+<span class="nc" id="L132">            String parent = ChatGptMapping.string(node.get(&quot;parent&quot;));</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">            if (parent != null) {</span>
+<span class="nc" id="L134">                parents.add(parent);</span>
+            }
+<span class="nc" id="L136">        }</span>
+<span class="nc" id="L137">        return nodes.entrySet().stream()</span>
+<span class="nc bnc" id="L138" title="All 2 branches missed.">                .filter(entry -&gt; !parents.contains(entry.getKey()))</span>
+<span class="nc" id="L139">                .max(Comparator</span>
+<span class="nc" id="L140">                        .comparingDouble((Map.Entry&lt;String, JsonObject&gt; entry) -&gt; messageTime(entry.getValue()))</span>
+<span class="nc" id="L141">                        .thenComparing(Map.Entry::getKey))</span>
+<span class="nc" id="L142">                .map(Map.Entry::getKey)</span>
+<span class="nc" id="L143">                .orElse(null);</span>
+    }
+
+    private static double messageTime(JsonObject node) {
+<span class="nc" id="L147">        JsonObject message = ChatGptMapping.object(node.get(&quot;message&quot;));</span>
+<span class="nc bnc" id="L148" title="All 4 branches missed.">        if (message == null || !message.has(&quot;create_time&quot;)) {</span>
+<span class="nc" id="L149">            return Double.NEGATIVE_INFINITY;</span>
+        }
+<span class="nc" id="L151">        JsonElement value = message.get(&quot;create_time&quot;);</span>
+<span class="nc bnc" id="L152" title="All 6 branches missed.">        return value != null &amp;&amp; value.isJsonPrimitive() &amp;&amp; value.getAsJsonPrimitive().isNumber()</span>
+<span class="nc" id="L153">                ? value.getAsDouble()</span>
+<span class="nc" id="L154">                : Double.NEGATIVE_INFINITY;</span>
+    }
+
+    private static MessageDraft draftOf(JsonObject message, int position, ChatGptImportCounter counter) {
+<span class="nc bnc" id="L158" title="All 2 branches missed.">        if (message == null) {</span>
+<span class="nc" id="L159">            return null;</span>
+        }
+<span class="nc" id="L161">        String text = flattenText(message, counter);</span>
+<span class="nc bnc" id="L162" title="All 2 branches missed.">        if (text.isBlank()) {</span>
+<span class="nc" id="L163">            return null;</span>
+        }
+<span class="nc" id="L165">        return new MessageDraft(</span>
+<span class="nc" id="L166">                ChatGptMapping.mapRole(message),</span>
+                text,
+<span class="nc" id="L168">                ChatGptMapping.isoTimestamp(message.get(&quot;create_time&quot;)),</span>
+<span class="nc" id="L169">                message.toString(),</span>
+                position);
+    }
+
+    public static String flattenText(JsonObject message, ChatGptImportCounter counter) {
+<span class="nc" id="L174">        JsonObject content = ChatGptMapping.object(message.get(&quot;content&quot;));</span>
+<span class="nc bnc" id="L175" title="All 2 branches missed.">        if (content == null) {</span>
+<span class="nc bnc" id="L176" title="All 2 branches missed.">            if (counter != null) {</span>
+<span class="nc" id="L177">                counter.countUnsupported(&quot;missing_or_nonobject_content:&quot; + typeName(message.get(&quot;content&quot;)));</span>
+            }
+<span class="nc" id="L179">            return &quot;&quot;;</span>
+        }
+<span class="nc" id="L181">        List&lt;String&gt; parts = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L182" title="All 2 branches missed.">        String contentType = String.valueOf(content.get(&quot;content_type&quot;) == null</span>
+<span class="nc bnc" id="L183" title="All 2 branches missed.">                || content.get(&quot;content_type&quot;).isJsonNull()</span>
+<span class="nc" id="L184">                        ? &quot;unknown&quot;</span>
+<span class="nc" id="L185">                        : content.get(&quot;content_type&quot;).getAsString());</span>
+<span class="nc" id="L186">        JsonArray partArray = array(content.get(&quot;parts&quot;));</span>
+<span class="nc bnc" id="L187" title="All 2 branches missed.">        if (partArray != null) {</span>
+<span class="nc bnc" id="L188" title="All 2 branches missed.">            for (JsonElement part : partArray) {</span>
+<span class="nc bnc" id="L189" title="All 4 branches missed.">                if (part == null || part.isJsonNull()) {</span>
+<span class="nc" id="L190">                    continue;</span>
+                }
+<span class="nc bnc" id="L192" title="All 4 branches missed.">                if (part.isJsonPrimitive() &amp;&amp; part.getAsJsonPrimitive().isString()) {</span>
+<span class="nc" id="L193">                    addNonBlank(parts, part.getAsString());</span>
+<span class="nc bnc" id="L194" title="All 2 branches missed.">                } else if (part.isJsonObject()) {</span>
+<span class="nc" id="L195">                    JsonObject partObject = part.getAsJsonObject();</span>
+<span class="nc" id="L196">                    String text = ChatGptMapping.string(partObject.get(&quot;text&quot;));</span>
+<span class="nc bnc" id="L197" title="All 4 branches missed.">                    if (text == null || text.isBlank()) {</span>
+<span class="nc bnc" id="L198" title="All 2 branches missed.">                        if (counter != null) {</span>
+<span class="nc" id="L199">                            counter.countUnsupported(&quot;object_part:&quot; + contentType + &quot;:&quot;</span>
+<span class="nc" id="L200">                                    + discriminator(partObject) + &quot;:&quot; + keySignature(partObject));</span>
+                        }
+                    } else {
+<span class="nc" id="L203">                        addNonBlank(parts, text);</span>
+                    }
+<span class="nc" id="L205">                } else {</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">                    if (counter != null) {</span>
+<span class="nc" id="L207">                        counter.countUnsupported(&quot;non_string_part:&quot; + contentType + &quot;:&quot; + typeName(part));</span>
+                    }
+                }
+<span class="nc" id="L210">            }</span>
+        } else {
+<span class="nc" id="L212">            String text = ChatGptMapping.string(content.get(&quot;text&quot;));</span>
+<span class="nc bnc" id="L213" title="All 2 branches missed.">            if (text == null) {</span>
+<span class="nc bnc" id="L214" title="All 2 branches missed.">                if (counter != null) {</span>
+<span class="nc" id="L215">                    counter.countUnsupported(&quot;missing_parts_and_text:&quot; + contentType</span>
+<span class="nc" id="L216">                            + &quot;:parts=&quot; + typeName(content.get(&quot;parts&quot;))</span>
+<span class="nc" id="L217">                            + &quot;:text=&quot; + typeName(content.get(&quot;text&quot;)));</span>
+                }
+            } else {
+<span class="nc" id="L220">                addNonBlank(parts, text);</span>
+            }
+        }
+<span class="nc" id="L223">        return String.join(&quot;\n\n&quot;, parts);</span>
+    }
+
+    public static String firstString(JsonObject object, String... keys) {
+<span class="nc bnc" id="L227" title="All 2 branches missed.">        for (String key : keys) {</span>
+<span class="nc" id="L228">            String value = ChatGptMapping.string(object.get(key));</span>
+<span class="nc bnc" id="L229" title="All 4 branches missed.">            if (value != null &amp;&amp; !value.isBlank()) {</span>
+<span class="nc" id="L230">                return value;</span>
+            }
+        }
+<span class="nc" id="L233">        return null;</span>
+    }
+
+    private static String stringOr(JsonElement element, String fallback) {
+<span class="nc" id="L237">        String value = ChatGptMapping.string(element);</span>
+<span class="nc bnc" id="L238" title="All 4 branches missed.">        return value != null &amp;&amp; !value.isBlank() ? value : fallback;</span>
+    }
+
+    private static void addNonBlank(List&lt;String&gt; list, String text) {
+<span class="nc bnc" id="L242" title="All 4 branches missed.">        if (text != null &amp;&amp; !text.isBlank()) {</span>
+<span class="nc" id="L243">            list.add(text);</span>
+        }
+<span class="nc" id="L245">    }</span>
+
+    private static JsonArray array(JsonElement element) {
+<span class="nc bnc" id="L248" title="All 4 branches missed.">        return element != null &amp;&amp; element.isJsonArray() ? element.getAsJsonArray() : null;</span>
+    }
+
+    private static String typeName(JsonElement element) {
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        if (element == null) return &quot;null&quot;;</span>
+<span class="nc bnc" id="L253" title="All 2 branches missed.">        if (element.isJsonNull()) return &quot;json_null&quot;;</span>
+<span class="nc bnc" id="L254" title="All 2 branches missed.">        if (element.isJsonObject()) return &quot;object&quot;;</span>
+<span class="nc bnc" id="L255" title="All 2 branches missed.">        if (element.isJsonArray()) return &quot;array&quot;;</span>
+<span class="nc bnc" id="L256" title="All 2 branches missed.">        if (element.isJsonPrimitive()) return &quot;primitive&quot;;</span>
+<span class="nc" id="L257">        return &quot;unknown&quot;;</span>
+    }
+
+    private static String discriminator(JsonObject object) {
+<span class="nc bnc" id="L261" title="All 2 branches missed.">        for (String key : List.of(&quot;type&quot;, &quot;content_type&quot;, &quot;asset_pointer&quot;, &quot;name&quot;, &quot;kind&quot;)) {</span>
+<span class="nc" id="L262">            String value = ChatGptMapping.string(object.get(key));</span>
+<span class="nc bnc" id="L263" title="All 4 branches missed.">            if (value != null &amp;&amp; !value.isBlank()) {</span>
+<span class="nc" id="L264">                return key + &quot;=&quot; + value;</span>
+            }
+<span class="nc" id="L266">        }</span>
+<span class="nc" id="L267">        return &quot;none&quot;;</span>
+    }
+
+    private static String keySignature(JsonObject object) {
+<span class="nc" id="L271">        List&lt;String&gt; keys = new ArrayList&lt;&gt;(object.keySet());</span>
+<span class="nc" id="L272">        keys.sort(String::compareTo);</span>
+<span class="nc" id="L273">        return String.join(&quot;+&quot;, keys);</span>
+    }
+
+<span class="nc" id="L276">    private record MessageDraft(MessageRole role, String text, String timestamp, String rawJson, int position) {</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

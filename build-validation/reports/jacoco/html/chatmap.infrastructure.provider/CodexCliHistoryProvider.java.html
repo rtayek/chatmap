@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CodexCliHistoryProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider</a> &gt; <span class="el_source">CodexCliHistoryProvider.java</span></div><h1>CodexCliHistoryProvider.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider;
+
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.google.gson.JsonObject;
+
+import chatmap.domain.MessageRole;
+import chatmap.domain.Source;
+
+/**
+ * Reads the most recent Codex CLI session as a chat.
+ *
+ * Sessions live at {@code ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl} — one
+ * rollout file per session, JSONL, one event per line. Verified against real
+ * files on disk: the clean conversation turns are {@code event_msg} lines whose
+ * {@code payload.type} is {@code user_message} (a user turn) or
+ * {@code agent_message} (an assistant turn), each carrying the text in
+ * {@code payload.message}. Everything else — reasoning, function_call /
+ * function_call_output, the {@code response_item} developer/system messages,
+ * session metadata — is transcript machinery, not conversation, and is skipped.
+ */
+public final class CodexCliHistoryProvider extends LocalCliHistoryProvider {
+
+    public CodexCliHistoryProvider() {
+<span class="nc" id="L28">        this(Path.of(System.getProperty(&quot;user.home&quot;), &quot;.codex&quot;, &quot;sessions&quot;));</span>
+<span class="nc" id="L29">    }</span>
+
+    CodexCliHistoryProvider(Path root) {
+<span class="nc" id="L32">        super(root, Source.codexCli, &quot;Codex (CLI)&quot;, &quot;Codex CLI session&quot;);</span>
+<span class="nc" id="L33">    }</span>
+
+    @Override
+    Parsed parseSession(Path file) {
+<span class="nc" id="L37">        return new Parsed(null, parse(file));</span>
+    }
+
+    static List&lt;ClaudeTurn&gt; parse(Path file) {
+<span class="nc" id="L41">        List&lt;ClaudeTurn&gt; turns = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        for (String line : SessionLines.read(file)) {</span>
+<span class="nc" id="L43">            JsonObject o = SessionLines.asObject(line);</span>
+<span class="nc bnc" id="L44" title="All 6 branches missed.">            if (o == null || !o.has(&quot;payload&quot;) || !o.get(&quot;payload&quot;).isJsonObject()) {</span>
+<span class="nc" id="L45">                continue;</span>
+            }
+<span class="nc" id="L47">            JsonObject payload = o.getAsJsonObject(&quot;payload&quot;);</span>
+<span class="nc" id="L48">            String payloadType = SessionLines.string(payload, &quot;type&quot;);</span>
+<span class="nc" id="L49">            String text = SessionLines.string(payload, &quot;message&quot;);</span>
+            String role;
+<span class="nc bnc" id="L51" title="All 2 branches missed.">            if (&quot;user_message&quot;.equals(payloadType)) {</span>
+<span class="nc" id="L52">                role = MessageRole.user.dbValue();</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">            } else if (&quot;agent_message&quot;.equals(payloadType)) {</span>
+<span class="nc" id="L54">                role = MessageRole.assistant.dbValue();</span>
+            } else {
+                continue;
+            }
+<span class="nc bnc" id="L58" title="All 4 branches missed.">            if (text != null &amp;&amp; !text.isBlank()) {</span>
+<span class="nc" id="L59">                turns.add(new ClaudeTurn(role, text.strip()));</span>
+            }
+<span class="nc" id="L61">        }</span>
+<span class="nc" id="L62">        return turns;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

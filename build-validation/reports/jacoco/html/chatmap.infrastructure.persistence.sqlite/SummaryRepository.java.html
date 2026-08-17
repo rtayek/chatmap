@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SummaryRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.persistence.sqlite</a> &gt; <span class="el_source">SummaryRepository.java</span></div><h1>SummaryRepository.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.persistence.sqlite;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import chatmap.application.port.persistence.SummaryStore;
+import chatmap.domain.ChatSummary;
+
+/**
+ * CRUD for chat summaries. Holds a Connection supplied by the caller; does
+ * not own it. Summaries are purely additive: nothing here ever writes to
+ * chats or messages.
+ */
+public final class SummaryRepository implements SummaryStore {
+
+    private final Connection conn;
+
+<span class="nc" id="L24">    public SummaryRepository(Connection conn) {</span>
+<span class="nc" id="L25">        this.conn = conn;</span>
+<span class="nc" id="L26">    }</span>
+
+    /** Inserts a summary; the id field of the argument is ignored. Returns the stored summary with its new id. */
+    public ChatSummary insert(ChatSummary summary) throws SQLException {
+<span class="nc" id="L30">        synchronized (conn) {</span>
+<span class="nc" id="L31">            String sql = &quot;INSERT INTO chatSummaries (chatId, summary, generatedBy, generatedAt, contentHash) &quot;</span>
+                    + &quot;VALUES (?, ?, ?, ?, ?)&quot;;
+<span class="nc" id="L33">            try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {</span>
+<span class="nc" id="L34">                ps.setLong(1, summary.chatId());</span>
+<span class="nc" id="L35">                ps.setString(2, summary.summary());</span>
+<span class="nc" id="L36">                ps.setString(3, summary.generatedBy());</span>
+<span class="nc" id="L37">                ps.setString(4, summary.generatedAt());</span>
+<span class="nc" id="L38">                ps.setString(5, summary.contentHash());</span>
+<span class="nc" id="L39">                ps.executeUpdate();</span>
+<span class="nc" id="L40">                try (ResultSet keys = ps.getGeneratedKeys()) {</span>
+<span class="nc" id="L41">                    keys.next();</span>
+<span class="nc" id="L42">                    long id = keys.getLong(1);</span>
+<span class="nc" id="L43">                    return new ChatSummary(id, summary.chatId(), summary.summary(),</span>
+<span class="nc" id="L44">                            summary.generatedBy(), summary.generatedAt(), summary.contentHash());</span>
+                }
+<span class="nc" id="L46">            }</span>
+        }
+    }
+
+    /** Most recent summary for a chat, if any. */
+    public Optional&lt;ChatSummary&gt; findLatestForChat(long chatId) throws SQLException {
+<span class="nc" id="L52">        synchronized (conn) {</span>
+<span class="nc" id="L53">            String sql = &quot;SELECT s.id, s.chatId, s.summary, s.generatedBy, s.generatedAt, s.contentHash &quot;</span>
+                    + &quot;FROM chatSummaries s JOIN chats c ON c.id = s.chatId &quot;
+                    + &quot;WHERE s.chatId = ? AND s.contentHash IS NOT NULL AND s.contentHash = c.contentHash &quot;
+                    + &quot;ORDER BY s.generatedAt DESC, s.id DESC LIMIT 1&quot;;
+<span class="nc" id="L57">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L58">                ps.setLong(1, chatId);</span>
+<span class="nc" id="L59">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">                    if (!rs.next()) {</span>
+<span class="nc" id="L61">                        return Optional.empty();</span>
+                    }
+<span class="nc" id="L63">                    return Optional.of(read(rs));</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">                }</span>
+<span class="nc bnc" id="L65" title="All 2 branches missed.">            }</span>
+        }
+    }
+
+    /** Most recent summary regardless of transcript hash currency. */
+    public Optional&lt;ChatSummary&gt; findLatestStoredForChat(long chatId) throws SQLException {
+<span class="nc" id="L71">        synchronized (conn) {</span>
+<span class="nc" id="L72">            String sql = &quot;SELECT id, chatId, summary, generatedBy, generatedAt, contentHash FROM chatSummaries &quot;</span>
+                    + &quot;WHERE chatId = ? ORDER BY generatedAt DESC, id DESC LIMIT 1&quot;;
+<span class="nc" id="L74">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L75">                ps.setLong(1, chatId);</span>
+<span class="nc" id="L76">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">                    if (!rs.next()) {</span>
+<span class="nc" id="L78">                        return Optional.empty();</span>
+                    }
+<span class="nc" id="L80">                    return Optional.of(read(rs));</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">                }</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">            }</span>
+        }
+    }
+
+    /** All summaries for a chat, oldest first. */
+    public List&lt;ChatSummary&gt; findAllForChat(long chatId) throws SQLException {
+<span class="nc" id="L88">        synchronized (conn) {</span>
+<span class="nc" id="L89">            String sql = &quot;SELECT id, chatId, summary, generatedBy, generatedAt, contentHash FROM chatSummaries &quot;</span>
+                    + &quot;WHERE chatId = ? ORDER BY generatedAt, id&quot;;
+<span class="nc" id="L91">            try (PreparedStatement ps = conn.prepareStatement(sql)) {</span>
+<span class="nc" id="L92">                ps.setLong(1, chatId);</span>
+<span class="nc" id="L93">                try (ResultSet rs = ps.executeQuery()) {</span>
+<span class="nc" id="L94">                    List&lt;ChatSummary&gt; out = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L95" title="All 2 branches missed.">                    while (rs.next()) {</span>
+<span class="nc" id="L96">                        out.add(read(rs));</span>
+                    }
+<span class="nc" id="L98">                    return out;</span>
+                }
+<span class="nc" id="L100">            }</span>
+        }
+    }
+
+    public void delete(long id) throws SQLException {
+<span class="nc" id="L105">        synchronized (conn) {</span>
+<span class="nc" id="L106">            try (PreparedStatement ps = conn.prepareStatement(&quot;DELETE FROM chatSummaries WHERE id = ?&quot;)) {</span>
+<span class="nc" id="L107">                ps.setLong(1, id);</span>
+<span class="nc" id="L108">                ps.executeUpdate();</span>
+            }
+<span class="nc" id="L110">        }</span>
+<span class="nc" id="L111">    }</span>
+
+    private static ChatSummary read(ResultSet rs) throws SQLException {
+<span class="nc" id="L114">        return new ChatSummary(</span>
+<span class="nc" id="L115">                rs.getLong(&quot;id&quot;),</span>
+<span class="nc" id="L116">                rs.getLong(&quot;chatId&quot;),</span>
+<span class="nc" id="L117">                rs.getString(&quot;summary&quot;),</span>
+<span class="nc" id="L118">                rs.getString(&quot;generatedBy&quot;),</span>
+<span class="nc" id="L119">                rs.getString(&quot;generatedAt&quot;),</span>
+<span class="nc" id="L120">                rs.getString(&quot;contentHash&quot;));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

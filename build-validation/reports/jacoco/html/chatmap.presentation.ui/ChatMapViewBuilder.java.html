@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatMapViewBuilder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.ui</a> &gt; <span class="el_source">ChatMapViewBuilder.java</span></div><h1>ChatMapViewBuilder.java</h1><pre class="source lang-java linenums">package chatmap.presentation.ui;
+
+import java.util.List;
+import java.util.function.Consumer;
+
+import chatmap.domain.Project;
+import chatmap.domain.SearchResult;
+import chatmap.domain.Tag;
+import javafx.beans.value.ChangeListener;
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToolBar;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
+
+/** Helper methods for constructing JavaFX nodes, formatting search results, and converters. */
+public final class ChatMapViewBuilder {
+
+    public static final String COMPACT_BUTTON_STYLE = &quot;-fx-padding: 3 7 3 7;&quot;;
+
+    private ChatMapViewBuilder() {
+    }
+
+    /** An action that may fail; run through {@link #button} it reports the failure instead of crashing the FX thread. */
+    @FunctionalInterface
+    public interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
+    /** Widgets from {@link #createToolbar} the caller must keep live references to. */
+<span class="nc" id="L41">    public record ToolbarWidgets(</span>
+            ToolBar toolBar,
+            Button exportChatButton,
+            Button getLatestChatButton,
+            Button inventoryButton,
+            Button summarizeButton,
+            ComboBox&lt;Integer&gt; fontSizeChoice) {
+    }
+
+    /** Widgets from {@link #createSearchBar} the caller must keep live references to. */
+<span class="nc" id="L51">    public record SearchBarWidgets(HBox searchBar, TextField searchField) {</span>
+    }
+
+    /** Widgets from {@link #createProjectBar} the caller must keep live references to. */
+<span class="nc" id="L55">    public record ProjectBarWidgets(HBox projectBar, ComboBox&lt;Project&gt; projectChoice) {</span>
+    }
+
+    /** Widgets from {@link #createTagBar} the caller must keep live references to. */
+<span class="nc" id="L59">    public record TagBarWidgets(HBox tagBar, ComboBox&lt;Tag&gt; tagChoice) {</span>
+    }
+
+    public static Button button(String text, ThrowingRunnable action, Consumer&lt;Exception&gt; errorHandler) {
+<span class="nc" id="L63">        Button button = new Button(text);</span>
+<span class="nc" id="L64">        button.setStyle(COMPACT_BUTTON_STYLE);</span>
+<span class="nc" id="L65">        button.setOnAction(event -&gt; {</span>
+<span class="nc" id="L66">            event.consume();</span>
+<span class="nc" id="L67">            runWithFeedback(action, errorHandler);</span>
+<span class="nc" id="L68">        });</span>
+<span class="nc" id="L69">        return button;</span>
+    }
+
+    /** Runs {@code action}, reporting a failure to {@code errorHandler} instead of throwing. */
+    public static void runWithFeedback(ThrowingRunnable action, Consumer&lt;Exception&gt; errorHandler) {
+        try {
+<span class="nc" id="L75">            action.run();</span>
+<span class="nc" id="L76">        } catch (Exception e) {</span>
+<span class="nc" id="L77">            errorHandler.accept(e);</span>
+<span class="nc" id="L78">        }</span>
+<span class="nc" id="L79">    }</span>
+
+    /** The main toolbar: import/export/live-fetch/inventory/summarize actions plus the font-size choice. */
+    public static ToolbarWidgets createToolbar(
+            int initialFontSize,
+            ThrowingRunnable onImportText,
+            ThrowingRunnable onImportMarkdown,
+            ThrowingRunnable onImportChatGptJson,
+            ThrowingRunnable onImportChatGptArchive,
+            ThrowingRunnable onExportChat,
+            ThrowingRunnable onGetLatestChat,
+            ThrowingRunnable onShowInventory,
+            ThrowingRunnable onSummarize,
+            Consumer&lt;Integer&gt; onFontSizeSelected,
+            Consumer&lt;Exception&gt; errorHandler) {
+<span class="nc" id="L94">        Button exportChatButton = button(&quot;Export Chat Markdown&quot;, onExportChat, errorHandler);</span>
+<span class="nc" id="L95">        exportChatButton.setDisable(true);</span>
+<span class="nc" id="L96">        Button getLatestChatButton = button(&quot;Import available chat&quot;, onGetLatestChat, errorHandler);</span>
+<span class="nc" id="L97">        Button inventoryButton = button(&quot;Conversation Inventory&quot;, onShowInventory, errorHandler);</span>
+<span class="nc" id="L98">        Button summarizeButton = button(&quot;Summarize &amp; tag&quot;, onSummarize, errorHandler);</span>
+<span class="nc" id="L99">        summarizeButton.setDisable(true);</span>
+
+<span class="nc" id="L101">        ComboBox&lt;Integer&gt; fontSizeChoice = new ComboBox&lt;&gt;(FXCollections.observableArrayList(FontSizeState.SIZES));</span>
+<span class="nc" id="L102">        fontSizeChoice.setValue(initialFontSize);</span>
+<span class="nc" id="L103">        fontSizeChoice.setOnAction(actionEvent -&gt; {</span>
+<span class="nc" id="L104">            Integer selectedSize = fontSizeChoice.getValue();</span>
+<span class="nc bnc" id="L105" title="All 2 branches missed.">            if (selectedSize != null) {</span>
+<span class="nc" id="L106">                onFontSizeSelected.accept(selectedSize);</span>
+            }
+<span class="nc" id="L108">        });</span>
+
+<span class="nc" id="L110">        ToolBar toolBar = new ToolBar(</span>
+<span class="nc" id="L111">                button(&quot;Import Text&quot;, onImportText, errorHandler),</span>
+<span class="nc" id="L112">                button(&quot;Import Markdown&quot;, onImportMarkdown, errorHandler),</span>
+<span class="nc" id="L113">                button(&quot;Import ChatGPT JSON&quot;, onImportChatGptJson, errorHandler),</span>
+<span class="nc" id="L114">                button(&quot;Import ChatGPT Archive&quot;, onImportChatGptArchive, errorHandler),</span>
+                exportChatButton,
+                getLatestChatButton,
+                inventoryButton,
+                summarizeButton,
+                new Label(&quot;Font&quot;),
+                fontSizeChoice);
+
+<span class="nc" id="L122">        return new ToolbarWidgets(toolBar, exportChatButton, getLatestChatButton, inventoryButton,</span>
+                summarizeButton, fontSizeChoice);
+    }
+
+    /** The search bar: a text field (Enter triggers search) plus explicit Search/Clear buttons. */
+    public static SearchBarWidgets createSearchBar(ThrowingRunnable onSearch, ThrowingRunnable onClear,
+            Consumer&lt;Exception&gt; errorHandler) {
+<span class="nc" id="L129">        TextField searchField = new TextField();</span>
+<span class="nc" id="L130">        searchField.setPromptText(&quot;Search message text&quot;);</span>
+<span class="nc" id="L131">        searchField.setOnAction(actionEvent -&gt; {</span>
+<span class="nc" id="L132">            actionEvent.consume();</span>
+<span class="nc" id="L133">            runWithFeedback(onSearch, errorHandler);</span>
+<span class="nc" id="L134">        });</span>
+<span class="nc" id="L135">        HBox searchBar = new HBox(8,</span>
+                searchField,
+<span class="nc" id="L137">                button(&quot;Search&quot;, onSearch, errorHandler),</span>
+<span class="nc" id="L138">                button(&quot;Clear&quot;, onClear, errorHandler));</span>
+<span class="nc" id="L139">        return new SearchBarWidgets(searchBar, searchField);</span>
+    }
+
+    /** The project bar: project choice plus new/assign/clear/filter actions. */
+    public static ProjectBarWidgets createProjectBar(ThrowingRunnable onNew, ThrowingRunnable onAssign,
+            ThrowingRunnable onClear, ThrowingRunnable onFilter, Consumer&lt;Exception&gt; errorHandler) {
+<span class="nc" id="L145">        ComboBox&lt;Project&gt; projectChoice = new ComboBox&lt;&gt;();</span>
+<span class="nc" id="L146">        projectChoice.setPromptText(&quot;Project&quot;);</span>
+<span class="nc" id="L147">        projectChoice.setConverter(namedProjectConverter());</span>
+<span class="nc" id="L148">        HBox projectBar = new HBox(8,</span>
+                new Label(&quot;Project&quot;),
+                projectChoice,
+<span class="nc" id="L151">                button(&quot;New&quot;, onNew, errorHandler),</span>
+<span class="nc" id="L152">                button(&quot;Assign&quot;, onAssign, errorHandler),</span>
+<span class="nc" id="L153">                button(&quot;Clear Project&quot;, onClear, errorHandler),</span>
+<span class="nc" id="L154">                button(&quot;Filter&quot;, onFilter, errorHandler));</span>
+<span class="nc" id="L155">        return new ProjectBarWidgets(projectBar, projectChoice);</span>
+    }
+
+    /** The tag bar: tag choice plus new/add/remove/filter actions and a filters-wide clear. */
+    public static TagBarWidgets createTagBar(ThrowingRunnable onNew, ThrowingRunnable onAdd,
+            ThrowingRunnable onRemove, ThrowingRunnable onFilter, ThrowingRunnable onClearFilters,
+            Consumer&lt;Exception&gt; errorHandler) {
+<span class="nc" id="L162">        ComboBox&lt;Tag&gt; tagChoice = new ComboBox&lt;&gt;();</span>
+<span class="nc" id="L163">        tagChoice.setPromptText(&quot;Tag&quot;);</span>
+<span class="nc" id="L164">        tagChoice.setConverter(namedTagConverter());</span>
+<span class="nc" id="L165">        HBox tagBar = new HBox(8,</span>
+                new Label(&quot;Tag&quot;),
+                tagChoice,
+<span class="nc" id="L168">                button(&quot;New&quot;, onNew, errorHandler),</span>
+<span class="nc" id="L169">                button(&quot;Add&quot;, onAdd, errorHandler),</span>
+<span class="nc" id="L170">                button(&quot;Remove&quot;, onRemove, errorHandler),</span>
+<span class="nc" id="L171">                button(&quot;Filter&quot;, onFilter, errorHandler),</span>
+<span class="nc" id="L172">                button(&quot;Clear Filters&quot;, onClearFilters, errorHandler));</span>
+<span class="nc" id="L173">        return new TagBarWidgets(tagBar, tagChoice);</span>
+    }
+
+    public static ListView&lt;SearchResult&gt; createChatListView(ChangeListener&lt;SearchResult&gt; selectionListener) {
+<span class="nc" id="L177">        ListView&lt;SearchResult&gt; list = new ListView&lt;&gt;();</span>
+<span class="nc" id="L178">        list.setMinWidth(180);</span>
+<span class="nc" id="L179">        list.setCellFactory(chatListView -&gt; new ListCell&lt;&gt;() {</span>
+            @Override
+            protected void updateItem(SearchResult result, boolean empty) {
+<span class="nc" id="L182">                super.updateItem(result, empty);</span>
+<span class="nc bnc" id="L183" title="All 4 branches missed.">                setText(empty || result == null ? null : formatResultRow(result));</span>
+<span class="nc" id="L184">            }</span>
+        });
+<span class="nc" id="L186">        list.getSelectionModel().selectedItemProperty().addListener(selectionListener);</span>
+<span class="nc" id="L187">        return list;</span>
+    }
+
+    public static TextArea createDetailTextArea() {
+<span class="nc" id="L191">        TextArea textArea = new TextArea();</span>
+<span class="nc" id="L192">        textArea.setEditable(false);</span>
+<span class="nc" id="L193">        textArea.setWrapText(true);</span>
+<span class="nc" id="L194">        textArea.setMinWidth(300);</span>
+<span class="nc" id="L195">        return textArea;</span>
+    }
+
+    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar, Node tagBar,
+            Node content, Node status) {
+<span class="nc" id="L200">        BorderPane pane = new BorderPane();</span>
+<span class="nc" id="L201">        pane.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));</span>
+<span class="nc" id="L202">        pane.setCenter(content);</span>
+<span class="nc" id="L203">        pane.setBottom(new VBox(status));</span>
+<span class="nc" id="L204">        BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));</span>
+<span class="nc" id="L205">        BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));</span>
+<span class="nc" id="L206">        BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));</span>
+<span class="nc" id="L207">        BorderPane.setMargin(content, new Insets(8));</span>
+<span class="nc" id="L208">        BorderPane.setMargin(status, new Insets(4, 8, 8, 8));</span>
+<span class="nc" id="L209">        return pane;</span>
+    }
+
+    public static String formatResultRow(SearchResult result) {
+<span class="nc" id="L213">        StringBuilder row = new StringBuilder();</span>
+<span class="nc" id="L214">        row.append(result.chat().title()).append(&quot;\n&quot;);</span>
+<span class="nc" id="L215">        row.append(&quot;Source: &quot;).append(result.chat().source().displayName());</span>
+<span class="nc bnc" id="L216" title="All 4 branches missed.">        if (result.projectName() != null &amp;&amp; !result.projectName().isBlank()) {</span>
+<span class="nc" id="L217">            row.append(&quot; | Project: &quot;).append(result.projectName());</span>
+        }
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        if (!result.tags().isEmpty()) {</span>
+<span class="nc" id="L220">            row.append(&quot; | Tags: &quot;).append(formatTags(result.tags()));</span>
+        }
+<span class="nc bnc" id="L222" title="All 4 branches missed.">        if (result.snippet() != null &amp;&amp; !result.snippet().isBlank()) {</span>
+<span class="nc" id="L223">            row.append(&quot;\n&quot;).append(result.snippet());</span>
+        }
+<span class="nc" id="L225">        return row.toString();</span>
+    }
+
+    public static String formatTags(List&lt;Tag&gt; tags) {
+<span class="nc" id="L229">        return tags.stream()</span>
+<span class="nc" id="L230">                .map(Tag::name)</span>
+<span class="nc" id="L231">                .reduce((left, right) -&gt; left + &quot;, &quot; + right)</span>
+<span class="nc" id="L232">                .orElse(&quot;&quot;);</span>
+    }
+
+    public static String safeFileName(String title) {
+<span class="nc" id="L236">        String cleaned = title.replaceAll(&quot;[^A-Za-z0-9.-]+&quot;, &quot;-&quot;).replaceAll(&quot;^-|-$&quot;, &quot;&quot;);</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">        return cleaned.isBlank() ? &quot;chat&quot; : cleaned;</span>
+    }
+
+    public static StringConverter&lt;Project&gt; namedProjectConverter() {
+<span class="nc" id="L241">        return new StringConverter&lt;&gt;() {</span>
+            @Override
+            public String toString(Project project) {
+<span class="nc bnc" id="L244" title="All 2 branches missed.">                return project == null ? &quot;&quot; : project.name();</span>
+            }
+
+            @Override
+            public Project fromString(String text) {
+<span class="nc" id="L249">                return null;</span>
+            }
+        };
+    }
+
+    public static StringConverter&lt;Tag&gt; namedTagConverter() {
+<span class="nc" id="L255">        return new StringConverter&lt;&gt;() {</span>
+            @Override
+            public String toString(Tag tag) {
+<span class="nc bnc" id="L258" title="All 2 branches missed.">                return tag == null ? &quot;&quot; : tag.name();</span>
+            }
+
+            @Override
+            public Tag fromString(String text) {
+<span class="nc" id="L263">                return null;</span>
+            }
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PromptService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.service</a> &gt; <span class="el_source">PromptService.java</span></div><h1>PromptService.java</h1><pre class="source lang-java linenums">package chatmap.application.service;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.SQLException;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import org.slf4j.Logger;
+
+import chatmap.application.port.ai.AiCapability;
+import chatmap.application.port.ai.AiBackendUnsupportedRequestException;
+import chatmap.application.port.ai.AiProvider;
+import chatmap.application.port.ai.AiRequest;
+import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.BackendId;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.PromptProfile;
+import chatmap.application.port.ai.ProviderId;
+import chatmap.domain.Chat;
+import chatmap.domain.Message;
+import chatmap.application.model.ImportedChat;
+import chatmap.application.support.Log;
+
+public final class PromptService {
+<span class="nc" id="L35">    private static final Logger LOG = Log.of(PromptService.class);</span>
+    private final Map&lt;ProviderId, AiProvider&gt; providers;
+    private final ImportService importService;
+    private final Clock clock;
+    private final Path transcriptDirectory;
+
+    public PromptService(
+            Map&lt;ProviderId, AiProvider&gt; providers,
+            ImportService importService,
+            Clock clock,
+<span class="nc" id="L45">            Path transcriptDirectory) {</span>
+<span class="nc" id="L46">        this.providers = validateProviders(providers);</span>
+<span class="nc" id="L47">        this.importService = importService;</span>
+<span class="nc" id="L48">        this.clock = Objects.requireNonNull(clock, &quot;clock&quot;);</span>
+<span class="nc" id="L49">        this.transcriptDirectory = Objects.requireNonNull(transcriptDirectory, &quot;transcriptDirectory&quot;)</span>
+<span class="nc" id="L50">                .toAbsolutePath()</span>
+<span class="nc" id="L51">                .normalize();</span>
+<span class="nc" id="L52">    }</span>
+
+    public boolean hasBackend(String backendName) {
+<span class="nc" id="L55">        return Arrays.stream(ModelTarget.values()).anyMatch(target -&gt; target.id().equals(backendName));</span>
+    }
+
+    public List&lt;BackendDescriptor&gt; backends() {
+<span class="nc" id="L59">        return Arrays.stream(ModelTarget.values())</span>
+<span class="nc" id="L60">                .map(target -&gt; new BackendDescriptor(target.id(), target.displayName()))</span>
+<span class="nc" id="L61">                .toList();</span>
+    }
+
+    public List&lt;String&gt; listSessions(String backendName) {
+<span class="nc" id="L65">        ModelTarget target = ModelTarget.require(backendName);</span>
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (importService != null) {</span>
+            try {
+<span class="nc" id="L68">                return importService.listPromptSessions(target);</span>
+<span class="nc" id="L69">            } catch (SQLException failure) {</span>
+<span class="nc" id="L70">                throw new IllegalStateException(&quot;Could not list known sessions for &quot; + target.displayName(), failure);</span>
+            }
+        }
+<span class="nc" id="L73">        return providerFor(target).listSessions(target);</span>
+    }
+
+    public PromptResult submit(String backendName, String prompt) throws SQLException {
+<span class="nc" id="L77">        return submit(backendName, prompt, PromptProfile.general, null);</span>
+    }
+
+    public PromptResult submit(String backendName, String prompt, PromptProfile profile) throws SQLException {
+<span class="nc" id="L81">        return submit(backendName, prompt, profile, null);</span>
+    }
+
+    public PromptResult submit(String backendName, String prompt, String sessionId) throws SQLException {
+<span class="nc" id="L85">        return submit(backendName, prompt, PromptProfile.general, sessionId);</span>
+    }
+
+    /**
+     * Runs the prompt and records the exchange. The database record is
+     * authoritative: a failed write fails the whole run. The Markdown
+     * transcript is best-effort debug output; when it cannot be written the
+     * result carries a null transcript path.
+     */
+    public PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId)
+            throws SQLException {
+<span class="nc" id="L96">        ModelTarget target = ModelTarget.require(backendName);</span>
+<span class="nc" id="L97">        AiProvider provider = providerFor(target);</span>
+
+<span class="nc bnc" id="L99" title="All 4 branches missed.">        AiRequest request = (sessionId != null &amp;&amp; !sessionId.isBlank())</span>
+<span class="nc" id="L100">                ? AiRequest.withSession(prompt, sessionId, profile)</span>
+<span class="nc" id="L101">                : AiRequest.withProfile(prompt, profile);</span>
+<span class="nc" id="L102">        validateCapabilities(target, provider, request);</span>
+<span class="nc" id="L103">        Instant started = clock.instant();</span>
+
+<span class="nc" id="L105">        AiResponse response = provider.execute(target, request);</span>
+<span class="nc" id="L106">        String responseText = response.text();</span>
+<span class="nc" id="L107">        String backendId = response.backendId().value();</span>
+<span class="nc" id="L108">        String effectiveSessionId = response.sessionId().orElse(sessionId);</span>
+
+<span class="nc bnc" id="L110" title="All 2 branches missed.">        if (importService != null) {</span>
+<span class="nc" id="L111">            recordInDatabase(target, prompt, responseText, started, effectiveSessionId);</span>
+        }
+<span class="nc" id="L113">        Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);</span>
+
+<span class="nc" id="L115">        return new PromptResult(backendId, responseText, transcriptPath,</span>
+<span class="nc" id="L116">                response.providerId().name(), target.id(), response.providerModelName(), effectiveSessionId);</span>
+    }
+
+    /**
+     * Records the exchange. When {@code sessionId} is present, appends to the
+     * chat identified by {@code (providerId, targetId, sessionId)} so repeated
+     * turns in one provider session extend a single chat instead of each
+     * becoming its own; with no session id, every call still creates a new
+     * chat, since there is no provider session to key on.
+     */
+    private void recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
+            String sessionId) throws SQLException {
+<span class="nc" id="L128">        String now = started.toString();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">        String title = prompt.length() &gt; 40 ? prompt.substring(0, 40) + &quot;...&quot; : prompt;</span>
+<span class="nc" id="L130">        Chat chat = Chat.builder()</span>
+<span class="nc" id="L131">                .id(0L)</span>
+<span class="nc" id="L132">                .source(target.source())</span>
+<span class="nc" id="L133">                .title(title)</span>
+<span class="nc" id="L134">                .createdAt(now)</span>
+<span class="nc" id="L135">                .updatedAt(now)</span>
+<span class="nc" id="L136">                .importedAt(now)</span>
+<span class="nc" id="L137">                .archived(false)</span>
+<span class="nc" id="L138">                .originatedBy(chatmap.domain.ChatOrigin.generated)</span>
+<span class="nc" id="L139">                .providerId(target.providerId().name())</span>
+<span class="nc" id="L140">                .modelTargetId(target.id())</span>
+<span class="nc" id="L141">                .providerModelName(target.providerModelName())</span>
+<span class="nc" id="L142">                .providerSessionId(sessionId)</span>
+<span class="nc" id="L143">                .build();</span>
+<span class="nc" id="L144">        Message userMsg = new Message(0L, 0L, chatmap.domain.MessageRole.user, prompt, 0, now, null);</span>
+<span class="nc" id="L145">        Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);</span>
+<span class="nc" id="L146">        List&lt;Message&gt; messages = List.of(userMsg, assistantMsg);</span>
+
+<span class="nc bnc" id="L148" title="All 4 branches missed.">        if (sessionId != null &amp;&amp; !sessionId.isBlank()) {</span>
+<span class="nc" id="L149">            importService.appendToConversation(chat, messages);</span>
+        } else {
+<span class="nc" id="L151">            importService.persist(new ImportedChat(chat, messages));</span>
+        }
+<span class="nc" id="L153">    }</span>
+
+    private Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {
+        try {
+<span class="nc" id="L157">            Files.createDirectories(transcriptDirectory);</span>
+<span class="nc" id="L158">            String fn = &quot;prompt-&quot; + started.toEpochMilli() + &quot;.md&quot;;</span>
+<span class="nc" id="L159">            Path file = transcriptDirectory.resolve(fn);</span>
+<span class="nc" id="L160">            String content = &quot;# Prompt Execution Log\n\n- Backend: &quot; + backendId</span>
+                    + &quot;\n- Timestamp: &quot; + started + &quot;\n\n## USER:\n&quot; + prompt
+                    + &quot;\n\n## ASSISTANT:\n&quot; + responseText + &quot;\n&quot;;
+<span class="nc" id="L163">            Files.writeString(file, content, StandardCharsets.UTF_8);</span>
+<span class="nc" id="L164">            return file;</span>
+<span class="nc" id="L165">        } catch (IOException e) {</span>
+            // Best-effort debug output; the database record above is the one that matters.
+<span class="nc" id="L167">            LOG.warn(&quot;Failed to write prompt transcript: {}&quot;, e.getMessage(), e);</span>
+<span class="nc" id="L168">            return null;</span>
+        }
+    }
+
+    private AiProvider providerFor(ModelTarget target) {
+<span class="nc" id="L173">        AiProvider provider = providers.get(target.providerId());</span>
+<span class="nc bnc" id="L174" title="All 2 branches missed.">        if (provider == null) {</span>
+<span class="nc" id="L175">            throw new IllegalStateException(&quot;No AI provider configured for &quot; + target.providerId());</span>
+        }
+<span class="nc" id="L177">        return provider;</span>
+    }
+
+    private static Map&lt;ProviderId, AiProvider&gt; validateProviders(Map&lt;ProviderId, AiProvider&gt; configured) {
+<span class="nc" id="L181">        Objects.requireNonNull(configured, &quot;providers&quot;);</span>
+<span class="nc" id="L182">        EnumMap&lt;ProviderId, AiProvider&gt; copy = new EnumMap&lt;&gt;(ProviderId.class);</span>
+<span class="nc" id="L183">        copy.putAll(configured);</span>
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        for (ModelTarget target : ModelTarget.values()) {</span>
+<span class="nc bnc" id="L185" title="All 2 branches missed.">            if (!copy.containsKey(target.providerId())) {</span>
+<span class="nc" id="L186">                throw new IllegalStateException(&quot;No AI provider configured for target &quot;</span>
+<span class="nc" id="L187">                        + target.id() + &quot; (&quot; + target.providerId() + &quot;)&quot;);</span>
+            }
+        }
+<span class="nc" id="L190">        return Map.copyOf(copy);</span>
+    }
+
+    private static void validateCapabilities(ModelTarget target, AiProvider provider, AiRequest request) {
+<span class="nc" id="L194">        Set&lt;AiCapability&gt; required = EnumSet.noneOf(AiCapability.class);</span>
+<span class="nc bnc" id="L195" title="All 2 branches missed.">        if (request.systemPrompt().isPresent()) {</span>
+<span class="nc" id="L196">            required.add(AiCapability.systemPrompt);</span>
+        }
+<span class="nc bnc" id="L198" title="All 2 branches missed.">        if (request.sessionId().isPresent()) {</span>
+<span class="nc" id="L199">            required.add(AiCapability.sessions);</span>
+        }
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (request.permissionMode() == chatmap.application.port.ai.PermissionMode.unrestricted) {</span>
+<span class="nc" id="L202">            required.add(AiCapability.fileEditing);</span>
+        }
+<span class="nc bnc" id="L204" title="All 2 branches missed.">        if (request.outputFormat() == chatmap.application.port.ai.OutputFormat.streamJson) {</span>
+<span class="nc" id="L205">            required.add(AiCapability.streamJson);</span>
+        }
+<span class="nc" id="L207">        Set&lt;AiCapability&gt; supported = provider.capabilities(target);</span>
+<span class="nc bnc" id="L208" title="All 2 branches missed.">        for (AiCapability capability : required) {</span>
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            if (!supported.contains(capability)) {</span>
+<span class="nc" id="L210">                throw new AiBackendUnsupportedRequestException(</span>
+<span class="nc" id="L211">                        target.displayName() + &quot; does not support requested capability: &quot; + capability,</span>
+<span class="nc" id="L212">                        new BackendId(target.displayName()));</span>
+            }
+<span class="nc" id="L214">        }</span>
+<span class="nc" id="L215">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatMapController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.ui</a> &gt; <span class="el_source">ChatMapController.java</span></div><h1>ChatMapController.java</h1><pre class="source lang-java linenums">package chatmap.presentation.ui;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
+import chatmap.domain.Chat;
+import chatmap.domain.ChatSummary;
+import chatmap.domain.ConversationInventory;
+import chatmap.domain.Project;
+import chatmap.domain.SearchResult;
+import chatmap.domain.Tag;
+import chatmap.application.model.ChatExportModel;
+import chatmap.application.service.ExportService;
+import chatmap.application.service.ChatGptArchiveImportService;
+import chatmap.application.service.ChatGptArchiveImportService.BulkImportResult;
+import chatmap.application.service.ConversationInventoryService;
+import chatmap.application.service.ImportService;
+import chatmap.application.service.LiveChatFetchService;
+import chatmap.application.service.ProjectService;
+import chatmap.application.service.PromptResult;
+import chatmap.application.service.PromptService;
+import chatmap.application.service.SearchService;
+import chatmap.app.ServiceGraph;
+import chatmap.application.service.SummaryService;
+import chatmap.application.service.TagService;
+import chatmap.application.support.Locks;
+
+/** Coordinates application operations without depending on JavaFX widgets. */
+public final class ChatMapController {
+
+    private final ImportService importService;
+    private final ExportService exportService;
+    private final SearchService searchService;
+    private final ProjectService projectService;
+    private final TagService tagService;
+    private final SummaryService summaryService;
+    private final LiveChatFetchService liveChatFetchService;
+    private final ChatGptArchiveImportService archiveImportService;
+    private final ConversationInventoryService conversationInventoryService;
+    private final PromptService promptService;
+    private final ChatListState listState;
+    
+    /**
+     * Lock protecting {@link #listState} and {@link #filterCriteria}.
+     * INVARIANT: Never acquire this lock while holding a repository connection lock.
+     * To prevent deadlocks, always run database queries before acquiring this lock, 
+     * or release this lock before making a database query.
+     */
+<span class="nc" id="L53">    private final Object stateLock = new Object();</span>
+
+<span class="nc" id="L55">    private ChatFilterCriteria filterCriteria = ChatFilterCriteria.EMPTY;</span>
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService) {
+<span class="nc" id="L65">        this(importService, exportService, searchService, projectService, tagService,</span>
+                summaryService, liveChatFetchService, null, null);
+<span class="nc" id="L67">    }</span>
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService) {
+<span class="nc" id="L78">        this(importService, exportService, searchService, projectService, tagService,</span>
+                summaryService, liveChatFetchService, archiveImportService, null);
+<span class="nc" id="L80">    }</span>
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService,
+            ConversationInventoryService conversationInventoryService) {
+<span class="nc" id="L92">        this(importService, exportService, searchService, projectService, tagService,</span>
+                summaryService, liveChatFetchService, archiveImportService,
+                conversationInventoryService, null);
+<span class="nc" id="L95">    }</span>
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService,
+            ConversationInventoryService conversationInventoryService,
+<span class="nc" id="L107">            PromptService promptService) {</span>
+<span class="nc" id="L108">        this.importService = importService;</span>
+<span class="nc" id="L109">        this.exportService = exportService;</span>
+<span class="nc" id="L110">        this.searchService = searchService;</span>
+<span class="nc" id="L111">        this.projectService = projectService;</span>
+<span class="nc" id="L112">        this.tagService = tagService;</span>
+<span class="nc" id="L113">        this.summaryService = summaryService;</span>
+<span class="nc" id="L114">        this.liveChatFetchService = liveChatFetchService;</span>
+<span class="nc" id="L115">        this.archiveImportService = archiveImportService;</span>
+<span class="nc" id="L116">        this.conversationInventoryService = conversationInventoryService;</span>
+<span class="nc" id="L117">        this.promptService = promptService;</span>
+<span class="nc" id="L118">        listState = new ChatListState();</span>
+<span class="nc" id="L119">    }</span>
+
+    /** Wires the controller from the shared {@link ServiceGraph} — the production path. */
+    public ChatMapController(ServiceGraph services) {
+<span class="nc" id="L123">        this(services.importService(), services.exportService(), services.searchService(),</span>
+<span class="nc" id="L124">                services.projectService(), services.tagService(), services.summaryService(),</span>
+<span class="nc" id="L125">                services.liveChatFetchService(), services.archiveImportService(),</span>
+<span class="nc" id="L126">                services.conversationInventoryService(), services.promptService());</span>
+<span class="nc" id="L127">    }</span>
+
+    public ChatFilterCriteria filterCriteria() {
+<span class="nc" id="L130">        return locked(() -&gt; filterCriteria);</span>
+    }
+
+    public ChatListState.Snapshot loadAllChats() throws SQLException {
+<span class="nc" id="L134">        List&lt;SearchResult&gt; results = searchService.searchResults(&quot;&quot;);</span>
+<span class="nc" id="L135">        return locked(() -&gt; {</span>
+<span class="nc" id="L136">            filterCriteria = ChatFilterCriteria.EMPTY;</span>
+<span class="nc" id="L137">            return listState.showAll(results, &quot;Loaded &quot; + results.size() + &quot; chats.&quot;);</span>
+        });
+    }
+
+    public ChatListState.Snapshot searchChats(String query) throws SQLException {
+<span class="nc" id="L142">        ChatFilterCriteria criteria = locked(() -&gt; {</span>
+<span class="nc" id="L143">            filterCriteria = filterCriteria.withQuery(query);</span>
+<span class="nc" id="L144">            return filterCriteria;</span>
+        });
+<span class="nc bnc" id="L146" title="All 2 branches missed.">        if (criteria.isEmpty()) {</span>
+<span class="nc" id="L147">            return loadAllChats();</span>
+        }
+<span class="nc" id="L149">        List&lt;SearchResult&gt; matches = searchService.searchResults(criteria.query(), criteria.toSearchOptions());</span>
+<span class="nc" id="L150">        return locked(() -&gt; listState.showSearchResults(matches, formatMatchStatus(matches.size())));</span>
+    }
+
+    public ChatListState.Snapshot importFile(Path file) throws IOException, SQLException {
+<span class="nc" id="L154">        Chat imported = importService.importFile(file);</span>
+<span class="nc" id="L155">        List&lt;SearchResult&gt; results = searchService.searchResults(&quot;&quot;);</span>
+<span class="nc" id="L156">        return locked(() -&gt; {</span>
+<span class="nc" id="L157">            filterCriteria = ChatFilterCriteria.EMPTY;</span>
+<span class="nc" id="L158">            listState.showAll(results, &quot;Imported &quot; + imported.title());</span>
+<span class="nc" id="L159">            return listState.select(imported.id());</span>
+        });
+    }
+
+    public ChatListState.Snapshot importChatGptArchive(Path zipFile) throws Exception {
+<span class="nc bnc" id="L164" title="All 2 branches missed.">        if (archiveImportService == null) {</span>
+<span class="nc" id="L165">            throw new IllegalStateException(&quot;ChatGPT archive import is not configured.&quot;);</span>
+        }
+<span class="nc" id="L167">        BulkImportResult result = archiveImportService.importArchive(zipFile);</span>
+<span class="nc" id="L168">        List&lt;SearchResult&gt; results = searchService.searchResults(&quot;&quot;);</span>
+<span class="nc" id="L169">        return locked(() -&gt; {</span>
+<span class="nc" id="L170">            filterCriteria = ChatFilterCriteria.EMPTY;</span>
+<span class="nc" id="L171">            return listState.showAll(results, result.summary());</span>
+        });
+    }
+
+    public ConversationInventory conversationInventory() throws Exception {
+<span class="nc bnc" id="L176" title="All 2 branches missed.">        if (conversationInventoryService == null) {</span>
+<span class="nc" id="L177">            throw new IllegalStateException(&quot;Conversation inventory is not configured.&quot;);</span>
+        }
+<span class="nc" id="L179">        return conversationInventoryService.inventory();</span>
+    }
+
+    public PromptResult executePrompt(String backendName, String prompt) throws SQLException {
+<span class="nc bnc" id="L183" title="All 2 branches missed.">        if (promptService == null) {</span>
+<span class="nc" id="L184">            throw new IllegalStateException(&quot;Prompt service is not configured.&quot;);</span>
+        }
+<span class="nc" id="L186">        return promptService.submit(backendName, prompt);</span>
+    }
+
+    public ChatListState.Snapshot selectChat(long chatId) {
+<span class="nc" id="L190">        return locked(() -&gt; listState.select(chatId));</span>
+    }
+
+    /**
+     * Fetches the latest live chat (importing it) and selects it, using the same
+     * fallback order as the CLI: live provider, else the most recent stored chat.
+     * Blocking (HTTP with retry/backoff) — callers should run it off the UI thread.
+     * Storage access serializes inside the repositories, so long provider checks never block UI reads.
+     */
+    public ChatListState.Snapshot fetchLatestChat() throws Exception {
+<span class="nc" id="L200">        LiveChatFetchService.Resolution resolution = liveChatFetchService.resolve(null);</span>
+<span class="nc" id="L201">        List&lt;SearchResult&gt; results = searchService.searchResults(&quot;&quot;);</span>
+<span class="nc" id="L202">        return locked(() -&gt; {</span>
+<span class="nc" id="L203">            filterCriteria = ChatFilterCriteria.EMPTY;</span>
+<span class="nc" id="L204">            listState.showAll(results, &quot;Using &quot; + resolution.how());</span>
+<span class="nc" id="L205">            return listState.select(resolution.chatId());</span>
+        });
+    }
+
+    /**
+     * Summarizes and tags the given chat, then re-selects it so the new tags (and
+     * summary, via {@link #latestSummary}) are reflected. Blocking (calls the
+     * claude CLI) — callers should run it off the UI thread. The CLI call runs
+     * lock-free; only the storage reads/writes inside serialize on the connection.
+     */
+    public ChatListState.Snapshot summarizeAndTag(long chatId) throws Exception {
+<span class="nc" id="L216">        summaryService.summarize(chatId);</span>
+<span class="nc" id="L217">        return refreshCurrent(&quot;Summarized and tagged chat &quot; + chatId, chatId);</span>
+    }
+
+    public Optional&lt;ChatExportModel&gt; loadChatDetails(long chatId) throws SQLException {
+<span class="nc" id="L221">        return exportService.loadChat(chatId);</span>
+    }
+
+    public Optional&lt;ChatSummary&gt; latestSummary(long chatId) throws SQLException {
+<span class="nc" id="L225">        return summaryService.latestSummary(chatId);</span>
+    }
+
+    public boolean exportChatMarkdown(long chatId, Path outputPath) throws SQLException, IOException {
+<span class="nc" id="L229">        return exportService.writeChatMarkdown(chatId, outputPath);</span>
+    }
+
+    public List&lt;Project&gt; listProjects() throws SQLException {
+<span class="nc" id="L233">        return projectService.listAll();</span>
+    }
+
+    public Project createProject(String name) throws SQLException {
+<span class="nc" id="L237">        String projectName = requireName(name, &quot;Project name&quot;);</span>
+<span class="nc" id="L238">        String now = Instant.now().toString();</span>
+<span class="nc" id="L239">        return projectService.create(new Project(0, projectName, null, now, now));</span>
+    }
+
+    public ChatListState.Snapshot assignProject(long chatId, long projectId) throws SQLException {
+<span class="nc" id="L243">        projectService.assignChat(chatId, projectId);</span>
+<span class="nc" id="L244">        return refreshCurrent(&quot;Project assigned&quot;, chatId);</span>
+    }
+
+    public ChatListState.Snapshot clearProject(long chatId) throws SQLException {
+<span class="nc" id="L248">        projectService.removeChat(chatId);</span>
+<span class="nc" id="L249">        return refreshCurrent(&quot;Project cleared&quot;, chatId);</span>
+    }
+
+    public ChatListState.Snapshot filterByProject(long projectId) throws SQLException {
+<span class="nc" id="L253">        ChatFilterCriteria criteria = locked(() -&gt; {</span>
+<span class="nc" id="L254">            filterCriteria = filterCriteria.withProjectId(projectId);</span>
+<span class="nc" id="L255">            return filterCriteria;</span>
+        });
+<span class="nc" id="L257">        List&lt;SearchResult&gt; matches = searchService.searchResults(criteria.query(), criteria.toSearchOptions());</span>
+<span class="nc" id="L258">        return locked(() -&gt; listState.showSearchResults(matches, formatFilterStatus(matches.size())));</span>
+    }
+
+    public List&lt;Tag&gt; listTags() throws SQLException {
+<span class="nc" id="L262">        return tagService.listAll();</span>
+    }
+
+    public Tag createTag(String name) throws SQLException {
+<span class="nc" id="L266">        return tagService.create(new Tag(0, requireName(name, &quot;Tag name&quot;)));</span>
+    }
+
+    public ChatListState.Snapshot addTag(long chatId, long tagId) throws SQLException {
+<span class="nc" id="L270">        tagService.addToChat(chatId, tagId);</span>
+<span class="nc" id="L271">        return refreshCurrent(&quot;Tag added&quot;, chatId);</span>
+    }
+
+    public ChatListState.Snapshot removeTag(long chatId, long tagId) throws SQLException {
+<span class="nc" id="L275">        tagService.removeFromChat(chatId, tagId);</span>
+<span class="nc" id="L276">        return refreshCurrent(&quot;Tag removed&quot;, chatId);</span>
+    }
+
+    public ChatListState.Snapshot filterByTag(long tagId) throws SQLException {
+<span class="nc" id="L280">        ChatFilterCriteria criteria = locked(() -&gt; {</span>
+<span class="nc" id="L281">            filterCriteria = filterCriteria.withTagId(tagId);</span>
+<span class="nc" id="L282">            return filterCriteria;</span>
+        });
+<span class="nc" id="L284">        List&lt;SearchResult&gt; matches = searchService.searchResults(criteria.query(), criteria.toSearchOptions());</span>
+<span class="nc" id="L285">        return locked(() -&gt; listState.showSearchResults(matches, formatFilterStatus(matches.size())));</span>
+    }
+
+    public ChatListState.Snapshot clearFilters() throws SQLException {
+<span class="nc" id="L289">        return loadAllChats();</span>
+    }
+
+    private ChatListState.Snapshot refreshCurrent(String statusText, long selectedChatId) throws SQLException {
+<span class="nc" id="L293">        ChatFilterCriteria criteria = locked(() -&gt; filterCriteria);</span>
+<span class="nc" id="L294">        List&lt;SearchResult&gt; matches = searchService.searchResults(criteria.query(), criteria.toSearchOptions());</span>
+        
+<span class="nc" id="L296">        return locked(() -&gt; {</span>
+<span class="nc bnc" id="L297" title="All 2 branches missed.">            if (filterCriteria.isEmpty()) {</span>
+<span class="nc" id="L298">                listState.showAll(matches, statusText);</span>
+            } else {
+<span class="nc" id="L300">                listState.showSearchResults(matches, statusText);</span>
+            }
+<span class="nc" id="L302">            return listState.select(selectedChatId);</span>
+        });
+    }
+
+    private &lt;T, E extends Exception&gt; T locked(Locks.Work&lt;T, E&gt; work) throws E {
+<span class="nc" id="L307">        return Locks.locked(stateLock, work);</span>
+    }
+
+
+
+    private static String requireName(String name, String label) {
+<span class="nc bnc" id="L313" title="All 2 branches missed.">        String trimmed = name == null ? &quot;&quot; : name.trim();</span>
+<span class="nc bnc" id="L314" title="All 2 branches missed.">        if (trimmed.isEmpty()) {</span>
+<span class="nc" id="L315">            throw new IllegalArgumentException(label + &quot; is required.&quot;);</span>
+        }
+<span class="nc" id="L317">        return trimmed;</span>
+    }
+
+    private static String formatMatchStatus(int matches) {
+<span class="nc" id="L321">        return countLabel(matches, &quot;No matches&quot;, &quot;1 match&quot;, &quot; matches&quot;);</span>
+    }
+
+    private static String formatFilterStatus(int matches) {
+<span class="nc" id="L325">        return countLabel(matches, &quot;No chats&quot;, &quot;1 chat&quot;, &quot; chats&quot;);</span>
+    }
+
+    /** Pluralized count label: {@code none} at 0, {@code singular} at 1, else {@code count + plural}. */
+    private static String countLabel(int count, String none, String singular, String plural) {
+<span class="nc bnc" id="L330" title="All 2 branches missed.">        if (count == 0) {</span>
+<span class="nc" id="L331">            return none;</span>
+        }
+<span class="nc bnc" id="L333" title="All 2 branches missed.">        if (count == 1) {</span>
+<span class="nc" id="L334">            return singular;</span>
+        }
+<span class="nc" id="L336">        return count + plural;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

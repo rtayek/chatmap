@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChatProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.application.port.provider</a> &gt; <span class="el_source">ChatProvider.java</span></div><h1>ChatProvider.java</h1><pre class="source lang-java linenums">package chatmap.application.port.provider;
+
+import java.util.Optional;
+import java.util.List;
+
+import chatmap.domain.ConversationCandidate;
+import chatmap.application.model.ImportedChat;
+
+/**
+ * A live AI chat provider (Claude, ChatGPT, ...) that can hand back the user's
+ * most recent conversation so it can be imported and summarized.
+ *
+ * This is the seam ChatMap uses to make &quot;the last live chat from a provider&quot;
+ * the default target of {@code summarizeChat}. Implementations talk to the
+ * network; callers treat a thrown exception or an empty result as &quot;no live
+ * chat available&quot; and fall back to the most recent locally stored chat.
+ */
+public interface ChatProvider {
+
+    /** Human-readable provider name, e.g. &quot;Claude&quot; or &quot;ChatGPT&quot;. Used in log output. */
+    String name();
+
+    /**
+     * The provider's most recent (&quot;last live&quot;) conversation, normalized for
+     * import, or empty when the provider has no conversations to offer.
+     *
+     * @throws ChatProviderException when the provider cannot be reached or its
+     *         response cannot be parsed; callers treat this as &quot;unavailable&quot;
+     *         and move on.
+     */
+    Optional&lt;ImportedChat&gt; latestChat() throws ChatProviderException;
+
+    /**
+     * Metadata-only conversation discovery. Implementations should avoid reading
+     * full transcripts here; failures are isolated by the inventory service.
+     *
+     * &lt;p&gt;Two signaling styles coexist here, both deliberate: local CLI-history
+     * providers throw {@link ChatProviderException} on a genuine I/O failure
+     * (e.g. session files unreadable), since there's nothing else useful to
+     * report. Live web providers never throw from here -- an unreachable CDP
+     * endpoint or an incomplete scroll returns an empty list instead, with the
+     * reason surfaced through {@link #inventoryComplete()} and
+     * {@link #inventoryDiagnostic()} rather than an exception, since those
+     * already carry a richer &quot;how much of the history did we actually see&quot;
+     * signal that a thrown exception would only replace with less
+     * information. Callers that want to catch every unavailability case, not
+     * just the local-CLI kind, must check both.&lt;/p&gt;
+     */
+    default List&lt;ConversationCandidate&gt; listChats() throws ChatProviderException {
+<span class="nc" id="L50">        return latestChat()</span>
+<span class="nc" id="L51">                .map(chat -&gt; List.of(new ConversationCandidate(</span>
+<span class="nc" id="L52">                        chat.chat().source(),</span>
+<span class="nc" id="L53">                        chat.chat().externalConversationId(),</span>
+<span class="nc" id="L54">                        chat.chat().title(),</span>
+<span class="nc" id="L55">                        chat.chat().sourceUri(),</span>
+<span class="nc" id="L56">                        chat.chat().sourceUpdatedAt())))</span>
+<span class="nc" id="L57">                .orElseGet(List::of);</span>
+    }
+
+    /** Fetches one discovered conversation as an importable transcript. */
+    default ImportedChat fetch(ConversationCandidate candidate) throws ChatProviderException {
+<span class="nc" id="L62">        return latestChat().orElseThrow(() -&gt;</span>
+<span class="nc" id="L63">                new NoImportableContentException(&quot;Provider has no fetchable chat for &quot; + candidate));</span>
+    }
+
+    /**
+     * Whether {@link #listChats()} is known to cover the provider's complete
+     * history. For live web providers this is also how an unreachable
+     * endpoint surfaces (see {@link #listChats()}) -- {@code false} here plus
+     * a reason in {@link #inventoryDiagnostic()} may mean &quot;incomplete scroll&quot;
+     * or &quot;couldn't connect at all,&quot; not just &quot;more chats exist than we saw.&quot;
+     */
+    default boolean inventoryComplete() {
+<span class="nc" id="L74">        return true;</span>
+    }
+
+    /**
+     * Concise provider-specific limitation or last unavailable reason for
+     * inventory reports; read this alongside {@link #inventoryComplete()}
+     * for the live web providers that signal unavailability this way instead
+     * of throwing from {@link #listChats()}.
+     */
+    default Optional&lt;String&gt; inventoryDiagnostic() {
+<span class="nc" id="L84">        return Optional.empty();</span>
+    }
+
+    /** Last provider-specific reason a live transcript could not be read. */
+    default Optional&lt;String&gt; unavailableReason() {
+<span class="nc" id="L89">        return Optional.empty();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

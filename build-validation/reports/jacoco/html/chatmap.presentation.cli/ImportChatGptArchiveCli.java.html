@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ImportChatGptArchiveCli.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.cli</a> &gt; <span class="el_source">ImportChatGptArchiveCli.java</span></div><h1>ImportChatGptArchiveCli.java</h1><pre class="source lang-java linenums">package chatmap.presentation.cli;
+
+import java.nio.file.Path;
+
+import chatmap.app.bootstrap.ChatMapPaths;
+import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
+import chatmap.application.service.ChatGptArchiveImportService.BulkImportResult;
+
+/** Imports a ChatGPT export ZIP into the same database used by the JavaFX app. */
+<span class="nc" id="L10">public final class ImportChatGptArchiveCli {</span>
+
+    private static final String USAGE = &quot;Usage: importChatGptArchive [--home &lt;directory&gt;] &lt;chatgpt-export.zip&gt;&quot;;
+
+    public static void main(String[] args) {
+<span class="nc" id="L15">        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);</span>
+<span class="nc bnc" id="L16" title="All 2 branches missed.">        if (parsedArguments.remainingArgs().size() != 1) {</span>
+<span class="nc" id="L17">            CliBootstrap.exitWithUsage(USAGE);</span>
+<span class="nc" id="L18">            return;</span>
+        }
+        try {
+<span class="nc" id="L21">            run(parsedArguments);</span>
+<span class="nc" id="L22">        } catch (Exception e) {</span>
+<span class="nc" id="L23">            System.err.println(&quot;Could not import ChatGPT archive: &quot; + e.getMessage());</span>
+<span class="nc" id="L24">            System.exit(1);</span>
+<span class="nc" id="L25">        }</span>
+<span class="nc" id="L26">    }</span>
+
+    static void run(ParsedArguments parsedArguments) throws Exception {
+<span class="nc" id="L29">        Path archive = Path.of(parsedArguments.remainingArgs().getFirst());</span>
+<span class="nc" id="L30">        System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));</span>
+
+<span class="nc" id="L32">        try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {</span>
+<span class="nc" id="L33">            BulkImportResult result = context.services().archiveImportService().importArchive(archive);</span>
+<span class="nc" id="L34">            System.out.println(result.summary());</span>
+<span class="nc" id="L35">            System.out.println(&quot;conversation entries: &quot; + result.conversationEntries().size());</span>
+<span class="nc" id="L36">            System.out.println(&quot;unsupported content parts: &quot; + result.unsupportedContentParts());</span>
+<span class="nc bnc" id="L37" title="All 2 branches missed.">            if (!result.unsupportedContentCategories().isEmpty()) {</span>
+<span class="nc" id="L38">                System.out.println(&quot;unsupported content categories:&quot;);</span>
+<span class="nc" id="L39">                result.unsupportedContentCategories().entrySet().stream()</span>
+<span class="nc" id="L40">                        .sorted(java.util.Map.Entry.&lt;String, Integer&gt;comparingByValue().reversed())</span>
+<span class="nc" id="L41">                        .forEach(entry -&gt; System.out.println(&quot;- &quot; + entry.getKey() + &quot;: &quot; + entry.getValue()));</span>
+            }
+<span class="nc" id="L43">            System.out.println(&quot;codex.json: &quot; + codexSummary(result));</span>
+<span class="nc bnc" id="L44" title="All 2 branches missed.">            if (!result.failures().isEmpty()) {</span>
+<span class="nc" id="L45">                System.out.println(&quot;failures:&quot;);</span>
+<span class="nc bnc" id="L46" title="All 2 branches missed.">                for (var failure : result.failures()) {</span>
+<span class="nc" id="L47">                    System.out.println(&quot;- &quot; + failure.entryName() + &quot; &quot;</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">                            + (failure.conversationId() == null ? &quot;&quot; : failure.conversationId() + &quot; &quot;)</span>
+<span class="nc" id="L49">                            + failure.reason());</span>
+<span class="nc" id="L50">                }</span>
+            }
+        }
+<span class="nc" id="L53">    }</span>
+
+    private static String codexSummary(BulkImportResult result) {
+<span class="nc" id="L56">        var codex = result.codexInspection();</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if (!codex.present()) {</span>
+<span class="nc" id="L58">            return &quot;missing&quot;;</span>
+        }
+<span class="nc" id="L60">        return codex.topLevelType() + &quot; records=&quot; + codex.recordCount()</span>
+<span class="nc" id="L61">                + &quot; normalConversationSchema=&quot; + codex.normalConversationSchema()</span>
+<span class="nc" id="L62">                + &quot; codexTurnSchema=&quot; + codex.codexTurnSchema();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

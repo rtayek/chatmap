@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChromeCdpLauncher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">ChromeCdpLauncher.java</span></div><h1>ChromeCdpLauncher.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+
+import java.io.IOException;
+import java.io.PrintStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+
+/**
+ * Gets a CDP-reachable Chrome running for reading claude.ai, so the manual
+ * start-chrome-cdp step is not required.
+ *
+ * Ported from MyClaw. It probes {@code &lt;cdpUrl&gt;/json/version}; if nothing
+ * answers it launches Chrome with the persistent {@code ~/.chrome-cdp-profile}
+ * (so a login is remembered across runs), pointed at claude.ai, and polls
+ * briefly. A slow/failed launch is not fatal: the caller treats &quot;not up yet&quot; as
+ * &quot;nothing available.&quot;
+ */
+public class ChromeCdpLauncher {
+
+    static final String PROFILE_DIR_NAME = &quot;.chrome-cdp-profile&quot;;
+    private static final int DEFAULT_CDP_PORT = 9222;
+
+    private final Duration readyTimeout;
+    private final Duration pollInterval;
+    private final HttpClient httpClient;
+
+    public ChromeCdpLauncher() {
+<span class="nc" id="L34">        this(Duration.ofSeconds(8), Duration.ofMillis(300));</span>
+<span class="nc" id="L35">    }</span>
+
+<span class="nc" id="L37">    public ChromeCdpLauncher(Duration readyTimeout, Duration pollInterval) {</span>
+<span class="nc" id="L38">        this.readyTimeout = readyTimeout;</span>
+<span class="nc" id="L39">        this.pollInterval = pollInterval;</span>
+<span class="nc" id="L40">        this.httpClient = HttpClient.newHttpClient();</span>
+<span class="nc" id="L41">    }</span>
+
+    /**
+     * Ensures a CDP-reachable Chrome is (coming) up. If one already answers on
+     * the CDP port, does nothing. Otherwise launches Chrome pointed at claude.ai
+     * with the persistent profile and polls until it answers or the timeout
+     * elapses. Returns true if CDP is reachable by the deadline.
+     */
+    public boolean ensureChromeRunning(String cdpUrl, PrintStream out) {
+<span class="nc bnc" id="L50" title="All 2 branches missed.">        if (isCdpAvailable(cdpUrl)) {</span>
+<span class="nc" id="L51">            return true; // already running -&gt; no second window</span>
+        }
+
+<span class="nc" id="L54">        int cdpPort = portOf(cdpUrl);</span>
+<span class="nc" id="L55">        out.println(&quot;Chrome not found on port &quot; + cdpPort + &quot;, launching...&quot;);</span>
+        try {
+<span class="nc" id="L57">            launchChrome(cdpPort);</span>
+<span class="nc" id="L58">        } catch (IOException failure) {</span>
+<span class="nc" id="L59">            out.println(&quot;Could not launch Chrome automatically: &quot; + failure.getMessage()</span>
+                    + &quot; (start it by hand with start-chrome-cdp-claude.sh)&quot;);
+<span class="nc" id="L61">            return false;</span>
+<span class="nc" id="L62">        }</span>
+<span class="nc" id="L63">        return waitForCdp(cdpUrl, out);</span>
+    }
+
+    /** GET {@code &lt;cdpUrl&gt;/json/version}; true when Chrome answers 2xx. */
+    public boolean isCdpAvailable(String cdpUrl) {
+        try {
+<span class="nc" id="L69">            HttpRequest request = HttpRequest.newBuilder(URI.create(versionProbeUrl(cdpUrl)))</span>
+<span class="nc" id="L70">                    .timeout(Duration.ofMillis(800))</span>
+<span class="nc" id="L71">                    .GET()</span>
+<span class="nc" id="L72">                    .build();</span>
+<span class="nc" id="L73">            HttpResponse&lt;Void&gt; response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">            return response.statusCode() / 100 == 2;</span>
+<span class="nc" id="L75">        } catch (IOException | InterruptedException | RuntimeException notReachable) {</span>
+<span class="nc bnc" id="L76" title="All 2 branches missed.">            if (notReachable instanceof InterruptedException) {</span>
+<span class="nc" id="L77">                Thread.currentThread().interrupt();</span>
+            }
+<span class="nc" id="L79">            return false;</span>
+        }
+    }
+
+    /** Launches Chrome exactly as the shell script does. Package-visible so tests can override. */
+    void launchChrome(int cdpPort) throws IOException {
+<span class="nc" id="L85">        new ProcessBuilder(</span>
+<span class="nc" id="L86">                resolveChromeBinary(),</span>
+                &quot;--remote-debugging-port=&quot; + cdpPort,
+<span class="nc" id="L88">                &quot;--user-data-dir=&quot; + profileDir(),</span>
+                ClaudeWebAdapter.CLAUDE_BASE_URL)
+<span class="nc" id="L90">                .redirectOutput(ProcessBuilder.Redirect.DISCARD)</span>
+<span class="nc" id="L91">                .redirectError(ProcessBuilder.Redirect.DISCARD)</span>
+<span class="nc" id="L92">                .start();</span>
+<span class="nc" id="L93">    }</span>
+
+    private boolean waitForCdp(String cdpUrl, PrintStream out) {
+<span class="nc" id="L96">        long deadline = System.nanoTime() + readyTimeout.toNanos();</span>
+<span class="nc bnc" id="L97" title="All 2 branches missed.">        while (System.nanoTime() &lt; deadline) {</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">            if (isCdpAvailable(cdpUrl)) {</span>
+<span class="nc" id="L99">                return true;</span>
+            }
+            try {
+<span class="nc" id="L102">                Thread.sleep(pollInterval.toMillis());</span>
+<span class="nc" id="L103">            } catch (InterruptedException interrupted) {</span>
+<span class="nc" id="L104">                Thread.currentThread().interrupt();</span>
+<span class="nc" id="L105">                return false;</span>
+<span class="nc" id="L106">            }</span>
+        }
+<span class="nc" id="L108">        boolean up = isCdpAvailable(cdpUrl);</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">        if (!up) {</span>
+<span class="nc" id="L110">            out.println(&quot;Chrome did not answer on the CDP port yet; will report no live chat &quot;</span>
+                    + &quot;until it finishes launching / login completes.&quot;);
+        }
+<span class="nc" id="L113">        return up;</span>
+    }
+
+    static String versionProbeUrl(String cdpUrl) {
+<span class="nc bnc" id="L117" title="All 2 branches missed.">        String base = cdpUrl.endsWith(&quot;/&quot;) ? cdpUrl.substring(0, cdpUrl.length() - 1) : cdpUrl;</span>
+<span class="nc" id="L118">        return base + &quot;/json/version&quot;;</span>
+    }
+
+    static int portOf(String cdpUrl) {
+        try {
+<span class="nc" id="L123">            int port = URI.create(cdpUrl).getPort();</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">            return port == -1 ? DEFAULT_CDP_PORT : port;</span>
+<span class="nc" id="L125">        } catch (Exception malformed) {</span>
+<span class="nc" id="L126">            return DEFAULT_CDP_PORT;</span>
+        }
+    }
+
+    /** Same resolution as start-chrome-cdp-claude.sh: two Windows paths, else google-chrome. */
+    static String resolveChromeBinary() {
+<span class="nc" id="L132">        String[] candidates = {</span>
+                &quot;C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe&quot;,
+                &quot;C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe&quot;,
+        };
+<span class="nc bnc" id="L136" title="All 2 branches missed.">        for (String candidate : candidates) {</span>
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (Files.isRegularFile(Path.of(candidate))) {</span>
+<span class="nc" id="L138">                return candidate;</span>
+            }
+        }
+<span class="nc" id="L141">        return &quot;google-chrome&quot;;</span>
+    }
+
+    /** The persistent profile: {@code ~/.chrome-cdp-profile}. */
+    static String profileDir() {
+<span class="nc" id="L146">        return Path.of(System.getProperty(&quot;user.home&quot;), PROFILE_DIR_NAME).toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalCliHistoryProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider</a> &gt; <span class="el_source">LocalCliHistoryProvider.java</span></div><h1>LocalCliHistoryProvider.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider;
+
+import chatmap.application.port.provider.ChatProvider;
+import chatmap.application.port.provider.ChatProviderException;
+import chatmap.application.port.provider.NoImportableContentException;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import chatmap.domain.ConversationCandidate;
+import chatmap.domain.Source;
+import chatmap.application.model.ImportedChat;
+
+/**
+ * Common skeleton for providers that read a local CLI tool's own JSONL session
+ * history as chats: locate the newest/all session files under the tool's
+ * directory, hydrate one into an {@link ImportedChat}, list candidates, fetch
+ * by id. Subclasses supply only what differs per tool: where sessions live
+ * (via the constructor), which {@link Source} they map to, and how to parse
+ * one session file's turns (and title, when the format carries one) out of
+ * its own JSONL shape.
+ */
+abstract class LocalCliHistoryProvider implements ChatProvider {
+
+    /** One session file's parsed turns, and its title when the format carries one. */
+<span class="nc" id="L29">    record Parsed(String title, List&lt;ClaudeTurn&gt; turns) {</span>
+    }
+
+    private final Path root;
+    private final Source source;
+    private final String displayName;
+    private final String sessionNoun;
+
+<span class="nc" id="L37">    LocalCliHistoryProvider(Path root, Source source, String displayName, String sessionNoun) {</span>
+<span class="nc" id="L38">        this.root = root;</span>
+<span class="nc" id="L39">        this.source = source;</span>
+<span class="nc" id="L40">        this.displayName = displayName;</span>
+<span class="nc" id="L41">        this.sessionNoun = sessionNoun;</span>
+<span class="nc" id="L42">    }</span>
+
+    /** Parses one session file's title (if the format carries one) and message turns. */
+    abstract Parsed parseSession(Path file);
+
+    @Override
+    public final String name() {
+<span class="nc" id="L49">        return displayName;</span>
+    }
+
+    @Override
+    public final Optional&lt;ImportedChat&gt; latestChat() {
+<span class="nc" id="L54">        return LocalCliSessions.newestSessionFile(root).flatMap(file -&gt; buildFrom(root, file));</span>
+    }
+
+    @Override
+    public final List&lt;ConversationCandidate&gt; listChats() throws ChatProviderException {
+<span class="nc" id="L59">        List&lt;ConversationCandidate&gt; candidates = new ArrayList&lt;&gt;();</span>
+        try {
+<span class="nc bnc" id="L61" title="All 2 branches missed.">            for (Path file : LocalCliSessions.listSessionFiles(root)) {</span>
+<span class="nc" id="L62">                candidates.add(candidate(file));</span>
+<span class="nc" id="L63">            }</span>
+<span class="nc" id="L64">        } catch (IOException unreadable) {</span>
+<span class="nc" id="L65">            throw new ChatProviderException(sessionNoun + &quot;s under &quot; + root + &quot; could not be listed&quot;, unreadable);</span>
+<span class="nc" id="L66">        }</span>
+<span class="nc" id="L67">        return candidates;</span>
+    }
+
+    @Override
+    public final ImportedChat fetch(ConversationCandidate candidate) {
+<span class="nc" id="L72">        return buildFrom(root, root.resolve(candidate.externalConversationId()).normalize())</span>
+<span class="nc" id="L73">                .orElseThrow(() -&gt; new NoImportableContentException(</span>
+<span class="nc" id="L74">                        &quot;No importable &quot; + sessionNoun + &quot;: &quot; + candidate.externalConversationId()));</span>
+    }
+
+    final Optional&lt;ImportedChat&gt; buildFrom(Path file) {
+<span class="nc" id="L78">        return buildFrom(file.getParent(), file);</span>
+    }
+
+    final Optional&lt;ImportedChat&gt; buildFrom(Path root, Path file) {
+<span class="nc" id="L82">        Parsed parsed = parseSession(file);</span>
+<span class="nc bnc" id="L83" title="All 2 branches missed.">        if (parsed.turns().isEmpty()) {</span>
+<span class="nc" id="L84">            return Optional.empty();</span>
+        }
+<span class="nc bnc" id="L86" title="All 4 branches missed.">        String title = parsed.title() != null &amp;&amp; !parsed.title().isBlank()</span>
+<span class="nc" id="L87">                ? parsed.title()</span>
+<span class="nc" id="L88">                : fileTitle(file);</span>
+<span class="nc" id="L89">        String modifiedAt = LocalCliSessions.modifiedAt(file);</span>
+<span class="nc" id="L90">        return Optional.of(LocalCliSessions.toImportedChat(title, parsed.turns(), modifiedAt,</span>
+<span class="nc" id="L91">                source, ProviderIdentity.cliSessionId(root, file), LocalCliSessions.sourceUri(file)));</span>
+    }
+
+    static String fileTitle(Path file) {
+<span class="nc" id="L95">        Path fn = file.getFileName();</span>
+<span class="nc bnc" id="L96" title="All 2 branches missed.">        return (fn != null) ? fn.toString().replaceFirst(&quot;\\.jsonl$&quot;, &quot;&quot;) : &quot;&quot;;</span>
+    }
+
+    private ConversationCandidate candidate(Path file) {
+<span class="nc" id="L100">        String modifiedAt = LocalCliSessions.modifiedAt(file);</span>
+<span class="nc" id="L101">        return new ConversationCandidate(source, ProviderIdentity.cliSessionId(root, file),</span>
+<span class="nc" id="L102">                fileTitle(file), LocalCliSessions.sourceUri(file), modifiedAt);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

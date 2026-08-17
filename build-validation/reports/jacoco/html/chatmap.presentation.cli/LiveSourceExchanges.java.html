@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LiveSourceExchanges.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.cli</a> &gt; <span class="el_source">LiveSourceExchanges.java</span></div><h1>LiveSourceExchanges.java</h1><pre class="source lang-java linenums">package chatmap.presentation.cli;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import chatmap.application.port.provider.ChatProvider;
+import chatmap.app.DefaultServiceIntegrations;
+import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
+import chatmap.application.model.ImportedChat;
+
+/** Prints the latest prompt and response visible from each configured chat source. */
+<span class="nc" id="L14">public final class LiveSourceExchanges {</span>
+
+    private static final String USAGE = &quot;Usage: LiveSourceExchanges [--home &lt;directory&gt;]&quot;;
+
+    public static void main(String[] args) {
+<span class="nc bnc" id="L19" title="All 2 branches missed.">        if (!CliBootstrap.parseOrExit(args, USAGE).remainingArgs().isEmpty()) {</span>
+<span class="nc" id="L20">            CliBootstrap.exitWithUsage(USAGE);</span>
+<span class="nc" id="L21">            return;</span>
+        }
+<span class="nc bnc" id="L23" title="All 2 branches missed.">        for (ChatProvider provider : DefaultServiceIntegrations.chatProviders()) {</span>
+<span class="nc" id="L24">            printField(&quot;provider&quot;, provider.name());</span>
+            try {
+<span class="nc" id="L26">                Optional&lt;ImportedChat&gt; latest = provider.latestChat();</span>
+<span class="nc bnc" id="L27" title="All 2 branches missed.">                if (latest.isEmpty()) {</span>
+<span class="nc" id="L28">                    System.out.println(&quot;no live chat found&quot;);</span>
+<span class="nc" id="L29">                    unavailableReason(provider).ifPresent(reason -&gt; printField(&quot;reason&quot;, reason));</span>
+                } else {
+<span class="nc" id="L31">                    printChat(latest.get());</span>
+                }
+<span class="nc" id="L33">            } catch (Exception failure) {</span>
+<span class="nc" id="L34">                printField(&quot;unavailable&quot;, diagnostic(failure));</span>
+<span class="nc" id="L35">            }</span>
+<span class="nc" id="L36">            System.out.println(&quot;--------------------------------------------------------------------------------&quot;);</span>
+<span class="nc" id="L37">        }</span>
+<span class="nc" id="L38">    }</span>
+
+    private static void printChat(ImportedChat chat) {
+<span class="nc" id="L41">        printField(&quot;source&quot;, chat.chat().source().dbValue());</span>
+<span class="nc" id="L42">        printField(&quot;title&quot;, chat.chat().title());</span>
+<span class="nc" id="L43">        printField(&quot;externalConversationId&quot;, chat.chat().externalConversationId());</span>
+<span class="nc" id="L44">        printField(&quot;sourceUri&quot;, chat.chat().sourceUri());</span>
+<span class="nc" id="L45">        printBlock(&quot;last prompt&quot;, lastText(chat.messages(), MessageRole.user));</span>
+<span class="nc" id="L46">        printBlock(&quot;last response&quot;, lastText(chat.messages(), MessageRole.assistant));</span>
+<span class="nc" id="L47">    }</span>
+
+    private static String lastText(List&lt;Message&gt; messages, MessageRole role) {
+<span class="nc" id="L50">        List&lt;Message&gt; matches = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        for (Message message : messages) {</span>
+<span class="nc bnc" id="L52" title="All 2 branches missed.">            if (role == message.role()) {</span>
+<span class="nc" id="L53">                matches.add(message);</span>
+            }
+<span class="nc" id="L55">        }</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        if (matches.isEmpty()) {</span>
+<span class="nc" id="L57">            return &quot;&quot;;</span>
+        }
+<span class="nc" id="L59">        return matches.get(matches.size() - 1).text();</span>
+    }
+
+    private static Optional&lt;String&gt; unavailableReason(ChatProvider provider) {
+<span class="nc" id="L63">        return provider.unavailableReason();</span>
+    }
+
+    private static void printField(String label, String value) {
+<span class="nc" id="L67">        System.out.println(label + &quot;: &quot; + nullToBlank(value));</span>
+<span class="nc" id="L68">    }</span>
+
+    private static void printBlock(String label, String value) {
+<span class="nc" id="L71">        System.out.println(label + &quot;:&quot;);</span>
+<span class="nc" id="L72">        System.out.println(nullToBlank(value));</span>
+<span class="nc" id="L73">    }</span>
+
+    private static String diagnostic(Exception failure) {
+<span class="nc" id="L76">        String message = failure.getMessage();</span>
+<span class="nc bnc" id="L77" title="All 4 branches missed.">        if (message == null || message.isBlank()) {</span>
+<span class="nc" id="L78">            return failure.getClass().getSimpleName();</span>
+        }
+<span class="nc" id="L80">        return failure.getClass().getSimpleName() + &quot;: &quot; + message;</span>
+    }
+
+    private static String nullToBlank(String value) {
+<span class="nc bnc" id="L84" title="All 2 branches missed.">        return value == null ? &quot;&quot; : value;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

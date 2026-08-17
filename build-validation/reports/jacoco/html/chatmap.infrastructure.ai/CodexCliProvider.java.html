@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CodexCliProvider.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.ai</a> &gt; <span class="el_source">CodexCliProvider.java</span></div><h1>CodexCliProvider.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.ai;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+import chatmap.application.port.ai.AiCapability;
+import chatmap.application.port.ai.AiRequest;
+import chatmap.application.port.ai.AiResponse;
+import chatmap.application.port.ai.ModelTarget;
+import chatmap.application.port.ai.PermissionMode;
+import chatmap.application.port.command.CommandExecutor;
+import chatmap.application.port.command.CommandResult;
+
+public final class CodexCliProvider extends CliAiProvider {
+    public CodexCliProvider(CommandExecutor commandExecutor, Duration timeout) {
+<span class="fc" id="L19">        super(commandExecutor, timeout);</span>
+<span class="fc" id="L20">    }</span>
+
+    @Override
+    public Set&lt;AiCapability&gt; capabilities(ModelTarget target) {
+<span class="fc" id="L24">        return Set.of(AiCapability.sessions, AiCapability.fileEditing);</span>
+    }
+
+    @Override
+    public List&lt;String&gt; commandFor(ModelTarget target, AiRequest request) {
+<span class="fc" id="L29">        List&lt;String&gt; command = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L30">        command.add(executableName(System.getProperty(&quot;os.name&quot;)));</span>
+<span class="fc" id="L31">        command.add(&quot;exec&quot;);</span>
+<span class="fc" id="L32">        command.add(&quot;--json&quot;);</span>
+<span class="pc bpc" id="L33" title="1 of 2 branches missed.">        request.sessionId().filter(id -&gt; !id.isBlank()).ifPresent(id -&gt; {</span>
+<span class="fc" id="L34">            command.add(&quot;resume&quot;);</span>
+<span class="fc" id="L35">            command.add(id);</span>
+<span class="fc" id="L36">        });</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        if (!&quot;default&quot;.equals(target.providerModelName())) {</span>
+<span class="nc" id="L38">            command.add(&quot;--model&quot;);</span>
+<span class="nc" id="L39">            command.add(target.providerModelName());</span>
+        }
+<span class="fc bfc" id="L41" title="All 2 branches covered.">        if (request.permissionMode() == PermissionMode.unrestricted) {</span>
+<span class="fc" id="L42">            command.add(&quot;--sandbox&quot;);</span>
+<span class="fc" id="L43">            command.add(&quot;workspace-write&quot;);</span>
+        }
+<span class="fc" id="L45">        command.add(&quot;-&quot;);</span>
+<span class="fc" id="L46">        return command;</span>
+    }
+
+    @Override
+    protected AiResponse parseResponse(ModelTarget target, AiRequest request, CommandResult result) {
+<span class="fc" id="L51">        StructuredCliOutput.Parsed parsed = StructuredCliOutput.parse(</span>
+<span class="fc" id="L52">                result.standardOutput(), request.sessionId().orElse(null));</span>
+<span class="fc" id="L53">        return new AiResponse(parsed.text(), backendId(target), result.duration(), target, parsed.sessionId());</span>
+    }
+
+    static String executableName(String osName) {
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        String normalized = osName == null ? &quot;&quot; : osName.toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L58" title="All 2 branches covered.">        return normalized.contains(&quot;win&quot;) ? &quot;codex.cmd&quot; : &quot;codex&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

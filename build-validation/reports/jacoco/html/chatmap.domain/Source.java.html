@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Source.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.domain</a> &gt; <span class="el_source">Source.java</span></div><h1>Source.java</h1><pre class="source lang-java linenums">package chatmap.domain;
+
+/**
+ * Closed set of chat sources. Each importer or AI backend maps to exactly one member.
+ *
+ * dbValue is the string persisted in chats.source and is stable forever;
+ * renaming an enum constant must never change its dbValue once real
+ * databases exist. Naming convention for dbValues: lowerCamelCase.
+ *
+ * A source used by an AI backend to record a prompt/response exchange (the
+ * &quot;*Prompt&quot; and jshellHarness members) must never be reused by an importer
+ * that reads a real conversation history, and vice versa: source is the
+ * namespace content-hash dedup (see ChatRepository.findBySourceAndContentHash)
+ * operates within, so two unrelated origins sharing a source value could
+ * dedup-collide with each other's chats.
+ *
+ * fromDbValue is forgiving: an unrecognized stored value maps to unknown
+ * rather than throwing, so older app versions can open newer databases
+ * without losing access to the user's chats.
+ */
+<span class="fc" id="L21">public enum Source {</span>
+<span class="fc" id="L22">    plainText(&quot;plainText&quot;, &quot;Plain text&quot;),</span>
+<span class="fc" id="L23">    markdown(&quot;markdown&quot;, &quot;Markdown&quot;),</span>
+<span class="fc" id="L24">    chatgptJson(&quot;chatgptJson&quot;, &quot;ChatGPT JSON&quot;),</span>
+<span class="fc" id="L25">    claudeWeb(&quot;claudeWeb&quot;, &quot;Claude web&quot;),</span>
+<span class="fc" id="L26">    chatGptWeb(&quot;chatGptWeb&quot;, &quot;ChatGPT web&quot;),</span>
+<span class="fc" id="L27">    geminiWeb(&quot;geminiWeb&quot;, &quot;Gemini web&quot;),</span>
+<span class="fc" id="L28">    claudeCode(&quot;claudeCode&quot;, &quot;Claude Code&quot;),</span>
+<span class="fc" id="L29">    codexCli(&quot;codexCli&quot;, &quot;Codex CLI&quot;),</span>
+<span class="fc" id="L30">    geminiCli(&quot;geminiCli&quot;, &quot;Gemini CLI&quot;),</span>
+<span class="fc" id="L31">    jshellHarness(&quot;jshellHarness&quot;, &quot;JShell harness&quot;),</span>
+<span class="fc" id="L32">    claudeCliPrompt(&quot;claudeCliPrompt&quot;, &quot;Claude CLI prompt&quot;),</span>
+<span class="fc" id="L33">    codexCliPrompt(&quot;codexCliPrompt&quot;, &quot;Codex CLI prompt&quot;),</span>
+<span class="fc" id="L34">    geminiCliPrompt(&quot;geminiCliPrompt&quot;, &quot;Gemini CLI prompt&quot;),</span>
+<span class="fc" id="L35">    agyCliPrompt(&quot;agyCliPrompt&quot;, &quot;Antigravity CLI prompt&quot;),</span>
+<span class="fc" id="L36">    ollamaPrompt(&quot;ollamaPrompt&quot;, &quot;Ollama prompt&quot;),</span>
+<span class="fc" id="L37">    unknown(&quot;unknown&quot;, &quot;Unknown&quot;);</span>
+
+    private final String dbValue;
+    private final String displayName;
+
+<span class="fc" id="L42">    Source(String dbValue, String displayName) {</span>
+<span class="fc" id="L43">        this.dbValue = dbValue;</span>
+<span class="fc" id="L44">        this.displayName = displayName;</span>
+<span class="fc" id="L45">    }</span>
+
+    public String dbValue() {
+<span class="nc" id="L48">        return dbValue;</span>
+    }
+
+    public String displayName() {
+<span class="nc" id="L52">        return displayName;</span>
+    }
+
+    public static Source fromDbValue(String dbValue) {
+<span class="nc bnc" id="L56" title="All 2 branches missed.">        for (Source s : values()) {</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            if (s.dbValue.equals(dbValue)) {</span>
+<span class="nc" id="L58">                return s;</span>
+            }
+        }
+<span class="nc" id="L61">        return unknown;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

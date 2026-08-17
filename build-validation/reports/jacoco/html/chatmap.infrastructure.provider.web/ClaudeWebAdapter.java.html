@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ClaudeWebAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.infrastructure.provider.web</a> &gt; <span class="el_source">ClaudeWebAdapter.java</span></div><h1>ClaudeWebAdapter.java</h1><pre class="source lang-java linenums">package chatmap.infrastructure.provider.web;
+
+import org.slf4j.Logger;
+import chatmap.application.support.Log;
+
+
+import chatmap.infrastructure.provider.ClaudeTurn;
+import chatmap.infrastructure.provider.ProviderIdentity;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * Reads the most recent claude.ai conversation over CDP.
+ *
+ * Attaches to a Chrome already listening on the CDP port — the shared plumbing
+ * (connect, open page, read newest, release) lives in {@link CdpTranscriptAdapter};
+ * this class supplies only claude.ai's URL and selectors. It never launches a
+ * browser itself ({@link ChromeCdpLauncher} does that).
+ *
+ * The selectors are best-effort and undocumented; claude.ai's DOM changes, so
+     * {@link #readTurns(CdpPage)} tries several candidates and MUST be verified against a
+ * live logged-in page if it stops finding turns.
+ */
+public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
+
+<span class="nc" id="L38">    private static final Logger LOG = Log.of(ClaudeWebAdapter.class);</span>
+
+    public static final String CLAUDE_BASE_URL = &quot;https://claude.ai&quot;;
+
+    ClaudeWebAdapter(String cdpUrl) {
+<span class="nc" id="L43">        super(cdpUrl);</span>
+<span class="nc" id="L44">    }</span>
+
+    @Override
+    String siteBaseUrl() {
+<span class="nc" id="L48">        return CLAUDE_BASE_URL;</span>
+    }
+
+    /**
+     * Lists claude.ai conversations from the sidebar, most-recent first.
+     * claude.ai conversation links are {@code /chat/&lt;uuid&gt;}; the sidebar renders
+     * them newest-first, so element order is recency order.
+     */
+    @Override
+    List&lt;ChatWebSummary&gt; listChats(CdpPage page) {
+<span class="nc" id="L58">        Objects.requireNonNull(page, &quot;page&quot;);</span>
+        try {
+<span class="nc" id="L60">            page.waitForSelector(&quot;a[href*='/chat/']&quot;, 5000);</span>
+<span class="nc" id="L61">        } catch (Exception ignored) {</span>
+<span class="nc" id="L62">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L63">        }</span>
+
+<span class="nc" id="L65">        List&lt;ChatWebSummary&gt; summaries = new ArrayList&lt;&gt;();</span>
+<span class="nc" id="L66">        Set&lt;String&gt; seenUrls = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L67">        CdpPage.CdpLocator chatLinks = page.locator(&quot;a[href*='/chat/']&quot;);</span>
+<span class="nc" id="L68">        int count = chatLinks.count();</span>
+<span class="nc bnc" id="L69" title="All 2 branches missed.">        for (int i = 0; i &lt; count; i++) {</span>
+<span class="nc" id="L70">            CdpPage.CdpLocator link = chatLinks.nth(i);</span>
+<span class="nc" id="L71">            String href = link.getAttribute(&quot;href&quot;);</span>
+<span class="nc bnc" id="L72" title="All 4 branches missed.">            if (href == null || href.isBlank()) {</span>
+<span class="nc" id="L73">                continue;</span>
+            }
+<span class="nc bnc" id="L75" title="All 2 branches missed.">            String fullUrl = href.startsWith(&quot;/&quot;) ? CLAUDE_BASE_URL + href : href;</span>
+            // The sidebar title is split into two identical spans (data-testid
+            // 'chat-title-split'), so innerText repeats it — collapse the repeat.
+<span class="nc" id="L78">            String title = WebTranscripts.collapseRepeatedLines(WebTranscripts.firstNonBlank(</span>
+<span class="nc" id="L79">                    WebTranscripts.safeInnerText(link), link.getAttribute(&quot;title&quot;),</span>
+<span class="nc" id="L80">                    link.getAttribute(&quot;aria-label&quot;)));</span>
+<span class="nc bnc" id="L81" title="All 4 branches missed.">            if (title == null || title.isBlank()) {</span>
+<span class="nc" id="L82">                title = &quot;Untitled Chat&quot;;</span>
+            }
+<span class="nc bnc" id="L84" title="All 2 branches missed.">            if (seenUrls.add(fullUrl)) {</span>
+<span class="nc" id="L85">                summaries.add(new ChatWebSummary(title.strip(), fullUrl));</span>
+            }
+        }
+<span class="nc" id="L88">        return summaries;</span>
+    }
+
+    /**
+     * Reads the turns of an open claude.ai conversation page, preserving
+     * user/assistant roles. Tries several selectors in order and falls back; the
+     * base class merges consecutive same-role turns into one message.
+     *
+     * NOTE: these selectors are best-effort and MUST be verified against a live
+     * logged-in page; adjust the candidate lists below if claude.ai has changed.
+     * The first candidate was verified against the live DOM on 2026-08-04: user
+     * turns carry {@code data-testid='user-message'} and assistant response prose
+     * lives in {@code font-claude-response-body} elements. Note the sibling
+     * {@code font-claude-response} class holds Claude's collapsed *thinking*
+     * summary, not the answer, so it is deliberately not selected. The later
+     * candidates are older fallbacks.
+     */
+    @Override
+    List&lt;ClaudeTurn&gt; readTurns(CdpPage page) {
+<span class="nc" id="L107">        Objects.requireNonNull(page, &quot;page&quot;);</span>
+
+<span class="nc" id="L109">        String[] turnSelectorCandidates = {</span>
+                &quot;[data-testid='user-message'], .font-claude-response-body&quot;,
+                &quot;div[data-testid='user-message'], div[data-testid='assistant-message']&quot;,
+                &quot;[data-testid='user-message'], .font-claude-message&quot;,
+                &quot;div.font-user-message, div.font-claude-message&quot;,
+        };
+
+        try {
+<span class="nc" id="L117">            page.waitForSelector(String.join(&quot;, &quot;, turnSelectorCandidates), 5000);</span>
+<span class="nc" id="L118">        } catch (Exception ignored) {</span>
+<span class="nc" id="L119">            LOG.debug(&quot;Silenced exception: {}&quot;, ignored.getMessage(), ignored);</span>
+<span class="nc" id="L120">        }</span>
+
+<span class="nc bnc" id="L122" title="All 2 branches missed.">        for (String selector : turnSelectorCandidates) {</span>
+<span class="nc" id="L123">            CdpPage.CdpLocator turns = page.locator(selector);</span>
+<span class="nc" id="L124">            int count = turns.count();</span>
+<span class="nc bnc" id="L125" title="All 2 branches missed.">            if (count == 0) {</span>
+<span class="nc" id="L126">                continue;</span>
+            }
+<span class="nc" id="L128">            List&lt;ClaudeTurn&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            for (int i = 0; i &lt; count; i++) {</span>
+<span class="nc" id="L130">                CdpPage.CdpLocator turn = turns.nth(i);</span>
+<span class="nc" id="L131">                String text = WebTranscripts.safeInnerText(turn);</span>
+<span class="nc bnc" id="L132" title="All 4 branches missed.">                if (text == null || text.isBlank()) {</span>
+<span class="nc" id="L133">                    continue;</span>
+                }
+<span class="nc" id="L135">                result.add(new ClaudeTurn(inferRole(turn), text.strip()));</span>
+            }
+<span class="nc bnc" id="L137" title="All 2 branches missed.">            if (!result.isEmpty()) {</span>
+<span class="nc" id="L138">                return result;</span>
+            }
+        }
+<span class="nc" id="L141">        return List.of();</span>
+    }
+
+    @Override
+    String identityOf(ChatWebSummary summary) {
+<span class="nc" id="L146">        return ProviderIdentity.claudeWebId(summary.url());</span>
+    }
+
+    @Override
+    String providerLabel() {
+<span class="nc" id="L151">        return &quot;Claude (web)&quot;;</span>
+    }
+
+    private static final int PAGE_LIMIT = 30;
+    private static final int MAX_API_PAGES = 200;
+
+    /**
+     * Exhaustive discovery via claude.ai's own {@code chat_conversations_v2}
+     * listing endpoint instead of DOM scrolling: {@code has_more} in the
+     * response is an explicit, authoritative terminal signal, and it sidesteps
+     * a discrepancy actually observed live where the sidebar/{@code /recents}
+     * DOM's {@code a[href*='/chat/']} count (title elements can render as more
+     * than one anchor) exceeded the true conversation count. Called via
+     * {@code fetch()} from the already-authenticated page context (cookies
+     * only, same origin) -- no credential is read into or logged by this code.
+     * Verified live on 2026-08-12: the endpoint has no separate archived-list
+     * parameter, so there is nothing additional to enumerate there.
+     */
+    @Override
+    WebDiscoveryResult doDiscoverAll() {
+        CdpPage page;
+        try {
+<span class="nc" id="L173">            page = openPage(siteBaseUrl());</span>
+<span class="nc" id="L174">        } catch (Exception unopenable) {</span>
+<span class="nc" id="L175">            return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));</span>
+<span class="nc" id="L176">        }</span>
+
+<span class="nc" id="L178">        String orgId = extractOrgId(page);</span>
+<span class="nc bnc" id="L179" title="All 4 branches missed.">        if (orgId == null || orgId.isBlank()) {</span>
+<span class="nc" id="L180">            return new WebDiscoveryResult(providerLabel(), List.of(), DiscoveryStatus.unavailable,</span>
+                    &quot;Could not determine the active organization id (lastActiveOrg cookie missing); &quot;
+                    + &quot;probably not logged in.&quot;);
+        }
+
+<span class="nc" id="L185">        return enumerate(orgId, offset -&gt; page.evaluate(conversationPageScript(orgId, offset)), MAX_API_PAGES);</span>
+    }
+
+    @FunctionalInterface
+    interface ConversationPageFetcher {
+        Object fetch(int offset);
+    }
+
+    static WebDiscoveryResult enumerate(
+            String orgId, ConversationPageFetcher fetcher, int maxPages) {
+<span class="nc bnc" id="L195" title="All 4 branches missed.">        if (orgId == null || orgId.isBlank()) {</span>
+<span class="nc" id="L196">            return new WebDiscoveryResult(&quot;Claude (web)&quot;, List.of(), DiscoveryStatus.unavailable,</span>
+                    &quot;Could not determine the active organization id (lastActiveOrg cookie missing); &quot;
+                    + &quot;probably not logged in.&quot;);
+        }
+
+<span class="nc" id="L201">        Map&lt;String, ChatWebSummary&gt; all = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L202">        int offset = 0;</span>
+<span class="nc bnc" id="L203" title="All 2 branches missed.">        for (int i = 0; i &lt; maxPages; i++) {</span>
+<span class="nc" id="L204">            Object raw = fetcher.fetch(offset);</span>
+<span class="nc" id="L205">            JsonObject parsed = parseOrNull(raw);</span>
+<span class="nc bnc" id="L206" title="All 2 branches missed.">            if (parsed == null) {</span>
+<span class="nc" id="L207">                return new WebDiscoveryResult(&quot;Claude (web)&quot;, List.copyOf(all.values()), DiscoveryStatus.incomplete,</span>
+                        &quot;Conversation listing API returned an unparseable response at offset &quot; + offset + &quot;.&quot;);
+            }
+<span class="nc bnc" id="L210" title="All 2 branches missed.">            if (parsed.has(&quot;error&quot;)) {</span>
+<span class="nc" id="L211">                return new WebDiscoveryResult(&quot;Claude (web)&quot;, List.copyOf(all.values()), DiscoveryStatus.incomplete,</span>
+                        &quot;Conversation listing API error at offset &quot; + offset + &quot;: &quot;
+<span class="nc" id="L213">                        + parsed.get(&quot;error&quot;).getAsString());</span>
+            }
+<span class="nc bnc" id="L215" title="All 4 branches missed.">            if (!parsed.has(&quot;data&quot;) || !parsed.get(&quot;data&quot;).isJsonArray()</span>
+<span class="nc bnc" id="L216" title="All 4 branches missed.">                    || !parsed.has(&quot;has_more&quot;) || !parsed.get(&quot;has_more&quot;).isJsonPrimitive()</span>
+<span class="nc bnc" id="L217" title="All 2 branches missed.">                    || !parsed.getAsJsonPrimitive(&quot;has_more&quot;).isBoolean()) {</span>
+<span class="nc" id="L218">                return new WebDiscoveryResult(&quot;Claude (web)&quot;, List.copyOf(all.values()), DiscoveryStatus.incomplete,</span>
+                        &quot;Conversation listing API returned a malformed page at offset &quot; + offset + &quot;.&quot;);
+            }
+<span class="nc" id="L221">            JsonArray data = parsed.getAsJsonArray(&quot;data&quot;);</span>
+<span class="nc bnc" id="L222" title="All 2 branches missed.">            for (JsonElement element : data) {</span>
+<span class="nc bnc" id="L223" title="All 2 branches missed.">                if (!element.isJsonObject()) {</span>
+<span class="nc" id="L224">                    continue;</span>
+                }
+<span class="nc" id="L226">                JsonObject o = element.getAsJsonObject();</span>
+<span class="nc" id="L227">                String uuid = stringField(o, &quot;uuid&quot;);</span>
+<span class="nc bnc" id="L228" title="All 4 branches missed.">                if (uuid == null || uuid.isBlank()) {</span>
+<span class="nc" id="L229">                    continue;</span>
+                }
+<span class="nc" id="L231">                String title = stringField(o, &quot;name&quot;);</span>
+<span class="nc" id="L232">                all.putIfAbsent(uuid, new ChatWebSummary(</span>
+<span class="nc bnc" id="L233" title="All 4 branches missed.">                        title == null || title.isBlank() ? &quot;Untitled Chat&quot; : title,</span>
+                        CLAUDE_BASE_URL + &quot;/chat/&quot; + uuid));
+<span class="nc" id="L235">            }</span>
+<span class="nc" id="L236">            boolean hasMore = parsed.get(&quot;has_more&quot;).getAsBoolean();</span>
+<span class="nc bnc" id="L237" title="All 2 branches missed.">            if (!hasMore) {</span>
+<span class="nc" id="L238">                return new WebDiscoveryResult(&quot;Claude (web)&quot;, List.copyOf(all.values()), DiscoveryStatus.complete,</span>
+                        &quot;Complete for the normal conversation list exposed by the current authenticated web UI &quot;
+                        + &quot;(chat_conversations_v2 has_more=false). No separate archived-conversation listing &quot;
+                        + &quot;was found on this endpoint.&quot;);
+            }
+<span class="nc" id="L243">            offset += PAGE_LIMIT;</span>
+        }
+<span class="nc" id="L245">        return new WebDiscoveryResult(&quot;Claude (web)&quot;, List.copyOf(all.values()), DiscoveryStatus.incomplete,</span>
+                &quot;Reached the API pagination safety limit (&quot; + maxPages + &quot; pages) without has_more=false.&quot;);
+    }
+
+    private static String conversationPageScript(String orgId, int offset) {
+<span class="nc" id="L250">        return &quot;(async () =&gt; { try {&quot;</span>
+                + &quot;const res = await fetch('/api/organizations/&quot; + orgId
+                + &quot;/chat_conversations_v2?limit=&quot; + PAGE_LIMIT + &quot;&amp;offset=&quot; + offset + &quot;', &quot;
+                + &quot;{credentials:'include'});&quot;
+                + &quot;if (!res.ok) return JSON.stringify({error:'HTTP '+res.status,status:res.status});&quot;
+                + &quot;return JSON.stringify(await res.json());&quot;
+                + &quot;} catch (e) { return JSON.stringify({error:String(e)}); } })()&quot;;
+    }
+
+    private static String extractOrgId(CdpPage page) {
+<span class="nc" id="L260">        Object raw = page.evaluate(&quot;() =&gt; { const m = document.cookie.match(/lastActiveOrg=([^;]+)/); &quot;</span>
+                + &quot;return m ? m[1] : null; }&quot;);
+<span class="nc bnc" id="L262" title="All 2 branches missed.">        return raw == null ? null : raw.toString();</span>
+    }
+
+    private static JsonObject parseOrNull(Object raw) {
+<span class="nc bnc" id="L266" title="All 2 branches missed.">        if (raw == null) {</span>
+<span class="nc" id="L267">            return null;</span>
+        }
+        try {
+<span class="nc" id="L270">            return JsonParser.parseString(raw.toString()).getAsJsonObject();</span>
+<span class="nc" id="L271">        } catch (RuntimeException malformed) {</span>
+<span class="nc" id="L272">            return null;</span>
+        }
+    }
+
+    private static String stringField(JsonObject object, String name) {
+<span class="nc" id="L277">        JsonElement value = object.get(name);</span>
+<span class="nc bnc" id="L278" title="All 4 branches missed.">        return value == null || value.isJsonNull() ? null : value.getAsString();</span>
+    }
+
+    private static String inferRole(CdpPage.CdpLocator turn) {
+<span class="nc" id="L282">        String testId = turn.getAttribute(&quot;data-testid&quot;);</span>
+<span class="nc bnc" id="L283" title="All 2 branches missed.">        if (testId != null) {</span>
+<span class="nc" id="L284">            String lowered = testId.toLowerCase(Locale.ROOT);</span>
+<span class="nc bnc" id="L285" title="All 2 branches missed.">            if (lowered.contains(&quot;user&quot;)) {</span>
+<span class="nc" id="L286">                return chatmap.domain.MessageRole.user.dbValue();</span>
+            }
+<span class="nc bnc" id="L288" title="All 4 branches missed.">            if (lowered.contains(&quot;assistant&quot;) || lowered.contains(&quot;claude&quot;)) {</span>
+<span class="nc" id="L289">                return chatmap.domain.MessageRole.assistant.dbValue();</span>
+            }
+        }
+<span class="nc" id="L292">        String classAttr = turn.getAttribute(&quot;class&quot;);</span>
+<span class="nc bnc" id="L293" title="All 2 branches missed.">        if (classAttr != null) {</span>
+<span class="nc" id="L294">            String lowered = classAttr.toLowerCase(Locale.ROOT);</span>
+<span class="nc bnc" id="L295" title="All 2 branches missed.">            if (lowered.contains(&quot;user&quot;)) {</span>
+<span class="nc" id="L296">                return chatmap.domain.MessageRole.user.dbValue();</span>
+            }
+<span class="nc bnc" id="L298" title="All 4 branches missed.">            if (lowered.contains(&quot;claude&quot;) || lowered.contains(&quot;assistant&quot;)) {</span>
+<span class="nc" id="L299">                return chatmap.domain.MessageRole.assistant.dbValue();</span>
+            }
+        }
+<span class="nc" id="L302">        return chatmap.domain.MessageRole.unknown.dbValue();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

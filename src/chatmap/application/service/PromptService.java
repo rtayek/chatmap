@@ -63,6 +63,13 @@ public final class PromptService {
 
     public List<String> listSessions(String backendName) {
         ModelTarget target = ModelTarget.require(backendName);
+        if (importService != null) {
+            try {
+                return importService.listPromptSessions(target);
+            } catch (SQLException failure) {
+                throw new IllegalStateException("Could not list known sessions for " + target.displayName(), failure);
+            }
+        }
         return providerFor(target).listSessions(target);
     }
 

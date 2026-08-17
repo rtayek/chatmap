@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SummarizeChatCli.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">cjatmanager</a> &gt; <a href="index.source.html" class="el_package">chatmap.presentation.cli</a> &gt; <span class="el_source">SummarizeChatCli.java</span></div><h1>SummarizeChatCli.java</h1><pre class="source lang-java linenums">package chatmap.presentation.cli;
+
+import chatmap.app.DefaultServiceIntegrations;
+import chatmap.app.bootstrap.ChatMapPaths;
+import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
+import chatmap.domain.ChatSummary;
+import chatmap.application.service.LiveChatFetchService;
+
+/**
+ * Command-line entry point for the one deliberate extra step: summarize and
+ * tag one already-imported chat using the configured Claude CLI client.
+ *
+ * Uses the same configured database file as the JavaFX app, so
+ * it can summarize chats imported through either the app or the consolidator
+ * CLI. Does not touch the import/export flow at all.
+ *
+ * Usage: summarizeChat [--home &lt;directory&gt;] [chatId]
+ *
+ * With no argument, the target is chosen in this order:
+ *   1. the last live chat from a configured provider (imported on the fly), else
+ *   2. the most recently imported chat already in the database.
+ */
+<span class="nc" id="L23">public final class SummarizeChatCli {</span>
+
+    private static final String USAGE = &quot;Usage: summarizeChat [--home &lt;directory&gt;] [chatId]&quot;;
+
+    public static void main(String[] args) {
+<span class="nc" id="L28">        ParsedArguments parsedArguments = CliBootstrap.parseOrExit(args, USAGE);</span>
+<span class="nc bnc" id="L29" title="All 2 branches missed.">        if (parsedArguments.remainingArgs().size() &gt; 1) {</span>
+<span class="nc" id="L30">            CliBootstrap.exitWithUsage(USAGE);</span>
+<span class="nc" id="L31">            return;</span>
+        }
+<span class="nc" id="L33">        Long requestedChatId = null;</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">        if (!parsedArguments.remainingArgs().isEmpty()) {</span>
+            try {
+<span class="nc" id="L36">                requestedChatId = Long.parseLong(parsedArguments.remainingArgs().getFirst());</span>
+<span class="nc" id="L37">            } catch (NumberFormatException e) {</span>
+<span class="nc" id="L38">                System.err.println(&quot;chatId must be a number, got: &quot; + parsedArguments.remainingArgs().getFirst());</span>
+<span class="nc" id="L39">                System.exit(1);</span>
+<span class="nc" id="L40">                return;</span>
+<span class="nc" id="L41">            }</span>
+        }
+
+<span class="nc" id="L44">        System.out.println(ChatMapPaths.diagnostics(parsedArguments.paths()));</span>
+
+<span class="nc" id="L46">        try (CliBootstrap.CliContext context =</span>
+<span class="nc" id="L47">                CliBootstrap.open(parsedArguments, DefaultServiceIntegrations.create())) {</span>
+            LiveChatFetchService.Resolution resolution;
+            try {
+<span class="nc" id="L50">                resolution = context.services().liveChatFetchService().resolve(requestedChatId);</span>
+<span class="nc" id="L51">            } catch (LiveChatFetchService.NoChatAvailableException e) {</span>
+<span class="nc" id="L52">                System.err.println(e.getMessage());</span>
+<span class="nc" id="L53">                System.exit(1);</span>
+<span class="nc" id="L54">                return;</span>
+<span class="nc" id="L55">            }</span>
+<span class="nc" id="L56">            long chatId = resolution.chatId();</span>
+<span class="nc bnc" id="L57" title="All 2 branches missed.">            if (requestedChatId == null) {</span>
+<span class="nc" id="L58">                System.out.println(&quot;No chatId given; defaulting to &quot; + resolution.how() + &quot;.&quot;);</span>
+            }
+
+<span class="nc" id="L61">            System.out.println(&quot;Summarizing chat &quot; + chatId + &quot; ...&quot;);</span>
+<span class="nc" id="L62">            ChatSummary summary = context.services().summaryService().summarize(chatId);</span>
+
+<span class="nc" id="L64">            System.out.println();</span>
+<span class="nc" id="L65">            System.out.println(&quot;Summary:&quot;);</span>
+<span class="nc" id="L66">            System.out.println(summary.summary());</span>
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        } catch (Exception e) {</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            String which = requestedChatId != null ? String.valueOf(requestedChatId) : &quot;(most recent)&quot;;</span>
+<span class="nc" id="L69">            System.err.println(&quot;Could not summarize chat &quot; + which + &quot;: &quot; + e.getMessage());</span>
+<span class="nc" id="L70">            System.exit(1);</span>
+<span class="nc" id="L71">        }</span>
+<span class="nc" id="L72">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
