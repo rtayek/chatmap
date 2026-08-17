@@ -19,7 +19,9 @@ public record AiRequest(
         Optional<String> sessionId,
         Optional<Path> workingDirectory,
         PermissionMode permissionMode,
-        OutputFormat outputFormat
+        OutputFormat outputFormat,
+        Optional<Path> standardOutputPath,
+        Optional<Path> standardErrorPath
 ) {
     public AiRequest {
         Objects.requireNonNull(prompt, "prompt");
@@ -29,10 +31,13 @@ public record AiRequest(
         Objects.requireNonNull(workingDirectory, "workingDirectory");
         Objects.requireNonNull(permissionMode, "permissionMode");
         Objects.requireNonNull(outputFormat, "outputFormat");
+        Objects.requireNonNull(standardOutputPath, "standardOutputPath");
+        Objects.requireNonNull(standardErrorPath, "standardErrorPath");
     }
 
     public AiRequest(String prompt, Optional<String> systemPrompt, PromptProfile profile, Optional<String> sessionId) {
-        this(prompt, systemPrompt, profile, sessionId, Optional.empty(), PermissionMode.standard, OutputFormat.text);
+        this(prompt, systemPrompt, profile, sessionId, Optional.empty(), PermissionMode.standard, OutputFormat.text,
+                Optional.empty(), Optional.empty());
     }
 
     public AiRequest(String prompt, Optional<String> systemPrompt, PromptProfile profile) {
@@ -70,18 +75,27 @@ public record AiRequest(
     /** Copy requesting the backend's CLI be invoked inside {@code workingDirectory}. */
     public AiRequest withWorkingDirectory(Path workingDirectory) {
         return new AiRequest(prompt, systemPrompt, profile, sessionId, Optional.ofNullable(workingDirectory),
-                permissionMode, outputFormat);
+                permissionMode, outputFormat, standardOutputPath, standardErrorPath);
     }
 
     /** Copy requesting a different permission mode from the backend. */
     public AiRequest withPermissionMode(PermissionMode permissionMode) {
         return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,
-                Objects.requireNonNull(permissionMode, "permissionMode"), outputFormat);
+                Objects.requireNonNull(permissionMode, "permissionMode"), outputFormat,
+                standardOutputPath, standardErrorPath);
     }
 
     /** Copy requesting a different output format from the backend. */
     public AiRequest withOutputFormat(OutputFormat outputFormat) {
         return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,
-                permissionMode, Objects.requireNonNull(outputFormat, "outputFormat"));
+                permissionMode, Objects.requireNonNull(outputFormat, "outputFormat"),
+                standardOutputPath, standardErrorPath);
+    }
+
+    /** Copy requesting complete stdout/stderr be written to durable paths by command-backed providers. */
+    public AiRequest withOutputPaths(Path standardOutputPath, Path standardErrorPath) {
+        return new AiRequest(prompt, systemPrompt, profile, sessionId, workingDirectory,
+                permissionMode, outputFormat, Optional.ofNullable(standardOutputPath),
+                Optional.ofNullable(standardErrorPath));
     }
 }

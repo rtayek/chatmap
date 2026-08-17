@@ -56,6 +56,13 @@ final class OtherCliBackendsTest {
     }
 
     @Test
+    void codexExecutableSelectionIsPlatformSpecific() {
+        assertEquals("codex.cmd", CodexCliProvider.executableName("Windows 11"));
+        assertEquals("codex", CodexCliProvider.executableName("Linux"));
+        assertEquals("codex", CodexCliProvider.executableName("Ubuntu on WSL"));
+    }
+
+    @Test
     void agyCliBackendConstructsCorrectCommand() {
         AntigravityCliProvider backend = new AntigravityCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "Agy answer", "", Duration.ofMillis(15), false);

@@ -107,6 +107,24 @@ class ChatGptWebDiscoveryTest {
     }
 
     @Test
+    void malformedRetryAfterValuesUseBoundedFallbackBackoff() {
+        for (String value : List.of("NaN", "Infinity", "1.5", "-1", "999999999999999999999", "999999")) {
+            List<Long> sleeps = new ArrayList<>();
+            WebDiscoveryResult result = ChatGptWebAdapter.enumerate((offset, archived) -> {
+                if (archived) {
+                    return page();
+                }
+                return sleeps.isEmpty()
+                        ? "{\"error\":\"HTTP 429\",\"status\":429,\"retryAfter\":\"" + value + "\"}"
+                        : page(chat("a"));
+            }, sleeps::add, 10, 3);
+
+            assertEquals(DiscoveryStatus.complete, result.status(), value);
+            assertEquals(500L, sleeps.get(0), value);
+        }
+    }
+
+    @Test
     void repeatedRateLimitsExhaustBoundedRetriesAtTheFailingOffset() {
         List<Integer> offsets = new ArrayList<>();
         WebDiscoveryResult result = ChatGptWebAdapter.enumerate((offset, archived) -> {

@@ -22,10 +22,6 @@ public record AiResponse(
         Objects.requireNonNull(providerModelName, "providerModelName");
     }
 
-    public AiResponse(String text, BackendId backendId, Duration duration) {
-        this(text, backendId, duration, ProviderId.claudeCli, backendId.value(), "default", null);
-    }
-
     public AiResponse(String text, BackendId backendId, Duration duration, ModelTarget target, String providerSessionId) {
         this(text, backendId, duration, target.providerId(), target.id(), target.providerModelName(), providerSessionId);
     }

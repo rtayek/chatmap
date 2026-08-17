@@ -19,8 +19,6 @@ java {
     }
 }
 
-layout.buildDirectory.set(file(".gradle-build"))
-
 sourceSets {
     main {
         java {

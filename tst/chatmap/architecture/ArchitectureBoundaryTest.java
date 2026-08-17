@@ -79,6 +79,21 @@ class ArchitectureBoundaryTest {
         }
     }
 
+    @Test
+    void cliExecutionDoesNotRestoreLegacyStandardBackend() {
+        assertFalse(Files.exists(SOURCE_ROOT.resolve("chatmap/infrastructure/ai/StandardCliBackend.java")),
+                "StandardCliBackend is a removed legacy AiBackend path; use provider-specific CliAiProvider subclasses");
+    }
+
+    @Test
+    void aiResponseCannotDefaultToFalseClaudeMetadata() throws IOException {
+        Path source = SOURCE_ROOT.resolve("chatmap/application/port/ai/AiResponse.java");
+        String text = Files.readString(source);
+
+        assertFalse(text.contains("ProviderId.claudeCli, backendId.value(), \"default\""),
+                "AiResponse must not silently label responses as Claude/default");
+    }
+
     private static List<SourceFile> sourcesIn(String packagePrefix) throws IOException {
         return allSources().stream()
                 .filter(source -> source.packageName().equals(packagePrefix)

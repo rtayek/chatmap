@@ -361,15 +361,24 @@ class HandoffOrchestratorServiceScenarioTest {
                 if (key.startsWith(entry.getKey())) {
                     CommandResult result = entry.getValue();
                     onceResponses.remove(entry.getKey());
-                    return result;
+                    return withRequestPaths(result, request);
                 }
             }
             for (Map.Entry<String, CommandResult> entry : responses.entrySet()) {
                 if (key.startsWith(entry.getKey())) {
-                    return entry.getValue();
+                    return withRequestPaths(entry.getValue(), request);
                 }
             }
-            return ok();
+            return withRequestPaths(ok(), request);
+        }
+
+        private static CommandResult withRequestPaths(CommandResult result, CommandRequest request) {
+            if (request.stdoutPath() == null && request.stderrPath() == null) {
+                return result;
+            }
+            return new CommandResult(result.exitCode(), result.standardOutput(), result.standardError(),
+                    result.duration(), result.timedOut(), result.standardOutputTruncated(),
+                    result.standardErrorTruncated(), request.stdoutPath(), request.stderrPath());
         }
     }
 }

@@ -101,6 +101,53 @@ final class CommandRunnerTest {
                 () -> new CommandResult(0, "", "", null, false));
     }
 
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void outputExactlyAtLimitIsNotTruncated() {
+        CommandRequest request = new CommandRequest(
+                probeCommand("repeat", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES), "Z"), "",
+                Duration.ofSeconds(10));
+
+        CommandResult result = new CommandRunner().run(request);
+
+        assertEquals(CommandRunner.MEMORY_LIMIT_BYTES, result.standardOutput().length());
+        assertFalse(result.standardOutputTruncated());
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void largeOutputIsTruncatedButRetainsFinalMarkerAndValidUtf8() {
+        CommandRequest request = new CommandRequest(
+                probeCommand("utf8-tail", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES + 32)), "",
+                Duration.ofSeconds(10));
+
+        CommandResult result = new CommandRunner().run(request);
+
+        assertTrue(result.standardOutputTruncated());
+        assertTrue(result.standardOutput().contains("output truncated in memory"));
+        assertTrue(result.standardOutput().endsWith("FINAL-MARKER"));
+        assertFalse(result.standardOutput().contains("\uFFFD"));
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void durableOutputPathsReceiveCompleteStreams(@TempDir Path tempDir) throws Exception {
+        Path stdout = tempDir.resolve("stdout.log");
+        Path stderr = tempDir.resolve("stderr.log");
+        CommandRequest request = new CommandRequest(
+                probeCommand("split-streams", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES + 10)), "",
+                Duration.ofSeconds(10)).withOutputPaths(stdout, stderr);
+
+        CommandResult result = new CommandRunner().run(request);
+
+        assertTrue(result.standardOutputTruncated());
+        assertTrue(result.standardErrorTruncated());
+        assertEquals(CommandRunner.MEMORY_LIMIT_BYTES + 10L, Files.size(stdout));
+        assertEquals(CommandRunner.MEMORY_LIMIT_BYTES + 10L, Files.size(stderr));
+        assertEquals(stdout, result.standardOutputPath());
+        assertEquals(stderr, result.standardErrorPath());
+    }
+
     private static List<String> probeCommand(String... arguments) {
         return CommandRunnerProbe.command(arguments);
     }
@@ -144,7 +191,29 @@ final class CommandRunnerProbe {
                 Thread.sleep(Duration.ofMinutes(1));
             }
             case "sleep" -> Thread.sleep(Duration.ofMinutes(1));
+            case "repeat" -> writeRepeated(System.out, Integer.parseInt(args[1]), args[2].charAt(0));
+            case "utf8-tail" -> {
+                int bytes = Integer.parseInt(args[1]);
+                writeRepeated(System.out, bytes, 'A');
+                System.out.print("\u20acFINAL-MARKER");
+            }
+            case "split-streams" -> {
+                int bytes = Integer.parseInt(args[1]);
+                writeRepeated(System.out, bytes, 'O');
+                writeRepeated(System.err, bytes, 'E');
+            }
             default -> throw new IllegalArgumentException("Unknown probe mode: " + args[0]);
+        }
+    }
+
+    private static void writeRepeated(java.io.PrintStream stream, int count, char value) {
+        byte[] chunk = new byte[Math.min(8192, count)];
+        java.util.Arrays.fill(chunk, (byte) value);
+        int remaining = count;
+        while (remaining > 0) {
+            int toWrite = Math.min(chunk.length, remaining);
+            stream.write(chunk, 0, toWrite);
+            remaining -= toWrite;
         }
     }
 

@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.nio.file.Files;
+import java.io.IOException;
 import java.nio.file.Path;
 
 import org.slf4j.Logger;
@@ -225,9 +227,13 @@ public final class HandoffOrchestratorService {
             }
 
             LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
+            Path agentStdout = agentOutputPath(file, "stdout.log");
+            Path agentStderr = agentOutputPath(file, "stderr.log");
+            createDirectories(Objects.requireNonNull(agentStdout.getParent(), "agent output parent"));
             AiRequest request = AiRequest.of(task.body())
                     .withWorkingDirectory(worktree)
-                    .withPermissionMode(PermissionMode.unrestricted);
+                    .withPermissionMode(PermissionMode.unrestricted)
+                    .withOutputPaths(agentStdout, agentStderr);
             if (provider.capabilities(target).contains(AiCapability.streamJson)) {
                 request = request.withOutputFormat(OutputFormat.streamJson);
             }
@@ -255,6 +261,9 @@ public final class HandoffOrchestratorService {
             LOG.warn("Could not run a required git command for {}: {}", file, executionFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not run a required git command: " + executionFailure.getMessage());
+        } catch (GitCommandFailedException gitFailure) {
+            LOG.warn("Git operation failed for {}: {}", file, gitFailure.getMessage());
+            return recordFailure(inboxRepo, file, projectKey, gitFailure.getMessage());
         } catch (HandoffFileStoreException archiveFailure) {
             LOG.warn("Could not finalize handoff task {}: {}", file, archiveFailure.getMessage());
             return recordFailure(inboxRepo, file, projectKey,
@@ -275,6 +284,9 @@ public final class HandoffOrchestratorService {
         if (branchExists.exitCode() == 0) {
             return git(targetRepo, "worktree", "add", worktree.toString(), branch);
         }
+        if (branchExists.exitCode() != 1) {
+            throw new GitCommandFailedException("git show-ref failed: " + commandFailureDetail(branchExists));
+        }
         return git(targetRepo, "worktree", "add", "-b", branch, worktree.toString());
     }
 
@@ -288,7 +300,7 @@ public final class HandoffOrchestratorService {
         boolean worktreeHasChanges = hasChanges(worktree);
         boolean pushPending = false;
         if (worktreeHasChanges) {
-            git(worktree, "add", "-A");
+            requireGitSuccess("git add failed in worktree", git(worktree, "add", "-A"));
             CommandResult commitResult = git(worktree, "commit", "-m", "Handoff: " + task.branch());
             if (commitResult.exitCode() != 0) {
                 throw new WorktreeCommitFailedException("git commit failed in worktree for branch "
@@ -296,15 +308,20 @@ public final class HandoffOrchestratorService {
             }
             if (autoPush) {
                 CommandResult pushResult = git(worktree, "push", "-u", "origin", task.branch());
-                pushPending = pushResult.exitCode() != 0;
+                if (pushResult.exitCode() != 0) {
+                    pushPending = true;
+                    LOG.warn("git push failed in worktree for branch {}: {}", task.branch(),
+                            commandFailureDetail(pushResult));
+                }
             } else {
                 pushPending = true;
             }
         }
 
         Path archived = fileStore.archive(file, ARCHIVE_SUBDIR);
-        writeResultFile(archived, task, agentResult);
-        git(inboxRepo, "add", "-A");
+        Path resultFile = writeResultFile(archived, task, agentResult);
+        gitAddPaths(inboxRepo, file, archived, resultFile,
+                agentResult.standardOutputPath(), agentResult.standardErrorPath());
         CommandResult archiveCommitResult = git(inboxRepo, "commit", "-m",
                 "Archive completed handoff: " + relativeName(inboxRepo, archived));
         boolean archiveCommitFailed = archiveCommitResult.exitCode() != 0;
@@ -332,7 +349,9 @@ public final class HandoffOrchestratorService {
                     : "Agent completed successfully but left no changes to commit.";
             LOG.info("Handoff task {} succeeded ({})", file, detail);
         }
-        return new HandoffRunResult(file, task.projectKey(), HandoffRunResult.Outcome.success, detail, pushPending);
+        return new HandoffRunResult(file, task.projectKey(), archiveCommitFailed
+                ? HandoffRunResult.Outcome.partialFailure
+                : HandoffRunResult.Outcome.success, detail, pushPending);
     }
 
     /**
@@ -341,7 +360,7 @@ public final class HandoffOrchestratorService {
      * {@value #ARCHIVE_SUBDIR} folder), so the task and its result archive
      * and sync together.
      */
-    private void writeResultFile(Path archivedTaskFile, HandoffTask task, CommandResult agentResult) {
+    private Path writeResultFile(Path archivedTaskFile, HandoffTask task, CommandResult agentResult) {
         Path resultPath = resultFilePath(archivedTaskFile);
         String content = "# Agent Result: " + archivedTaskFile.getFileName() + "\n\n"
                 + "- Project: " + task.projectKey() + "\n"
@@ -349,14 +368,18 @@ public final class HandoffOrchestratorService {
                 + "- Branch: " + task.branch() + "\n"
                 + "- Timestamp: " + clock.instant() + "\n"
                 + "- Exit code: " + agentResult.exitCode() + "\n\n"
+                + "- Full stdout: " + optionalRelativeName(archivedTaskFile.getParent(), agentResult.standardOutputPath()) + "\n"
+                + "- Full stderr: " + optionalRelativeName(archivedTaskFile.getParent(), agentResult.standardErrorPath()) + "\n\n"
                 + "## Output\n\n"
                 + agentResult.standardOutput();
         try {
             fileStore.writeString(resultPath, content);
+            return resultPath;
         } catch (HandoffFileStoreException failure) {
             // Best-effort: the task itself already succeeded, so a result-file write
             // failure shouldn't take down the whole poll run -- log and move on.
             LOG.warn("Could not write agent result file {}: {}", resultPath, failure.getMessage());
+            return null;
         }
     }
 
@@ -393,12 +416,30 @@ public final class HandoffOrchestratorService {
                     false);
         }
 
-        git(inboxRepo, "add", "-A");
-        git(inboxRepo, "commit", "-m", "Add failure report for: " + relativeName(inboxRepo, file));
+        CommandResult addResult = agentResult == null
+                ? gitAddPaths(inboxRepo, reportPath)
+                : gitAddPaths(inboxRepo, reportPath, agentResult.standardOutputPath(), agentResult.standardErrorPath());
+        if (addResult.exitCode() != 0) {
+            return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure,
+                    reason + " (additionally, could not stage failure report: "
+                            + commandFailureDetail(addResult) + ")",
+                    false);
+        }
+        CommandResult commitResult = git(inboxRepo, "commit", "-m", "Add failure report for: " + relativeName(inboxRepo, file));
+        if (commitResult.exitCode() != 0) {
+            return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure,
+                    reason + " (additionally, could not commit failure report: "
+                            + commandFailureDetail(commitResult) + ")",
+                    false);
+        }
         boolean pushPending = true;
         if (autoPush) {
             CommandResult pushResult = git(inboxRepo, "push");
             pushPending = pushResult.exitCode() != 0;
+            if (pushPending) {
+                LOG.warn("git push failed for inbox failure report {}: {}", reportPath,
+                        commandFailureDetail(pushResult));
+            }
         }
         return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure, reason, pushPending);
     }
@@ -418,9 +459,59 @@ public final class HandoffOrchestratorService {
         }
     }
 
+    private static String optionalRelativeName(Path root, Path file) {
+        return file == null ? "(not captured)" : relativeName(root, file);
+    }
+
+    private static Path agentOutputPath(Path taskFile, String suffix) {
+        Path fileName = taskFile.getFileName();
+        String baseName = (fileName == null ? "task" : fileName.toString()).replaceFirst("(?i)\\.md$", "");
+        Path taskParent = taskFile.getParent();
+        Path parent = taskParent == null ? Path.of(".") : taskParent;
+        return parent.resolve(ARCHIVE_SUBDIR).resolve(baseName + "." + suffix);
+    }
+
+    private static void createDirectories(Path directory) {
+        try {
+            Files.createDirectories(directory);
+        } catch (IOException failure) {
+            throw new HandoffFileStoreException("Could not create directory " + directory, failure);
+        }
+    }
+
     private boolean hasChanges(Path worktree) {
         CommandResult status = git(worktree, "status", "--porcelain");
+        requireGitSuccess("git status failed in worktree", status);
         return !status.standardOutput().isBlank();
+    }
+
+    private CommandResult gitAddPaths(Path repository, Path... paths) {
+        List<String> command = new ArrayList<>();
+        command.add("add");
+        command.add("--");
+        for (Path path : paths) {
+            if (path != null) {
+                command.add(relativeName(repository, path));
+            }
+        }
+        return git(repository, command.toArray(String[]::new));
+    }
+
+    private static void requireGitSuccess(String operation, CommandResult result) {
+        if (result.exitCode() != 0) {
+            throw new GitCommandFailedException(operation + ": " + commandFailureDetail(result));
+        }
+    }
+
+    private static String commandFailureDetail(CommandResult result) {
+        String stderr = result.standardError().strip();
+        if (stderr.isBlank()) {
+            stderr = result.standardOutput().strip();
+        }
+        if (stderr.isBlank()) {
+            stderr = "exit code " + result.exitCode();
+        }
+        return stderr;
     }
 
     private CommandResult git(Path workingDirectory, String... args) {
@@ -433,6 +524,12 @@ public final class HandoffOrchestratorService {
     /** Signals a worktree commit failure so {@link #processOne} can preserve the worktree instead of destroying it. */
     static final class WorktreeCommitFailedException extends RuntimeException {
         WorktreeCommitFailedException(String message) {
+            super(message);
+        }
+    }
+
+    static final class GitCommandFailedException extends RuntimeException {
+        GitCommandFailedException(String message) {
             super(message);
         }
     }

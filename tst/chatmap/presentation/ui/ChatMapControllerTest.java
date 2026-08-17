@@ -398,7 +398,8 @@ class ChatMapControllerTest {
     }
 
     private static AiBackend summaryBackend() {
-        return request -> new AiResponse("summary", new BackendId("Summary"), Duration.ZERO);
+        return request -> new AiResponse("summary", new BackendId("Summary"), Duration.ZERO,
+                ModelTarget.claude, null);
     }
 
     private static Map<ProviderId, AiProvider> providers(AiProvider claudeProvider) {

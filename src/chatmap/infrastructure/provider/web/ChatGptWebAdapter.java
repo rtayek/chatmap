@@ -317,12 +317,12 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         String retryAfter = stringField(response, "retryAfter");
         if (retryAfter != null) {
             try {
-                double seconds = Double.parseDouble(retryAfter.strip());
-                long delay = (long) Math.ceil(seconds * 1000);
+                long seconds = Long.parseLong(retryAfter.strip());
+                long delay = Math.multiplyExact(seconds, 1000);
                 if (delay >= 0 && delay <= MAX_RETRY_DELAY_MILLIS) {
                     return delay;
                 }
-            } catch (NumberFormatException notDeltaSeconds) {
+            } catch (ArithmeticException | NumberFormatException notDeltaSeconds) {
                 try {
                     long delay = java.time.ZonedDateTime.parse(
                             retryAfter, java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)

@@ -284,6 +284,67 @@ class HandoffOrchestratorServiceTest {
     }
 
     @Test
+    void showRefOperationalFailureIsNotTreatedAsMissingBranch() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git show-ref --verify --quiet refs/heads/feature-x",
+                new CommandResult(128, "", "fatal: not a git repository", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        HandoffRunResult result = results.get(0);
+        assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
+        assertTrue(result.detail().contains("git show-ref failed"), result.detail());
+        assertFalse(executor.calledWithPrefix("git worktree add"),
+                "show-ref exit 128 is an operational failure, not a missing branch");
+    }
+
+    @Test
+    void failedGitStatusCannotBecomeNoChangeSuccess() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain",
+                new CommandResult(128, "", "fatal: bad index", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        HandoffRunResult result = service.processInboxOnce(inbox).get(0);
+
+        assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
+        assertTrue(result.detail().contains("git status failed"), result.detail());
+        assertFalse(Files.exists(chatmapDir.resolve(".archive").resolve("task1.md")));
+    }
+
+    @Test
+    void successfulArchiveStagesOnlyCurrentTaskPaths() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        Files.writeString(chatmapDir.resolve("unrelated.md"), "do not stage me");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        service.processInboxOnce(inbox);
+
+        List<List<String>> addCommands = executor.calls().stream()
+                .map(CommandRequest::command)
+                .filter(command -> command.size() >= 2 && command.get(0).equals("git") && command.get(1).equals("add"))
+                .toList();
+        assertTrue(addCommands.stream().noneMatch(command -> command.contains("-A")), addCommands.toString());
+        assertTrue(addCommands.stream().anyMatch(command -> command.contains(relative(inbox, task))
+                && command.contains("chatmap/.archive/task1.md")
+                && command.contains("chatmap/.archive/task1.result.md")
+                && command.contains("chatmap/.archive/task1.stdout.log")
+                && command.contains("chatmap/.archive/task1.stderr.log")
+                && !command.contains("chatmap/unrelated.md")), addCommands.toString());
+    }
+
+    @Test
     void archiveFailureIsReportedAsFailureInsteadOfCrashingTheRun() throws IOException {
         Path chatmapDir = projectDir("chatmap");
         Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
@@ -433,6 +494,10 @@ class HandoffOrchestratorServiceTest {
         return new CommandResult(0, stdout, "", Duration.ofMillis(10), false);
     }
 
+    private static String relative(Path root, Path file) {
+        return root.relativize(file).toString().replace('\\', '/');
+    }
+
     /** Records every request and returns a scripted result for the first matching command-prefix key. */
     private static final class FakeCommandExecutor implements CommandExecutor {
         private final List<CommandRequest> calls = new ArrayList<>();
@@ -456,10 +521,19 @@ class HandoffOrchestratorServiceTest {
             String key = String.join(" ", request.command());
             for (Map.Entry<String, CommandResult> entry : responses.entrySet()) {
                 if (key.startsWith(entry.getKey())) {
-                    return entry.getValue();
+                    return withRequestPaths(entry.getValue(), request);
                 }
             }
-            return ok();
+            return withRequestPaths(ok(), request);
+        }
+
+        private static CommandResult withRequestPaths(CommandResult result, CommandRequest request) {
+            if (request.stdoutPath() == null && request.stderrPath() == null) {
+                return result;
+            }
+            return new CommandResult(result.exitCode(), result.standardOutput(), result.standardError(),
+                    result.duration(), result.timedOut(), result.standardOutputTruncated(),
+                    result.standardErrorTruncated(), request.stdoutPath(), request.stderrPath());
         }
     }
 }

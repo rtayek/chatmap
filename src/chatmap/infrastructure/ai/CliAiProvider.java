@@ -43,7 +43,9 @@ public abstract class CliAiProvider implements CommandBackedAiProvider {
         CommandResult result;
         try {
             result = commandExecutor.run(new CommandRequest(
-                    command, request.effectivePrompt(), timeout, request.workingDirectory().orElse(null)));
+                    command, request.effectivePrompt(), timeout, request.workingDirectory().orElse(null))
+                    .withOutputPaths(request.standardOutputPath().orElse(null),
+                            request.standardErrorPath().orElse(null)));
         } catch (CommandExecutionException exception) {
             throw new AiBackendStartupException(
                     "Could not start " + target.displayName() + ": " + exception.getMessage(),

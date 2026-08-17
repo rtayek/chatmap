@@ -19,6 +19,6 @@ public record HandoffRunResult(
     }
 
     public enum Outcome {
-        success, failure
+        success, failure, partialFailure
     }
 }

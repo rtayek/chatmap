@@ -3,6 +3,7 @@ package chatmap.infrastructure.ai;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import chatmap.application.port.ai.AiCapability;
@@ -24,7 +25,7 @@ public final class CodexCliProvider extends CliAiProvider {
     @Override
     public List<String> commandFor(ModelTarget target, AiRequest request) {
         List<String> command = new ArrayList<>();
-        command.add("codex.cmd");
+        command.add(executableName(System.getProperty("os.name")));
         command.add("exec");
         request.sessionId().filter(id -> !id.isBlank()).ifPresent(id -> {
             command.add("resume");
@@ -40,5 +41,10 @@ public final class CodexCliProvider extends CliAiProvider {
         }
         command.add("-");
         return command;
+    }
+
+    static String executableName(String osName) {
+        String normalized = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
+        return normalized.contains("win") ? "codex.cmd" : "codex";
     }
 }
