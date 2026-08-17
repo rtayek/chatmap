@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -166,6 +167,59 @@ public final class Database {
 
     /** Applies additive migrations that CREATE TABLE IF NOT EXISTS cannot perform on old databases. */
     public static void applyMigrations(Connection conn) throws SQLException {
+        Objects.requireNonNull(conn, "conn");
+        if (!conn.getAutoCommit()) {
+            applyMigrationsInCallerTransaction(conn);
+            return;
+        }
+
+        conn.setAutoCommit(false);
+        Throwable primaryFailure = null;
+        try {
+            applyMigrationsBody(conn);
+            conn.commit();
+        } catch (SQLException | RuntimeException | Error failure) {
+            primaryFailure = failure;
+            try {
+                conn.rollback();
+            } catch (SQLException rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            throw failure;
+        } finally {
+            try {
+                conn.setAutoCommit(true);
+            } catch (SQLException restoreFailure) {
+                if (primaryFailure != null) {
+                    primaryFailure.addSuppressed(restoreFailure);
+                } else {
+                    throw restoreFailure;
+                }
+            }
+        }
+    }
+
+    private static void applyMigrationsInCallerTransaction(Connection conn) throws SQLException {
+        Savepoint savepoint = conn.setSavepoint();
+        try {
+            applyMigrationsBody(conn);
+            conn.releaseSavepoint(savepoint);
+        } catch (SQLException | RuntimeException | Error failure) {
+            try {
+                conn.rollback(savepoint);
+            } catch (SQLException rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            try {
+                conn.releaseSavepoint(savepoint);
+            } catch (SQLException releaseFailure) {
+                failure.addSuppressed(releaseFailure);
+            }
+            throw failure;
+        }
+    }
+
+    private static void applyMigrationsBody(Connection conn) throws SQLException {
         addColumnIfMissing(conn, "chats", "externalConversationId", "TEXT");
         addColumnIfMissing(conn, "chats", "sourceUri", "TEXT");
         addColumnIfMissing(conn, "chats", "contentHash", "TEXT");

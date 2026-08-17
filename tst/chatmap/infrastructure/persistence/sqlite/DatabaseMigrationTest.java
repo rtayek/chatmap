@@ -2,6 +2,7 @@ package chatmap.infrastructure.persistence.sqlite;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -65,6 +66,65 @@ class DatabaseMigrationTest {
             assertEquals("claude", stored.modelTargetId());
             assertEquals("default", stored.providerModelName());
             assertEquals("session-1", stored.providerSessionId());
+        }
+    }
+
+    @Test
+    void failedMigrationRollsBackSchemaChangesAndDataMerges() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            insertOldProject(conn, "Foo", "2026-08-10T00:00:00Z");
+            long duplicateId = insertOldProject(conn, "FOO", "2026-08-10T00:01:00Z");
+            Chat duplicateChat = insertOldChat(conn, duplicateId, "Duplicate");
+
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE TRIGGER failProjectDelete BEFORE DELETE ON projects "
+                        + "WHEN OLD.id = " + duplicateId + " BEGIN "
+                        + "SELECT RAISE(ABORT, 'injected migration failure'); END");
+            }
+
+            SQLException failure = assertThrows(SQLException.class, () -> Database.applyMigrations(conn));
+
+            assertTrue(failure.getMessage().contains("injected migration failure"), failure.getMessage());
+            assertTrue(conn.getAutoCommit(), "migration must restore autocommit after failure");
+            assertFalse(columns(conn, "chats").contains("externalConversationId"),
+                    "ALTER TABLE must roll back with the data merge");
+            assertEquals(2, countRows(conn, "projects"), "both projects must remain after rollback");
+            try (PreparedStatement ps = conn.prepareStatement("SELECT projectId FROM chats WHERE id = ?")) {
+                ps.setLong(1, duplicateChat.id());
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertTrue(rs.next());
+                    assertEquals(duplicateId, rs.getLong(1));
+                }
+            }
+            assertEquals(0, countRows(conn, "sqlite_master", "type = 'index' AND name = 'projectsNameIndex'"));
+        }
+    }
+
+    @Test
+    void migrationUsesCallerTransactionWithoutCommittingIt() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            conn.setAutoCommit(false);
+
+            Database.applyMigrations(conn);
+
+            assertFalse(conn.getAutoCommit());
+            assertTrue(columns(conn, "chats").contains("externalConversationId"));
+            conn.commit();
+            assertFalse(conn.getAutoCommit(), "the caller still owns the transaction mode");
+        }
+    }
+
+    @Test
+    void migrationRestoresAutocommitAfterSuccess() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            assertTrue(conn.getAutoCommit());
+
+            Database.applyMigrations(conn);
+
+            assertTrue(conn.getAutoCommit());
         }
     }
 
@@ -281,5 +341,17 @@ class DatabaseMigrationTest {
             }
         }
         return names;
+    }
+
+    private static int countRows(Connection conn, String table) throws SQLException {
+        return countRows(conn, table, "1 = 1");
+    }
+
+    private static int countRows(Connection conn, String table, String predicate) throws SQLException {
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM " + table + " WHERE " + predicate)) {
+            rs.next();
+            return rs.getInt(1);
+        }
     }
 }
