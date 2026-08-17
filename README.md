@@ -20,6 +20,16 @@ From Windows Git Bash, Linux, or WSL:
 ./gradlew eclipse
 ```
 
+The CLI LLM provider tests are mocked during normal builds. To run the opt-in
+live smoke tests against the locally installed and authenticated providers:
+
+```bat
+gradlew.bat test --tests chatmap.infrastructure.llm.*LiveTest -PliveLlm=true
+```
+
+Set `-PliveOllamaTarget=ollama-qwen257b` to use another curated
+Ollama target when running the Ollama live test directly.
+
 `./gradlew eclipse` prepares the plain-Eclipse classpath without Buildship by copying dependencies to `lib/` and generating `.classpath`.
 
 The checked-in plain-Eclipse JavaFX jars currently target Windows. `run.sh` is a Windows Git Bash helper, not a portable Unix launcher.

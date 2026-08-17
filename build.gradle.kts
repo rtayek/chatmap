@@ -150,6 +150,12 @@ tasks.register<JavaExec>("handoffOrchestrator") {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("liveLlm")) {
+        systemProperty("chatmap.live.llm", project.property("liveLlm").toString())
+    }
+    if (project.hasProperty("liveOllamaTarget")) {
+        systemProperty("chatmap.live.ollama.target", project.property("liveOllamaTarget").toString())
+    }
 }
 
 // --- Eclipse without Buildship: copy all dependency jars into lib/ and have
