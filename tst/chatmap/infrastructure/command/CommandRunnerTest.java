@@ -9,6 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -103,6 +107,18 @@ final class CommandRunnerTest {
 
     @Test
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void outputBelowLimitIsReturnedUnchanged() {
+        CommandRequest request = new CommandRequest(
+                probeCommand("repeat", "1024", "Q"), "", Duration.ofSeconds(10));
+
+        CommandResult result = new CommandRunner().run(request);
+
+        assertEquals("Q".repeat(1024), result.standardOutput());
+        assertFalse(result.standardOutputTruncated());
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
     void outputExactlyAtLimitIsNotTruncated() {
         CommandRequest request = new CommandRequest(
                 probeCommand("repeat", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES), "Z"), "",
@@ -112,6 +128,19 @@ final class CommandRunnerTest {
 
         assertEquals(CommandRunner.MEMORY_LIMIT_BYTES, result.standardOutput().length());
         assertFalse(result.standardOutputTruncated());
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void outputOneByteOverLimitIsMarkedTruncated() {
+        CommandRequest request = new CommandRequest(
+                probeCommand("repeat", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES + 1), "Z"), "",
+                Duration.ofSeconds(10));
+
+        CommandResult result = new CommandRunner().run(request);
+
+        assertTrue(result.standardOutputTruncated());
+        assertTrue(result.standardOutput().contains("output truncated in memory"));
     }
 
     @Test
@@ -148,6 +177,64 @@ final class CommandRunnerTest {
         assertEquals(stderr, result.standardErrorPath());
     }
 
+    @Test
+    void outputIsNotWrittenToConsoleUnlessATeeIsRequested() {
+        ByteArrayOutputStream console = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try (PrintStream replacement = new PrintStream(console, true, StandardCharsets.UTF_8)) {
+            System.setOut(replacement);
+
+            CommandResult result = new CommandRunner().run(
+                    new CommandRequest(probeCommand("normal"), "input text", Duration.ofSeconds(5)));
+
+            assertEquals("stdout:input text", result.standardOutput());
+            assertEquals("", console.toString(StandardCharsets.UTF_8));
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
+
+    @Test
+    void requestedTeeReceivesOutput() {
+        ByteArrayOutputStream teeBytes = new ByteArrayOutputStream();
+        try (PrintStream tee = new PrintStream(teeBytes, true, StandardCharsets.UTF_8)) {
+            CommandRequest request = new CommandRequest(
+                    probeCommand("normal"), "input text", Duration.ofSeconds(5), null, tee, null);
+
+            CommandResult result = new CommandRunner().run(request);
+
+            assertEquals("stdout:input text", result.standardOutput());
+            assertEquals("stdout:input text", teeBytes.toString(StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
+    void teeFailureBecomesCommandExecutionException() {
+        try (PrintStream failingTee = new PrintStream(new FailingOutputStream())) {
+            CommandRequest request = new CommandRequest(
+                    probeCommand("normal"), "input text", Duration.ofSeconds(5), null, failingTee, null);
+
+            CommandExecutionException failure = assertThrows(
+                    CommandExecutionException.class, () -> new CommandRunner().run(request));
+
+            assertTrue(failure.getMessage().contains("Could not read or persist process output"),
+                    failure.getMessage());
+        }
+    }
+
+    @Test
+    void outputPathFailureBecomesCommandExecutionException(@TempDir Path tempDir) throws Exception {
+        CommandRequest request = new CommandRequest(
+                probeCommand("normal"), "input text", Duration.ofSeconds(5))
+                .withOutputPaths(tempDir, null);
+
+        CommandExecutionException failure = assertThrows(
+                CommandExecutionException.class, () -> new CommandRunner().run(request));
+
+        assertTrue(failure.getMessage().contains("Could not read or persist process output"),
+                failure.getMessage());
+    }
+
     private static List<String> probeCommand(String... arguments) {
         return CommandRunnerProbe.command(arguments);
     }
@@ -167,6 +254,13 @@ final class CommandRunnerTest {
             Thread.sleep(20);
         }
         return !ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+    }
+
+    private static final class FailingOutputStream extends OutputStream {
+        @Override
+        public void write(int value) throws IOException {
+            throw new IOException("intentional tee failure");
+        }
     }
 }
 

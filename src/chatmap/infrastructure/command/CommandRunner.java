@@ -78,7 +78,9 @@ public final class CommandRunner implements CommandExecutor {
                 terminate(process);
                 throw new CommandExecutionException("Interrupted while running command " + request.command().getFirst(), exception);
             } catch (ExecutionException exception) {
-                throw new CommandExecutionException("Could not read process output for command " + request.command().getFirst(), exception);
+                Throwable cause = exception.getCause() == null ? exception : exception.getCause();
+                throw new CommandExecutionException("Could not read or persist process output for command "
+                        + request.command().getFirst() + ": " + cause.getMessage(), exception);
             }
         }
     }
