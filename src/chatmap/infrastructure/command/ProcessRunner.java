@@ -24,13 +24,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public final class CommandRunner implements CommandExecutor {
+public final class ProcessRunner implements CommandExecutor {
     static final int MEMORY_LIMIT_BYTES = 4 * 1024 * 1024;
     private static final int PREFIX_BYTES = 64 * 1024;
     private static final byte[] TRUNCATION_NOTICE =
             "\n... [output truncated in memory; showing prefix and tail]\n".getBytes(StandardCharsets.UTF_8);
 
-    public CommandRunner() {
+    public ProcessRunner() {
         System.setProperty("jdk.lang.Process.allowAmbiguousCommands", "false");
     }
 

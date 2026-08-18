@@ -6,7 +6,7 @@ import java.util.Map;
 import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.provider.ChatProvider;
-import chatmap.infrastructure.llm.DefaultLlmBackends;
+import chatmap.infrastructure.llm.DefaultLlmProviders;
 import chatmap.infrastructure.provider.DefaultChatProviders;
 import chatmap.app.ServiceGraph.Integrations;
 
@@ -19,7 +19,7 @@ public final class DefaultServiceIntegrations {
     public static Integrations create() {
         return new Integrations(
                 chatProviders(),
-                DefaultLlmBackends.summaryBackend(),
+                DefaultLlmProviders.summaryBackend(),
                 promptProviders());
     }
 
@@ -28,6 +28,6 @@ public final class DefaultServiceIntegrations {
     }
 
     public static Map<ProviderId, LlmProvider> promptProviders() {
-        return DefaultLlmBackends.providers();
+        return DefaultLlmProviders.providers();
     }
 }
