@@ -3,7 +3,7 @@ package chatmap.infrastructure.llm;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
+
 import java.util.Set;
 
 import chatmap.application.port.llm.LlmCapability;
@@ -54,7 +54,6 @@ public final class CodexCliProvider extends CliLlmProvider {
     }
 
     static String executableName(String osName) {
-        String normalized = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
-        return normalized.contains("win") ? "codex" : "codex";
+        return "codex";
     }
 }

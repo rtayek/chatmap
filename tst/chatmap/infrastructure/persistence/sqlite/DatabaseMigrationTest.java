@@ -188,6 +188,61 @@ class DatabaseMigrationTest {
         }
     }
 
+    @Test
+    void atomicRollbackLeavesDatabaseUnchangedOnMigrationFailure() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            // Manually add one new column and seed conflicting data to force the index creation to fail
+            try (Statement st = conn.createStatement()) {
+                st.execute("ALTER TABLE chats ADD COLUMN externalConversationId TEXT");
+                st.execute("INSERT INTO chats (projectId, source, title, importedAt, externalConversationId) VALUES (NULL, 's', 't', 'd', 'conflict')");
+                st.execute("INSERT INTO chats (projectId, source, title, importedAt, externalConversationId) VALUES (NULL, 's', 't', 'd', 'conflict')");
+            }
+            
+            SQLException thrown = assertThrows(SQLException.class, () -> Database.applyMigrations(conn));
+            assertTrue(thrown.getMessage().contains("UNIQUE constraint"), "Expected index creation to fail, got: " + thrown.getMessage());
+            
+            // Because it's an atomic rollback, the OTHER columns that applyMigrations attempted to add
+            // must NOT be present.
+            Set<String> cols = columns(conn, "chats");
+            assertTrue(cols.contains("externalConversationId"), "Manually added column should remain");
+            org.junit.jupiter.api.Assertions.assertFalse(cols.contains("sourceUri"), "Migration should have rolled back the sourceUri column addition");
+            org.junit.jupiter.api.Assertions.assertFalse(cols.contains("contentHash"), "Migration should have rolled back the contentHash column addition");
+            assertTrue(conn.getAutoCommit(), "Autocommit should be restored after failure");
+        }
+    }
+
+    @Test
+    void applyMigrationsAllowsCallerTransactionAndDoesNotCommitOrRollback() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            conn.setAutoCommit(false);
+            
+            Database.applyMigrations(conn);
+            
+            // Still in caller's transaction
+            org.junit.jupiter.api.Assertions.assertFalse(conn.getAutoCommit());
+            
+            // We can roll it back ourselves!
+            conn.rollback();
+            
+            Set<String> cols = columns(conn, "chats");
+            org.junit.jupiter.api.Assertions.assertFalse(cols.contains("externalConversationId"), "Caller's rollback should undo the migration");
+        }
+    }
+
+    @Test
+    void applyMigrationsRestoresAutocommitOnSuccess() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            assertTrue(conn.getAutoCommit());
+            
+            Database.applyMigrations(conn);
+            
+            assertTrue(conn.getAutoCommit());
+        }
+    }
+
     private static void assignTag(Connection conn, long chatId, long tagId) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement("INSERT INTO chatTags (chatId, tagId) VALUES (?, ?)")) {
             ps.setLong(1, chatId);

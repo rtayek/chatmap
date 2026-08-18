@@ -166,53 +166,86 @@ public final class Database {
 
     /** Applies additive migrations that CREATE TABLE IF NOT EXISTS cannot perform on old databases. */
     public static void applyMigrations(Connection conn) throws SQLException {
-        addColumnIfMissing(conn, "chats", "externalConversationId", "TEXT");
-        addColumnIfMissing(conn, "chats", "sourceUri", "TEXT");
-        addColumnIfMissing(conn, "chats", "contentHash", "TEXT");
-        addColumnIfMissing(conn, "chats", "sourceUpdatedAt", "TEXT");
-        addColumnIfMissing(conn, "chats", "lastImportedAt", "TEXT");
-        addColumnIfMissing(conn, "chats", "originatedBy", "TEXT NOT NULL DEFAULT 'IMPORTED'");
-        addColumnIfMissing(conn, "chats", "providerId", "TEXT");
-        addColumnIfMissing(conn, "chats", "modelTargetId", "TEXT");
-        addColumnIfMissing(conn, "chats", "providerModelName", "TEXT");
-        addColumnIfMissing(conn, "chats", "providerSessionId", "TEXT");
-        addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
-
-        try (Statement st = conn.createStatement()) {
-            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
-                    + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
-            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptSessionIndex "
-                    + "ON chats(providerId, modelTargetId, providerSessionId) "
-                    + "WHERE providerId IS NOT NULL AND modelTargetId IS NOT NULL "
-                    + "AND providerSessionId IS NOT NULL");
+        boolean previousAutoCommit = conn.getAutoCommit();
+        if (previousAutoCommit) {
+            conn.setAutoCommit(false);
         }
+        Throwable thrown = null;
+        try {
+            addColumnIfMissing(conn, "chats", "externalConversationId", "TEXT");
+            addColumnIfMissing(conn, "chats", "sourceUri", "TEXT");
+            addColumnIfMissing(conn, "chats", "contentHash", "TEXT");
+            addColumnIfMissing(conn, "chats", "sourceUpdatedAt", "TEXT");
+            addColumnIfMissing(conn, "chats", "lastImportedAt", "TEXT");
+            addColumnIfMissing(conn, "chats", "originatedBy", "TEXT NOT NULL DEFAULT 'IMPORTED'");
+            addColumnIfMissing(conn, "chats", "providerId", "TEXT");
+            addColumnIfMissing(conn, "chats", "modelTargetId", "TEXT");
+            addColumnIfMissing(conn, "chats", "providerModelName", "TEXT");
+            addColumnIfMissing(conn, "chats", "providerSessionId", "TEXT");
+            addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
 
-        // Same reasoning as chatsExternalIdentityIndex, for the other dedup path:
-        // ImportService.findBySourceAndContentHash was, until now, an application-level
-        // check with no database backstop, so a database from before this migration could
-        // already hold duplicate (source, contentHash) rows -- most plausibly from before
-        // plainText/markdown dedup existed at all. Merge those first (see
-        // mergeDuplicateContentHashChats) so the index can be created.
-        //
-        // Scoped to externalConversationId IS NULL, matching findBySourceAndContentHash's
-        // own scoping: content-hash dedup only applies within the identity-less pool
-        // (plainText/markdown/no-identity provider fetches). An externally-identified
-        // chat coincidentally sharing a content hash with an unrelated identity-less
-        // import is not a duplicate and must not collide with it here.
-        mergeDuplicateContentHashChats(conn);
-        try (Statement st = conn.createStatement()) {
-            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsContentHashIndex "
-                    + "ON chats(source, contentHash) "
-                    + "WHERE contentHash IS NOT NULL AND externalConversationId IS NULL");
-        }
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
+                        + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptSessionIndex "
+                        + "ON chats(providerId, modelTargetId, providerSessionId) "
+                        + "WHERE providerId IS NOT NULL AND modelTargetId IS NOT NULL "
+                        + "AND providerSessionId IS NOT NULL");
+            }
 
-        // A unique index needs zero pre-existing duplicates to create successfully, so any
-        // project names that already collide (case-insensitively) on an existing database
-        // must be merged first. Idempotent: once merged, later runs find nothing to merge.
-        mergeDuplicateProjectNames(conn);
-        try (Statement st = conn.createStatement()) {
-            st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsNameIndex "
-                    + "ON projects(name COLLATE NOCASE)");
+            // Same reasoning as chatsExternalIdentityIndex, for the other dedup path:
+            // ImportService.findBySourceAndContentHash was, until now, an application-level
+            // check with no database backstop, so a database from before this migration could
+            // already hold duplicate (source, contentHash) rows -- most plausibly from before
+            // plainText/markdown dedup existed at all. Merge those first (see
+            // mergeDuplicateContentHashChats) so the index can be created.
+            //
+            // Scoped to externalConversationId IS NULL, matching findBySourceAndContentHash's
+            // own scoping: content-hash dedup only applies within the identity-less pool
+            // (plainText/markdown/no-identity provider fetches). An externally-identified
+            // chat coincidentally sharing a content hash with an unrelated identity-less
+            // import is not a duplicate and must not collide with it here.
+            mergeDuplicateContentHashChats(conn);
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsContentHashIndex "
+                        + "ON chats(source, contentHash) "
+                        + "WHERE contentHash IS NOT NULL AND externalConversationId IS NULL");
+            }
+
+            // A unique index needs zero pre-existing duplicates to create successfully, so any
+            // project names that already collide (case-insensitively) on an existing database
+            // must be merged first. Idempotent: once merged, later runs find nothing to merge.
+            mergeDuplicateProjectNames(conn);
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsNameIndex "
+                        + "ON projects(name COLLATE NOCASE)");
+            }
+
+            if (previousAutoCommit) {
+                conn.commit();
+            }
+        } catch (SQLException | RuntimeException | Error e) {
+            thrown = e;
+            if (previousAutoCommit) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackFailure) {
+                    e.addSuppressed(rollbackFailure);
+                }
+            }
+            throw e;
+        } finally {
+            if (previousAutoCommit) {
+                try {
+                    conn.setAutoCommit(true);
+                } catch (SQLException autoCommitFailure) {
+                    if (thrown != null) {
+                        thrown.addSuppressed(autoCommitFailure);
+                    } else {
+                        throw autoCommitFailure;
+                    }
+                }
+            }
         }
     }
 
