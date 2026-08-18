@@ -16,7 +16,7 @@ import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.infrastructure.command.CommandRunner;
+import chatmap.infrastructure.command.ProcessRunner;
 
 /** Opt-in smoke tests for installed authenticated CLI LLM providers. */
 @Tag("live")
@@ -25,21 +25,21 @@ final class CliLlmProvidersLiveTest {
     @Test
     void realClaudeAnswersAndReturnsSessionIdentity() {
         assertLiveResponse(ModelTarget.claude,
-                () -> new ClaudeCliProvider(new CommandRunner(), Duration.ofMinutes(2)),
+                () -> new ClaudeCliProvider(new ProcessRunner(), Duration.ofMinutes(2)),
                 "Claude");
     }
 
     @Test
     void realCodexAnswersAndReturnsSessionIdentity() {
         assertLiveResponse(ModelTarget.codex,
-                () -> new CodexCliProvider(new CommandRunner(), Duration.ofMinutes(2)),
+                () -> new CodexCliProvider(new ProcessRunner(), Duration.ofMinutes(2)),
                 "Codex");
     }
 
     @Test
     void realAntigravityAnswersAndReturnsSessionIdentity() {
         assertLiveResponse(ModelTarget.agy,
-                () -> new AntigravityCliProvider(new CommandRunner(), Duration.ofMinutes(2)),
+                () -> new AntigravityCliProvider(new ProcessRunner(), Duration.ofMinutes(2)),
                 "Antigravity");
     }
 

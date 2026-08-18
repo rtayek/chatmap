@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
-final class CommandRunnerTest {
+final class ProcessRunnerTest {
 
     @Test
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
@@ -33,7 +33,7 @@ final class CommandRunnerTest {
         CommandRequest request = new CommandRequest(
                 probeCommand("normal"), "input text", Duration.ofSeconds(5));
 
-        CommandResult result = new CommandRunner().run(request);
+        CommandResult result = new ProcessRunner().run(request);
 
         assertEquals(7, result.exitCode());
         assertEquals("stdout:input text", result.standardOutput());
@@ -51,7 +51,7 @@ final class CommandRunnerTest {
 
         long descendantPid = -1;
         try {
-            CommandResult result = new CommandRunner().run(request);
+            CommandResult result = new ProcessRunner().run(request);
             descendantPid = readPid(descendantPidFile);
 
             assertTrue(result.timedOut());
@@ -74,7 +74,7 @@ final class CommandRunnerTest {
                 List.of("chatmap-command-that-does-not-exist-7f53317d"), "", Duration.ofSeconds(1));
 
         CommandExecutionException failure = assertThrows(
-                CommandExecutionException.class, () -> new CommandRunner().run(request));
+                CommandExecutionException.class, () -> new ProcessRunner().run(request));
 
         assertTrue(failure.getMessage().contains("Could not start command"));
     }
@@ -111,7 +111,7 @@ final class CommandRunnerTest {
         CommandRequest request = new CommandRequest(
                 probeCommand("repeat", "1024", "Q"), "", Duration.ofSeconds(10));
 
-        CommandResult result = new CommandRunner().run(request);
+        CommandResult result = new ProcessRunner().run(request);
 
         assertEquals("Q".repeat(1024), result.standardOutput());
         assertFalse(result.standardOutputTruncated());
@@ -121,12 +121,12 @@ final class CommandRunnerTest {
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
     void outputExactlyAtLimitIsNotTruncated() {
         CommandRequest request = new CommandRequest(
-                probeCommand("repeat", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES), "Z"), "",
+                probeCommand("repeat", Integer.toString(ProcessRunner.MEMORY_LIMIT_BYTES), "Z"), "",
                 Duration.ofSeconds(10));
 
-        CommandResult result = new CommandRunner().run(request);
+        CommandResult result = new ProcessRunner().run(request);
 
-        assertEquals(CommandRunner.MEMORY_LIMIT_BYTES, result.standardOutput().length());
+        assertEquals(ProcessRunner.MEMORY_LIMIT_BYTES, result.standardOutput().length());
         assertFalse(result.standardOutputTruncated());
     }
 
@@ -134,10 +134,10 @@ final class CommandRunnerTest {
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
     void outputOneByteOverLimitIsMarkedTruncated() {
         CommandRequest request = new CommandRequest(
-                probeCommand("repeat", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES + 1), "Z"), "",
+                probeCommand("repeat", Integer.toString(ProcessRunner.MEMORY_LIMIT_BYTES + 1), "Z"), "",
                 Duration.ofSeconds(10));
 
-        CommandResult result = new CommandRunner().run(request);
+        CommandResult result = new ProcessRunner().run(request);
 
         assertTrue(result.standardOutputTruncated());
         assertTrue(result.standardOutput().contains("output truncated in memory"));
@@ -147,10 +147,10 @@ final class CommandRunnerTest {
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
     void largeOutputIsTruncatedButRetainsFinalMarkerAndValidUtf8() {
         CommandRequest request = new CommandRequest(
-                probeCommand("utf8-tail", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES + 32)), "",
+                probeCommand("utf8-tail", Integer.toString(ProcessRunner.MEMORY_LIMIT_BYTES + 32)), "",
                 Duration.ofSeconds(10));
 
-        CommandResult result = new CommandRunner().run(request);
+        CommandResult result = new ProcessRunner().run(request);
 
         assertTrue(result.standardOutputTruncated());
         assertTrue(result.standardOutput().contains("output truncated in memory"));
@@ -164,15 +164,15 @@ final class CommandRunnerTest {
         Path stdout = tempDir.resolve("stdout.log");
         Path stderr = tempDir.resolve("stderr.log");
         CommandRequest request = new CommandRequest(
-                probeCommand("split-streams", Integer.toString(CommandRunner.MEMORY_LIMIT_BYTES + 10)), "",
+                probeCommand("split-streams", Integer.toString(ProcessRunner.MEMORY_LIMIT_BYTES + 10)), "",
                 Duration.ofSeconds(10)).withOutputPaths(stdout, stderr);
 
-        CommandResult result = new CommandRunner().run(request);
+        CommandResult result = new ProcessRunner().run(request);
 
         assertTrue(result.standardOutputTruncated());
         assertTrue(result.standardErrorTruncated());
-        assertEquals(CommandRunner.MEMORY_LIMIT_BYTES + 10L, Files.size(stdout));
-        assertEquals(CommandRunner.MEMORY_LIMIT_BYTES + 10L, Files.size(stderr));
+        assertEquals(ProcessRunner.MEMORY_LIMIT_BYTES + 10L, Files.size(stdout));
+        assertEquals(ProcessRunner.MEMORY_LIMIT_BYTES + 10L, Files.size(stderr));
         assertEquals(stdout, result.standardOutputPath());
         assertEquals(stderr, result.standardErrorPath());
     }
@@ -184,7 +184,7 @@ final class CommandRunnerTest {
         try (PrintStream replacement = new PrintStream(console, true, StandardCharsets.UTF_8)) {
             System.setOut(replacement);
 
-            CommandResult result = new CommandRunner().run(
+            CommandResult result = new ProcessRunner().run(
                     new CommandRequest(probeCommand("normal"), "input text", Duration.ofSeconds(5)));
 
             assertEquals("stdout:input text", result.standardOutput());
@@ -201,7 +201,7 @@ final class CommandRunnerTest {
             CommandRequest request = new CommandRequest(
                     probeCommand("normal"), "input text", Duration.ofSeconds(5), null, tee, null);
 
-            CommandResult result = new CommandRunner().run(request);
+            CommandResult result = new ProcessRunner().run(request);
 
             assertEquals("stdout:input text", result.standardOutput());
             assertEquals("stdout:input text", teeBytes.toString(StandardCharsets.UTF_8));
@@ -215,7 +215,7 @@ final class CommandRunnerTest {
                     probeCommand("normal"), "input text", Duration.ofSeconds(5), null, failingTee, null);
 
             CommandExecutionException failure = assertThrows(
-                    CommandExecutionException.class, () -> new CommandRunner().run(request));
+                    CommandExecutionException.class, () -> new ProcessRunner().run(request));
 
             assertTrue(failure.getMessage().contains("Could not read or persist process output"),
                     failure.getMessage());
@@ -229,14 +229,14 @@ final class CommandRunnerTest {
                 .withOutputPaths(tempDir, null);
 
         CommandExecutionException failure = assertThrows(
-                CommandExecutionException.class, () -> new CommandRunner().run(request));
+                CommandExecutionException.class, () -> new ProcessRunner().run(request));
 
         assertTrue(failure.getMessage().contains("Could not read or persist process output"),
                 failure.getMessage());
     }
 
     private static List<String> probeCommand(String... arguments) {
-        return CommandRunnerProbe.command(arguments);
+        return ProcessRunnerProbe.command(arguments);
     }
 
     private static long readPid(Path pidFile) throws Exception {
@@ -264,9 +264,9 @@ final class CommandRunnerTest {
     }
 }
 
-final class CommandRunnerProbe {
+final class ProcessRunnerProbe {
 
-    private CommandRunnerProbe() {
+    private ProcessRunnerProbe() {
     }
 
     public static void main(String[] args) throws Exception {
@@ -316,7 +316,7 @@ final class CommandRunnerProbe {
         command.add(javaExecutable());
         command.add("-cp");
         command.add(probeClasspath());
-        command.add(CommandRunnerProbe.class.getName());
+        command.add(ProcessRunnerProbe.class.getName());
         command.addAll(List.of(arguments));
         return List.copyOf(command);
     }
@@ -330,7 +330,7 @@ final class CommandRunnerProbe {
 
     private static String probeClasspath() {
         try {
-            return Path.of(CommandRunnerProbe.class.getProtectionDomain()
+            return Path.of(ProcessRunnerProbe.class.getProtectionDomain()
                     .getCodeSource()
                     .getLocation()
                     .toURI())

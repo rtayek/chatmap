@@ -7,7 +7,7 @@ import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.ProviderId;
 
-import chatmap.infrastructure.command.CommandRunner;
+import chatmap.infrastructure.command.ProcessRunner;
 
 import chatmap.application.port.command.CommandExecutor;
 
@@ -19,14 +19,14 @@ import java.util.Map;
 /**
  * Factory for default LLM backends available for prompt execution across CLI and UI entry points.
  */
-public final class DefaultLlmBackends {
+public final class DefaultLlmProviders {
 
-    private DefaultLlmBackends() {
+    private DefaultLlmProviders() {
     }
 
     /** Primary prompt provider wiring: one provider implementation per provider/protocol family. */
     public static Map<ProviderId, LlmProvider> providers() {
-        return providers(new CommandRunner(), Duration.ofMinutes(3));
+        return providers(new ProcessRunner(), Duration.ofMinutes(3));
     }
 
     public static Map<ProviderId, LlmProvider> providers(CommandExecutor executor, Duration timeout) {
@@ -34,7 +34,7 @@ public final class DefaultLlmBackends {
         providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, timeout));
         providers.put(ProviderId.codexCli, new CodexCliProvider(executor, timeout));
         providers.put(ProviderId.antigravityCli, new AntigravityCliProvider(executor, timeout));
-        providers.put(ProviderId.ollama, new OllamaCliProvider(executor, timeout));
+        providers.put(ProviderId.ollama, new OllamaProvider());
         providers.put(ProviderId.jshell, new JShellBackend());
         return Collections.unmodifiableMap(providers);
     }

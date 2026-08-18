@@ -20,11 +20,11 @@ import chatmap.domain.Source;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.service.PromptService;
 
-final class DefaultLlmBackendsTest {
+final class DefaultLlmProvidersTest {
 
     @Test
     void everyModelTargetHasAConfiguredProvider() {
-        Map<ProviderId, LlmProvider> providers = DefaultLlmBackends.providers(noopExecutor(), Duration.ofSeconds(1));
+        Map<ProviderId, LlmProvider> providers = DefaultLlmProviders.providers(noopExecutor(), Duration.ofSeconds(1));
 
         for (ModelTarget target : ModelTarget.values()) {
             assertNotNull(providers.get(target.providerId()), target.id());
@@ -34,7 +34,7 @@ final class DefaultLlmBackendsTest {
     @Test
     void promptServiceFailsEarlyWhenAReferencedProviderIsMissing() {
         EnumMap<ProviderId, LlmProvider> incomplete = new EnumMap<>(
-                DefaultLlmBackends.providers(noopExecutor(), Duration.ofSeconds(1)));
+                DefaultLlmProviders.providers(noopExecutor(), Duration.ofSeconds(1)));
         incomplete.remove(ModelTarget.claude.providerId());
 
         assertThrows(IllegalStateException.class,
@@ -46,7 +46,7 @@ final class DefaultLlmBackendsTest {
         EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
         providers.put(ProviderId.claudeCli, new CapturingProvider());
 
-        var backend = DefaultLlmBackends.summaryBackend(providers);
+        var backend = DefaultLlmProviders.summaryBackend(providers);
         LlmResponse response = backend.ask(LlmRequest.of("summarize"));
 
         assertEquals("summary", response.text());

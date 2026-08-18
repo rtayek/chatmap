@@ -10,8 +10,8 @@ import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.ProviderId;
 import chatmap.application.port.handoff.HandoffFileStore;
 import chatmap.application.service.HandoffOrchestratorService;
-import chatmap.infrastructure.llm.DefaultLlmBackends;
-import chatmap.infrastructure.command.CommandRunner;
+import chatmap.infrastructure.llm.DefaultLlmProviders;
+import chatmap.infrastructure.command.ProcessRunner;
 import chatmap.infrastructure.handoff.FileSystemHandoffFileStore;
 
 /** Wires the infrastructure adapters into {@link HandoffOrchestratorService} for the CLI entry point. */
@@ -24,8 +24,8 @@ public final class HandoffOrchestratorBootstrap {
     }
 
     public static HandoffOrchestratorService create(Map<String, Path> projectRegistry, Clock clock, boolean autoPush) {
-        CommandRunner commandExecutor = new CommandRunner();
-        Map<ProviderId, LlmProvider> providers = DefaultLlmBackends.providers(commandExecutor, AGENT_TIMEOUT);
+        ProcessRunner commandExecutor = new ProcessRunner();
+        Map<ProviderId, LlmProvider> providers = DefaultLlmProviders.providers(commandExecutor, AGENT_TIMEOUT);
         Map<String, ModelTarget> agentTargets = Map.of(
                 "claude", ModelTarget.claude,
                 "codex", ModelTarget.codex,

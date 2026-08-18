@@ -6,7 +6,6 @@ import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.PermissionMode;
 import chatmap.application.port.llm.OutputFormat;
-import chatmap.application.port.llm.ProviderId;
 
 import chatmap.application.port.command.CommandResult;
 
@@ -101,40 +100,6 @@ final class OtherCliBackendsTest {
     }
 
     @Test
-    void ollamaCliProviderPipesPromptToStandardInput() {
-        OllamaCliProvider backend = new OllamaCliProvider(executor, Duration.ofSeconds(5));
-        executor.result = new CommandResult(0, "Ollama answer", "", Duration.ofMillis(20), false);
-
-        LlmResponse response = backend.execute(ModelTarget.ollama, LlmRequest.of("What is Java?"));
-
-        assertEquals("Ollama answer", response.text());
-        assertEquals("Ollama llama3", response.backendId().value());
-        assertEquals(List.of("ollama", "run", "llama3"), executor.request.command());
-        assertEquals("What is Java?", executor.request.standardInput());
-        // No importer produces plainText from an LLM backend; Ollama previously fell through
-        // to LlmBackend's default source() (plainText), colliding with real .txt file imports.
-        assertEquals(Source.ollamaPrompt, ModelTarget.ollama.source());
-    }
-
-    @Test
-    void multipleOllamaTargetsShareOneProviderAndKeepDistinctModelNames() {
-        OllamaCliProvider backend = new OllamaCliProvider(executor, Duration.ofSeconds(5));
-        executor.result = new CommandResult(0, "GLM answer", "", Duration.ofMillis(20), false);
-
-        LlmResponse glm = backend.execute(ModelTarget.ollamaGlm4, LlmRequest.of("What is Java?"));
-        assertEquals(List.of("ollama", "run", "glm4:9b"), executor.request.command());
-        assertEquals(ProviderId.ollama, glm.providerId());
-        assertEquals(ModelTarget.ollamaGlm4.id(), glm.targetId());
-        assertEquals("glm4:9b", glm.providerModelName());
-
-        executor.result = new CommandResult(0, "Qwen answer", "", Duration.ofMillis(20), false);
-        LlmResponse qwen = backend.execute(ModelTarget.ollamaQwenOpenclaw, LlmRequest.of("What is Java?"));
-        assertEquals(List.of("ollama", "run", "qwen-openclaw:latest"), executor.request.command());
-        assertEquals(ModelTarget.ollamaQwenOpenclaw.id(), qwen.targetId());
-        assertEquals("qwen-openclaw:latest", qwen.providerModelName());
-    }
-
-    @Test
     void codexUsesItsOwnPermissionSyntaxAndRejectsUnsupportedStreamJson() {
         CodexCliProvider codex = new CodexCliProvider(executor, Duration.ofSeconds(5));
         executor.result = new CommandResult(0, "ok", "", Duration.ofMillis(5), false);
@@ -163,19 +128,10 @@ final class OtherCliBackendsTest {
     }
 
     @Test
-    void sessionListingDoesNotShellOutForCodexAntigravityOrOllama() {
+    void sessionListingDoesNotShellOutForCodexOrAntigravity() {
         assertEquals(List.of(), new CodexCliProvider(executor, Duration.ofSeconds(5)).listSessions(ModelTarget.codex));
         assertEquals(List.of(), new AntigravityCliProvider(executor, Duration.ofSeconds(5)).listSessions(ModelTarget.agy));
-        assertEquals(List.of(), new OllamaCliProvider(executor, Duration.ofSeconds(5)).listSessions(ModelTarget.ollama));
         assertNull(executor.request);
-    }
-
-    @Test
-    void ollamaCliProviderRejectsSystemPrompts() {
-        OllamaCliProvider backend = new OllamaCliProvider(executor, Duration.ofSeconds(5));
-
-        assertThrows(LlmBackendUnsupportedRequestException.class,
-                () -> backend.execute(ModelTarget.ollama, LlmRequest.withSystemPrompt("Hi", "System instruction")));
     }
 
     private static final class CapturingExecutor implements CommandExecutor {

@@ -5,19 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-import java.time.Duration;
-
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.infrastructure.command.CommandRunner;
-
 /** Opt-in smoke test for the locally installed Ollama service and model. */
 @Tag("live")
-final class OllamaCliProviderLiveTest {
+final class OllamaProviderLiveTest {
 
     @Test
     void realOllamaAnswersThroughTheProvider() {
@@ -29,7 +25,7 @@ final class OllamaCliProviderLiveTest {
         assumeTrue(target.providerId() == chatmap.application.port.llm.ProviderId.ollama,
                 "Target must be an Ollama model: " + targetId);
 
-        OllamaCliProvider provider = new OllamaCliProvider(new CommandRunner(), Duration.ofMinutes(2));
+        OllamaProvider provider = new OllamaProvider();
         LlmResponse response = provider.execute(target,
                 LlmRequest.of("Reply with exactly the word OK."));
 
