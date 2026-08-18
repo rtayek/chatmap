@@ -5,7 +5,7 @@ import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 
 import chatmap.infrastructure.command.ProcessRunner;
 
@@ -25,17 +25,17 @@ public final class DefaultLlmProviders {
     }
 
     /** Primary prompt provider wiring: one provider implementation per provider/protocol family. */
-    public static Map<ProviderId, LlmProvider> providers() {
+    public static Map<Channel, LlmProvider> providers() {
         return providers(new ProcessRunner(), Duration.ofMinutes(3));
     }
 
-    public static Map<ProviderId, LlmProvider> providers(CommandExecutor executor, Duration timeout) {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
-        providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, timeout));
-        providers.put(ProviderId.codexCli, new CodexCliProvider(executor, timeout));
-        providers.put(ProviderId.antigravityCli, new AntigravityCliProvider(executor, timeout));
-        providers.put(ProviderId.ollama, new OllamaProvider());
-        providers.put(ProviderId.jshell, new JShellBackend());
+    public static Map<Channel, LlmProvider> providers(CommandExecutor executor, Duration timeout) {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
+        providers.put(Channel.claudeCli, new ClaudeCliProvider(executor, timeout));
+        providers.put(Channel.codexCli, new CodexCliProvider(executor, timeout));
+        providers.put(Channel.antigravityCli, new AntigravityCliProvider(executor, timeout));
+        providers.put(Channel.ollama, new OllamaProvider());
+        providers.put(Channel.jshell, new JShellBackend());
         return Collections.unmodifiableMap(providers);
     }
 
@@ -43,7 +43,7 @@ public final class DefaultLlmProviders {
         return summaryBackend(providers());
     }
 
-    static LlmBackend summaryBackend(Map<ProviderId, LlmProvider> providers) {
+    static LlmBackend summaryBackend(Map<Channel, LlmProvider> providers) {
         ModelTarget target = ModelTarget.claude;
         LlmProvider provider = providers.get(target.providerId());
         if (provider == null) {

@@ -15,7 +15,7 @@ import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.domain.Source;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.service.PromptService;
@@ -24,18 +24,18 @@ final class DefaultLlmProvidersTest {
 
     @Test
     void everyModelTargetHasAConfiguredProvider() {
-        Map<ProviderId, LlmProvider> providers = DefaultLlmProviders.providers(noopExecutor(), Duration.ofSeconds(1));
+        Map<Channel, LlmProvider> providers = DefaultLlmProviders.providers(noopExecutor(), Duration.ofSeconds(1));
 
         for (ModelTarget target : ModelTarget.values()) {
-            assertNotNull(providers.get(target.providerId()), target.id());
+            assertNotNull(providers.get(target.channel()), target.id());
         }
     }
 
     @Test
     void promptServiceFailsEarlyWhenAReferencedProviderIsMissing() {
-        EnumMap<ProviderId, LlmProvider> incomplete = new EnumMap<>(
+        EnumMap<Channel, LlmProvider> incomplete = new EnumMap<>(
                 DefaultLlmProviders.providers(noopExecutor(), Duration.ofSeconds(1)));
-        incomplete.remove(ModelTarget.claude.providerId());
+        incomplete.remove(ModelTarget.claude.channel());
 
         assertThrows(IllegalStateException.class,
                 () -> new PromptService(incomplete, null, java.time.Clock.systemUTC(), java.nio.file.Path.of(".")));
@@ -43,8 +43,8 @@ final class DefaultLlmProvidersTest {
 
     @Test
     void summaryBackendIsScopedToClaudeTarget() {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
-        providers.put(ProviderId.claudeCli, new CapturingProvider());
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
+        providers.put(Channel.claudeCli, new CapturingProvider());
 
         var backend = DefaultLlmProviders.summaryBackend(providers);
         LlmResponse response = backend.ask(LlmRequest.of("summarize"));

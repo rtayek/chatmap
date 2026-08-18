@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import chatmap.application.port.llm.LlmProvider;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.app.DefaultServiceIntegrations;
 import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
 import chatmap.application.service.PromptResult;
@@ -30,7 +30,7 @@ public final class RunPromptCli {
             PromptResult result = execute(
                     parsedArguments, promptArguments, DefaultServiceIntegrations.promptProviders(), Clock.systemUTC());
             System.out.println("Backend: " + result.backendLabel());
-            System.out.println("Provider: " + result.providerId());
+            System.out.println("Provider: " + result.channelId());
             System.out.println("Target: " + result.targetId());
             System.out.println("Model: " + result.providerModelName());
             result.sessionId().ifPresent(session -> System.out.println("Session: " + session));
@@ -43,7 +43,7 @@ public final class RunPromptCli {
         }
     }
 
-    public static PromptResult execute(String[] args, Map<ProviderId, LlmProvider> providers, Clock clock)
+    public static PromptResult execute(String[] args, Map<Channel, LlmProvider> providers, Clock clock)
             throws Exception {
         ParsedArguments parsedArguments = CliBootstrap.parse(args);
         return execute(parsedArguments, parsePromptArguments(parsedArguments), providers, clock);
@@ -52,7 +52,7 @@ public final class RunPromptCli {
     private static PromptResult execute(
             ParsedArguments parsedArguments,
             RunPromptArguments promptArguments,
-            Map<ProviderId, LlmProvider> providers,
+            Map<Channel, LlmProvider> providers,
             Clock clock) throws Exception {
         try (CliBootstrap.CliContext context = CliBootstrap.open(parsedArguments)) {
             PromptService promptService = new PromptService(

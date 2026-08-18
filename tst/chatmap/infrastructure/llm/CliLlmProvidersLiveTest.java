@@ -56,7 +56,7 @@ final class CliLlmProvidersLiveTest {
         assertTrue(response.text().toUpperCase(Locale.ROOT).contains("OK"),
                 providerName + " response did not contain OK: " + response.text());
         assertTrue(response.sessionId().isPresent(), providerName + " did not return a session ID");
-        assertTrue(response.providerId() == target.providerId());
+        assertTrue(response.channel() == target.channel());
         assertTrue(response.providerModelName().equals(target.providerModelName()));
     }
 }

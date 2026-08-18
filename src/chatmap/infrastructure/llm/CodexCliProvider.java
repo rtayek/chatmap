@@ -34,10 +34,10 @@ public final class CodexCliProvider extends CliLlmProvider {
             command.add("resume");
             command.add(id);
         });
-        if (!"default".equals(target.providerModelName())) {
+        target.providerModelName().ifPresent(model -> {
             command.add("--model");
-            command.add(target.providerModelName());
-        }
+            command.add(model);
+        });
         if (request.permissionMode() == PermissionMode.unrestricted) {
             command.add("--sandbox");
             command.add("workspace-write");

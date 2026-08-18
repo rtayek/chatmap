@@ -14,7 +14,7 @@ import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.application.port.llm.LlmBackendUnsupportedRequestException;
 import chatmap.application.port.persistence.ChatStore;
@@ -76,7 +76,7 @@ public record ServiceGraph(
     public record Integrations(
             List<ChatProvider> chatProviders,
             LlmBackend summaryBackend,
-            Map<ProviderId, LlmProvider> promptProviders) {
+            Map<Channel, LlmProvider> promptProviders) {
         public Integrations {
             chatProviders = List.copyOf(Objects.requireNonNull(chatProviders, "chatProviders"));
             summaryBackend = Objects.requireNonNull(summaryBackend, "summaryBackend");
@@ -156,10 +156,10 @@ public record ServiceGraph(
         }
     }
 
-    private static Map<ProviderId, LlmProvider> unavailablePromptProviders() {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+    private static Map<Channel, LlmProvider> unavailablePromptProviders() {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         LlmProvider unavailable = new UnavailablePromptProvider();
-        for (ProviderId id : ProviderId.values()) {
+        for (Channel id : Channel.values()) {
             providers.put(id, unavailable);
         }
         return providers;

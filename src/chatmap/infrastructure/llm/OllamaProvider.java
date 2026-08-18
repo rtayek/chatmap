@@ -104,7 +104,7 @@ public final class OllamaProvider implements LlmProvider {
 
     private static String requestBody(ModelTarget target, LlmRequest request) {
         JsonObject body = new JsonObject();
-        body.addProperty("model", target.providerModelName());
+        body.addProperty("model", target.providerModelName().orElseThrow());
         body.addProperty("stream", false);
         JsonArray messages = new JsonArray();
         request.systemPrompt().ifPresent(system -> messages.add(message("system", system)));

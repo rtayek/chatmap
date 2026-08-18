@@ -20,7 +20,7 @@ import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.port.llm.CommandBackedRun;
 import chatmap.application.port.command.CommandResult;
 import chatmap.domain.MessageRole;
@@ -98,7 +98,7 @@ final class PromptServiceTest {
             assertEquals(1, storedChats.size());
             assertEquals("Test prompt", storedChats.get(0).title());
             assertEquals(chatmap.domain.Source.claudeCliPrompt, storedChats.get(0).source());
-            assertEquals(ProviderId.claudeCli.name(), storedChats.get(0).providerId());
+            assertEquals(Channel.claudeCli.name(), storedChats.get(0).channelId());
             assertEquals(ModelTarget.claude.id(), storedChats.get(0).modelTargetId());
             assertEquals(ModelTarget.claude.providerModelName(), storedChats.get(0).providerModelName());
             assertNull(storedChats.get(0).providerSessionId());
@@ -146,7 +146,7 @@ final class PromptServiceTest {
             assertEquals(1, storedChats.size(), "both turns of the same session should share one chat");
             assertEquals("First turn", storedChats.get(0).title(),
                     "title should come from the first turn, not be overwritten by later ones");
-            assertEquals(ProviderId.claudeCli.name(), storedChats.get(0).providerId());
+            assertEquals(Channel.claudeCli.name(), storedChats.get(0).channelId());
             assertEquals(ModelTarget.claude.id(), storedChats.get(0).modelTargetId());
             assertEquals("session-abc", storedChats.get(0).providerSessionId());
             assertNull(storedChats.get(0).externalConversationId(),
@@ -216,7 +216,7 @@ final class PromptServiceTest {
 
             assertEquals("provider-session-1", result.sessionId().orElseThrow());
             chatmap.domain.Chat stored = chats.findAll().getFirst();
-            assertEquals(ProviderId.claudeCli.name(), stored.providerId());
+            assertEquals(Channel.claudeCli.name(), stored.channelId());
             assertEquals(ModelTarget.claude.id(), stored.modelTargetId());
             assertEquals(ModelTarget.claude.providerModelName(), stored.providerModelName());
             assertEquals("provider-session-1", stored.providerSessionId());
@@ -247,9 +247,9 @@ final class PromptServiceTest {
                     new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false),
                     List.of("codex", "exec")));
 
-            Map<ProviderId, LlmProvider> configured = providers(Map.of(
-                    ProviderId.claudeCli, claude,
-                    ProviderId.codexCli, codex));
+            Map<Channel, LlmProvider> configured = providers(Map.of(
+                    Channel.claudeCli, claude,
+                    Channel.codexCli, codex));
             new PromptService(configured, importService, clock, tempDir)
                     .submit("claude", "Claude turn", "shared-session");
             new PromptService(configured, importService, clock, tempDir)
@@ -286,9 +286,9 @@ final class PromptServiceTest {
                             ModelTarget.codex, null),
                     new CommandResult(0, "Codex answer", "", Duration.ofMillis(10), false),
                     List.of("codex", "exec")));
-            Map<ProviderId, LlmProvider> configured = providers(Map.of(
-                    ProviderId.claudeCli, claude,
-                    ProviderId.codexCli, codex));
+            Map<Channel, LlmProvider> configured = providers(Map.of(
+                    Channel.claudeCli, claude,
+                    Channel.codexCli, codex));
             PromptService service = new PromptService(configured, importService, clock, tempDir);
 
             service.submit("claude", "First", "session-b");
@@ -383,14 +383,14 @@ final class PromptServiceTest {
         assertTrue(result.transcript().isEmpty());
     }
 
-    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
-        return providers(Map.of(ProviderId.claudeCli, claudeProvider));
+    private static Map<Channel, LlmProvider> providers(LlmProvider claudeProvider) {
+        return providers(Map.of(Channel.claudeCli, claudeProvider));
     }
 
-    private static Map<ProviderId, LlmProvider> providers(Map<ProviderId, LlmProvider> configuredProviders) {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+    private static Map<Channel, LlmProvider> providers(Map<Channel, LlmProvider> configuredProviders) {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         NoopProvider noop = new NoopProvider();
-        for (ProviderId id : ProviderId.values()) {
+        for (Channel id : Channel.values()) {
             providers.put(id, noop);
         }
         providers.putAll(configuredProviders);

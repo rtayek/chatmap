@@ -8,25 +8,25 @@ import java.util.Optional;
  * Outcome of a prompt run. The exchange is recorded in the database; the
  * transcript file is best-effort debug output and may be absent.
  */
-public record PromptResult(
+    public record PromptResult(
         String backendLabel,
         String response,
         Path transcriptPath,
-        String providerId,
+        String channelId,
         String targetId,
-        String providerModelName,
+        Optional<String> providerModelName,
         String providerSessionId
 ) {
     public PromptResult {
         Objects.requireNonNull(backendLabel, "backendLabel");
         Objects.requireNonNull(response, "response");
-        Objects.requireNonNull(providerId, "providerId");
+        Objects.requireNonNull(channelId, "channelId");
         Objects.requireNonNull(targetId, "targetId");
         Objects.requireNonNull(providerModelName, "providerModelName");
     }
 
     public PromptResult(String backendLabel, String response, Path transcriptPath) {
-        this(backendLabel, response, transcriptPath, "unknown", "unknown", "unknown", null);
+        this(backendLabel, response, transcriptPath, "unknown", "unknown", Optional.empty(), null);
     }
 
     /** The transcript file, when one could be written. */

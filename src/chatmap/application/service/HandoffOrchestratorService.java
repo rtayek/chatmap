@@ -20,7 +20,7 @@ import chatmap.application.port.llm.CommandBackedLlmProvider;
 import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.OutputFormat;
 import chatmap.application.port.llm.PermissionMode;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.port.command.CommandExecutionException;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandResult;
@@ -33,7 +33,7 @@ public final class HandoffOrchestratorService {
 
     private static final Logger LOG = Log.of(HandoffOrchestratorService.class);
 
-    private final Map<ProviderId, LlmProvider> providers;
+    private final Map<Channel, LlmProvider> providers;
     private final Map<String, ModelTarget> agentTargets;
     private final HandoffFileStore fileStore;
     private final Map<String, Path> projectRegistry;
@@ -44,7 +44,7 @@ public final class HandoffOrchestratorService {
 
     public HandoffOrchestratorService(
             CommandExecutor commandExecutor,
-            Map<ProviderId, LlmProvider> providers,
+            Map<Channel, LlmProvider> providers,
             Map<String, ModelTarget> agentTargets,
             HandoffFileStore fileStore,
             Map<String, Path> projectRegistry,

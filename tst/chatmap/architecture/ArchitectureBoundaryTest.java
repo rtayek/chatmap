@@ -90,7 +90,7 @@ class ArchitectureBoundaryTest {
         Path source = SOURCE_ROOT.resolve("chatmap/application/port/llm/LlmResponse.java");
         String text = Files.readString(source);
 
-        assertFalse(text.contains("ProviderId.claudeCli, backendId.value(), \"default\""),
+        assertFalse(text.contains("Channel.claudeCli, backendId.value(), \"default\""),
                 "LlmResponse must not silently label responses as Claude/default");
     }
 

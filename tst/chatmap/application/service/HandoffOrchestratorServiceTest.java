@@ -22,7 +22,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
@@ -38,8 +38,8 @@ class HandoffOrchestratorServiceTest {
     /** Wraps executor in a real Claude provider, since agent invocation now goes through LlmProvider. */
     private static HandoffOrchestratorService newService(
             FakeCommandExecutor executor, Map<String, Path> registry, boolean autoPush) {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
-        providers.put(ProviderId.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
+        providers.put(Channel.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
         return new HandoffOrchestratorService(executor, providers, Map.of("claude", ModelTarget.claude),
                 FILE_STORE, registry, CLOCK, autoPush);
     }

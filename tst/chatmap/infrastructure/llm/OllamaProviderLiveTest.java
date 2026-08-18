@@ -22,7 +22,7 @@ final class OllamaProviderLiveTest {
 
         String targetId = System.getProperty("chatmap.live.ollama.target", "ollama-glm4");
         ModelTarget target = ModelTarget.require(targetId);
-        assumeTrue(target.providerId() == chatmap.application.port.llm.ProviderId.ollama,
+        assumeTrue(target.channel() == chatmap.application.port.llm.Channel.ollama,
                 "Target must be an Ollama model: " + targetId);
 
         OllamaProvider provider = new OllamaProvider();
@@ -33,7 +33,7 @@ final class OllamaProviderLiveTest {
         assertFalse(response.text().isBlank(), "Ollama returned an empty response");
         assertTrue(response.text().toUpperCase(java.util.Locale.ROOT).contains("OK"),
                 "Ollama response did not contain OK: " + response.text());
-        assertTrue(response.providerId().name().equals("ollama"));
+        assertTrue(response.channel().name().equals("ollama"));
         assertTrue(response.providerModelName().equals(target.providerModelName()));
     }
 }

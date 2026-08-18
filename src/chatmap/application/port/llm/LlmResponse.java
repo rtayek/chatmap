@@ -8,22 +8,22 @@ public record LlmResponse(
         String text,
         BackendId backendId,
         Duration duration,
-        ProviderId providerId,
+        Channel channel,
         String targetId,
-        String providerModelName,
+        Optional<String> providerModelName,
         String providerSessionId
 ) {
     public LlmResponse {
         Objects.requireNonNull(text, "text");
         Objects.requireNonNull(backendId, "backendId");
         Objects.requireNonNull(duration, "duration");
-        Objects.requireNonNull(providerId, "providerId");
+        Objects.requireNonNull(channel, "channel");
         Objects.requireNonNull(targetId, "targetId");
         Objects.requireNonNull(providerModelName, "providerModelName");
     }
 
     public LlmResponse(String text, BackendId backendId, Duration duration, ModelTarget target, String providerSessionId) {
-        this(text, backendId, duration, target.providerId(), target.id(), target.providerModelName(), providerSessionId);
+        this(text, backendId, duration, target.channel(), target.id(), target.providerModelName(), providerSessionId);
     }
 
     public Optional<String> sessionId() {

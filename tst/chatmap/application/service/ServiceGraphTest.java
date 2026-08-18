@@ -25,7 +25,7 @@ import chatmap.application.port.llm.LlmBackendUnsupportedRequestException;
 import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.domain.Chat;
@@ -144,8 +144,8 @@ class ServiceGraphTest {
         return new ResolvedPaths(home, home.resolve("chatmap.db"));
     }
 
-    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+    private static Map<Channel, LlmProvider> providers(LlmProvider claudeProvider) {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         LlmProvider noop = new LlmProvider() {
             @Override
             public LlmResponse execute(ModelTarget target, LlmRequest request) {
@@ -157,10 +157,10 @@ class ServiceGraphTest {
                 return Set.of();
             }
         };
-        for (ProviderId id : ProviderId.values()) {
+        for (Channel id : Channel.values()) {
             providers.put(id, noop);
         }
-        providers.put(ProviderId.claudeCli, claudeProvider);
+        providers.put(Channel.claudeCli, claudeProvider);
         return providers;
     }
 }

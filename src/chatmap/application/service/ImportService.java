@@ -91,7 +91,7 @@ public final class ImportService {
 
     public List<String> listPromptSessions(ModelTarget target) throws SQLException {
         Objects.requireNonNull(target, "target");
-        return chats.findPromptSessions(target.providerId().name(), target.id());
+        return chats.findPromptSessions(target.channel().name(), target.id());
     }
 
     private PersistResult appendInTransaction(Chat chatTemplate, List<Message> newMessages) throws SQLException {
@@ -118,7 +118,7 @@ public final class ImportService {
 
     private Optional<Chat> existingConversation(Chat chatTemplate) throws SQLException {
         if (chatTemplate.providerSessionId() != null && !chatTemplate.providerSessionId().isBlank()) {
-            return chats.findByPromptSession(chatTemplate.providerId(), chatTemplate.modelTargetId(),
+            return chats.findByPromptSession(chatTemplate.channelId(), chatTemplate.modelTargetId(),
                     chatTemplate.providerSessionId());
         }
         String externalConversationId = Objects.requireNonNull(chatTemplate.externalConversationId(),
@@ -220,9 +220,9 @@ public final class ImportService {
                 .contentHash(contentHash)
                 .sourceUpdatedAt(sourceUpdatedAt)
                 .lastImportedAt(lastImportedAt)
-                .providerId(blankToNull(chat.providerId()))
+                .channelId(blankToNull(chat.channelId()))
                 .modelTargetId(blankToNull(chat.modelTargetId()))
-                .providerModelName(blankToNull(chat.providerModelName()))
+                .providerModelName(chat.providerModelName().orElse(null))
                 .providerSessionId(blankToNull(chat.providerSessionId()))
                 .build();
     }

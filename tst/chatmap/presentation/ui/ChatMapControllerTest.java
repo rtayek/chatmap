@@ -35,7 +35,7 @@ import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.model.ChatExportModel;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ConversationInventoryService;
@@ -402,8 +402,8 @@ class ChatMapControllerTest {
                 ModelTarget.claude, null);
     }
 
-    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+    private static Map<Channel, LlmProvider> providers(LlmProvider claudeProvider) {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         LlmProvider noop = new LlmProvider() {
             @Override
             public LlmResponse execute(ModelTarget target, LlmRequest request) {
@@ -415,10 +415,10 @@ class ChatMapControllerTest {
                 return Set.of();
             }
         };
-        for (ProviderId id : ProviderId.values()) {
+        for (Channel id : Channel.values()) {
             providers.put(id, noop);
         }
-        providers.put(ProviderId.claudeCli, claudeProvider);
+        providers.put(Channel.claudeCli, claudeProvider);
         return providers;
     }
 

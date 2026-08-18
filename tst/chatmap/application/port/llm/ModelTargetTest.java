@@ -27,8 +27,7 @@ final class ModelTargetTest {
     void everyTargetDeclaresUserAndProviderMetadata() {
         for (ModelTarget target : ModelTarget.values()) {
             assertTrue(!target.displayName().isBlank(), target.id());
-            assertNotNull(target.providerId(), target.id());
-            assertTrue(!target.providerModelName().isBlank(), target.id());
+            assertNotNull(target.channel(), target.id());
             assertNotNull(target.source(), target.id());
         }
     }

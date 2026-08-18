@@ -42,7 +42,7 @@ final class OllamaProviderTest {
                     LlmRequest.withSystemPrompt("What is Java?", "Answer concisely."));
 
             assertEquals("Ollama answer", response.text());
-            assertEquals("glm4:9b", response.providerModelName());
+            assertEquals(java.util.Optional.of("glm4:9b"), response.providerModelName());
             assertTrue(requestBody.get().contains("\"model\":\"glm4:9b\""));
             assertTrue(requestBody.get().contains("\"role\":\"system\""));
             assertTrue(requestBody.get().contains("\"role\":\"user\""));

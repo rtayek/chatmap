@@ -70,9 +70,9 @@ public final class ChatRepository implements ChatStore {
                 ps.setString(11, chat.sourceUpdatedAt());
                 ps.setString(12, chat.lastImportedAt());
                 ps.setString(13, chat.originatedBy().dbValue());
-                ps.setString(14, chat.providerId());
+                ps.setString(14, chat.channelId());
                 ps.setString(15, chat.modelTargetId());
-                ps.setString(16, chat.providerModelName());
+                ps.setString(16, chat.providerModelName().orElse(null));
                 ps.setString(17, chat.providerSessionId());
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {

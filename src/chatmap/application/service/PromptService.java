@@ -25,7 +25,7 @@ import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.PromptProfile;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
 import chatmap.application.model.ImportedChat;
@@ -33,13 +33,13 @@ import chatmap.application.support.Log;
 
 public final class PromptService {
     private static final Logger LOG = Log.of(PromptService.class);
-    private final Map<ProviderId, LlmProvider> providers;
+    private final Map<Channel, LlmProvider> providers;
     private final ImportService importService;
     private final Clock clock;
     private final Path transcriptDirectory;
 
     public PromptService(
-            Map<ProviderId, LlmProvider> providers,
+            Map<Channel, LlmProvider> providers,
             ImportService importService,
             Clock clock,
             Path transcriptDirectory) {
@@ -113,7 +113,7 @@ public final class PromptService {
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
         return new PromptResult(backendId, responseText, transcriptPath,
-                response.providerId().name(), target.id(), response.providerModelName(), effectiveSessionId);
+                response.channel().name(), target.id(), response.providerModelName(), effectiveSessionId);
     }
 
     /**
@@ -136,9 +136,9 @@ public final class PromptService {
                 .importedAt(now)
                 .archived(false)
                 .originatedBy(chatmap.domain.ChatOrigin.generated)
-                .providerId(target.providerId().name())
+                .channelId(target.channel().name())
                 .modelTargetId(target.id())
-                .providerModelName(target.providerModelName())
+                .providerModelName(target.providerModelName().orElse(null))
                 .providerSessionId(sessionId)
                 .build();
         Message userMsg = new Message(0L, 0L, chatmap.domain.MessageRole.user, prompt, 0, now, null);
@@ -177,9 +177,9 @@ public final class PromptService {
         return provider;
     }
 
-    private static Map<ProviderId, LlmProvider> validateProviders(Map<ProviderId, LlmProvider> configured) {
+    private static Map<Channel, LlmProvider> validateProviders(Map<Channel, LlmProvider> configured) {
         Objects.requireNonNull(configured, "providers");
-        EnumMap<ProviderId, LlmProvider> copy = new EnumMap<>(ProviderId.class);
+        EnumMap<Channel, LlmProvider> copy = new EnumMap<>(Channel.class);
         copy.putAll(configured);
         for (ModelTarget target : ModelTarget.values()) {
             if (!copy.containsKey(target.providerId())) {

@@ -1,44 +1,44 @@
 package chatmap.application.port.llm;
 
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import chatmap.domain.Source;
 
 /** Curated user-selectable prompt targets. Stable ids are CLI/UI boundary values. */
 public enum ModelTarget {
-    claude("claude", "Claude", ProviderId.claudeCli, "default", Source.claudeCliPrompt),
-    codex("codex", "Codex", ProviderId.codexCli, "default", Source.codexCliPrompt),
-    agy("agy", "Antigravity", ProviderId.antigravityCli, "default", Source.agyCliPrompt),
-    ollama("ollama", "Ollama llama3", ProviderId.ollama, "llama3", Source.ollamaPrompt),
-    ollamaGlm4("ollama-glm4", "Ollama GLM4 9B", ProviderId.ollama, "glm4:9b", Source.ollamaPrompt),
-    ollamaQwenOpenclaw("ollama-qwen-openclaw", "Ollama Qwen OpenClaw", ProviderId.ollama,
-            "qwen-openclaw:latest", Source.ollamaPrompt),
-    ollamaQwenOpenclawLarge("ollama-qwen-openclaw-large", "Ollama Qwen OpenClaw Large", ProviderId.ollama,
-            "qwen-openclaw-large:latest", Source.ollamaPrompt),
-    ollamaQwenOpenclawSmall("ollama-qwen-openclaw-small", "Ollama Qwen OpenClaw Small", ProviderId.ollama,
-            "qwen-openclaw-small:latest", Source.ollamaPrompt),
-    ollamaQwen2532k("ollama-qwen2.5-32k", "Ollama Qwen 2.5 32K", ProviderId.ollama,
-            "qwen2.5-32k:latest", Source.ollamaPrompt),
-    ollamaQwen257b("ollama-qwen2.5-7b", "Ollama Qwen 2.5 7B", ProviderId.ollama,
-            "qwen2.5:7b", Source.ollamaPrompt),
-    jshell("jshell", "JShell Harness", ProviderId.jshell, "default", Source.jshellHarness);
+    claude("claude", "Claude", Model.claude, Channel.claudeCli),
+    codex("codex", "Codex", Model.codex, Channel.codexCli),
+    agy("agy", "Antigravity", Model.agy, Channel.antigravityCli),
+    ollama("ollama", "Ollama llama3", Model.llama3, Channel.ollama),
+    ollamaGlm4("ollama-glm4", "Ollama GLM4 9B", Model.glm4, Channel.ollama),
+    ollamaQwenOpenclaw("ollama-qwen-openclaw", "Ollama Qwen OpenClaw", Model.qwenOpenclaw, Channel.ollama),
+    ollamaQwenOpenclawLarge("ollama-qwen-openclaw-large", "Ollama Qwen OpenClaw Large", Model.qwenOpenclawLarge, Channel.ollama),
+    ollamaQwenOpenclawSmall("ollama-qwen-openclaw-small", "Ollama Qwen OpenClaw Small", Model.qwenOpenclawSmall, Channel.ollama),
+    ollamaQwen2532k("ollama-qwen2.5-32k", "Ollama Qwen 2.5 32K", Model.qwen2532k, Channel.ollama),
+    ollamaQwen257b("ollama-qwen2.5-7b", "Ollama Qwen 2.5 7B", Model.qwen257b, Channel.ollama),
+    jshell("jshell", "JShell Harness", Model.jshell, Channel.jshell);
 
     private final String id;
     private final String displayName;
-    private final ProviderId providerId;
-    private final String providerModelName;
-    private final Source source;
+    private final Model model;
+    private final Channel channel;
 
-    ModelTarget(String id, String displayName, ProviderId providerId, String providerModelName, Source source) {
+    ModelTarget(String id, String displayName, Model model, Channel channel) {
         this.id = requireNonblank(id, "id");
         this.displayName = requireNonblank(displayName, "displayName");
-        this.providerId = Objects.requireNonNull(providerId, "providerId");
-        this.providerModelName = requireNonblank(providerModelName, "providerModelName");
-        this.source = Objects.requireNonNull(source, "source");
+        this.model = Objects.requireNonNull(model, "model");
+        this.channel = Objects.requireNonNull(channel, "channel");
     }
+
+    private static final Map<Model, EnumSet<Channel>> byModel = new EnumMap<>(Model.class);
+    private static final Map<Channel, EnumSet<Model>> byChannel = new EnumMap<>(Channel.class);
 
     static {
         Set<String> ids = new HashSet<>();
@@ -46,7 +46,28 @@ public enum ModelTarget {
             if (!ids.add(target.id())) {
                 throw new ExceptionInInitializerError("Duplicate model target id: " + target.id());
             }
+
+            EnumSet<Channel> channels =
+                    byModel.computeIfAbsent(target.model, m -> EnumSet.noneOf(Channel.class));
+            if (!channels.add(target.channel)) {
+                throw new ExceptionInInitializerError(
+                        "Duplicate model target pairing: " + target.model + " x " + target.channel);
+            }
+
+            EnumSet<Model> models =
+                    byChannel.computeIfAbsent(target.channel, c -> EnumSet.noneOf(Model.class));
+            models.add(target.model);
         }
+    }
+
+    public static EnumSet<Channel> channelsFor(Model model) {
+        EnumSet<Channel> channels = byModel.get(model);
+        return channels == null ? EnumSet.noneOf(Channel.class) : EnumSet.copyOf(channels);
+    }
+
+    public static EnumSet<Model> modelsFor(Channel channel) {
+        EnumSet<Model> models = byChannel.get(channel);
+        return models == null ? EnumSet.noneOf(Model.class) : EnumSet.copyOf(models);
     }
 
     public String id() {
@@ -57,16 +78,30 @@ public enum ModelTarget {
         return displayName;
     }
 
-    public ProviderId providerId() {
-        return providerId;
+    public Model model() {
+        return model;
     }
 
-    public String providerModelName() {
-        return providerModelName;
+    public Channel channel() {
+        return channel;
     }
 
+    // Retained for backward compatibility during the refactoring process
+    // Replaced Channel with Channel
+    public Channel providerId() {
+        return channel;
+    }
+
+    public Optional<String> providerModelName() {
+        return model.providerModelName();
+    }
+
+    // The real data shows Source depends only on the channel. If that ever stops
+    // being true — a model that changes provenance within the same channel — the
+    // derivation would move to a Map<Pair<Model,Channel>, Source> lookup instead.
+    // For now, it remains channel-keyed.
     public Source source() {
-        return source;
+        return channel.source();
     }
 
     public static ModelTarget require(String id) {

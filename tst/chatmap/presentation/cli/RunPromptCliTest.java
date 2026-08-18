@@ -26,7 +26,7 @@ import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.ModelTarget;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.domain.Chat;
 import chatmap.domain.Message;
@@ -64,7 +64,7 @@ class RunPromptCliTest {
         Files.createDirectories(home);
 
         String[] cliArgs = new String[]{"--home", home.toString(), "claude", "Test prompt text"};
-        Map<ProviderId, LlmProvider> backends = providers(new LlmProvider() {
+        Map<Channel, LlmProvider> backends = providers(new LlmProvider() {
             @Override
             public LlmResponse execute(ModelTarget target, LlmRequest request) {
                 return new LlmResponse("Fake CLI response", new BackendId("Fake CLI"), Duration.ofMillis(5),
@@ -82,7 +82,7 @@ class RunPromptCliTest {
 
         assertEquals("Fake CLI", result.backendLabel());
         assertEquals("Fake CLI response", result.response());
-        assertEquals(ProviderId.claudeCli.name(), result.providerId());
+        assertEquals(Channel.claudeCli.name(), result.channelId());
         assertEquals(ModelTarget.claude.id(), result.targetId());
         assertEquals(ModelTarget.claude.providerModelName(), result.providerModelName());
         assertEquals("session-123", result.sessionId().orElseThrow());
@@ -99,7 +99,7 @@ class RunPromptCliTest {
             List<Chat> storedChats = chats.findAll();
             assertEquals(1, storedChats.size());
             assertEquals("Test prompt text", storedChats.get(0).title());
-            assertEquals(ProviderId.claudeCli.name(), storedChats.get(0).providerId());
+            assertEquals(Channel.claudeCli.name(), storedChats.get(0).channelId());
             assertEquals(ModelTarget.claude.id(), storedChats.get(0).modelTargetId());
             assertEquals(ModelTarget.claude.providerModelName(), storedChats.get(0).providerModelName());
             assertEquals("session-123", storedChats.get(0).providerSessionId());
@@ -117,8 +117,8 @@ class RunPromptCliTest {
                 RunPromptCli.execute(new String[]{"claude"}, Map.of(), Clock.systemUTC()));
     }
 
-    private static Map<ProviderId, LlmProvider> providers(LlmProvider claudeProvider) {
-        EnumMap<ProviderId, LlmProvider> providers = new EnumMap<>(ProviderId.class);
+    private static Map<Channel, LlmProvider> providers(LlmProvider claudeProvider) {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         LlmProvider noop = new LlmProvider() {
             @Override
             public LlmResponse execute(ModelTarget target, LlmRequest request) {
@@ -130,10 +130,10 @@ class RunPromptCliTest {
                 return Set.of();
             }
         };
-        for (ProviderId id : ProviderId.values()) {
+        for (Channel id : Channel.values()) {
             providers.put(id, noop);
         }
-        providers.put(ProviderId.claudeCli, claudeProvider);
+        providers.put(Channel.claudeCli, claudeProvider);
         return providers;
     }
 }

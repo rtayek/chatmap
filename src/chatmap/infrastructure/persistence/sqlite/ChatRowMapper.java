@@ -43,7 +43,7 @@ final class ChatRowMapper {
                 .sourceUpdatedAt(rs.getString("sourceUpdatedAt"))
                 .lastImportedAt(rs.getString("lastImportedAt"))
                 .originatedBy(chatmap.domain.ChatOrigin.fromDbValue(rs.getString("originatedBy")))
-                .providerId(rs.getString("providerId"))
+                .channelId(rs.getString("providerId"))
                 .modelTargetId(rs.getString("modelTargetId"))
                 .providerModelName(rs.getString("providerModelName"))
                 .providerSessionId(rs.getString("providerSessionId"))

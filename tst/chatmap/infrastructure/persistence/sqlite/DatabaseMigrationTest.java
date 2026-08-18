@@ -53,17 +53,17 @@ class DatabaseMigrationTest {
                     .sourceUri("https://chatgpt.com/c/abc")
                     .contentHash("hash")
                     .lastImportedAt("2026-08-05T00:00:00Z")
-                    .providerId("claudeCli")
+                    .channelId("claudeCli")
                     .modelTargetId("claude")
-                    .providerModelName("default")
+                    .providerModelName((String) null)
                     .providerSessionId("session-1")
                     .build());
 
             assertDoesNotThrow(() -> Database.initialize(conn), "migration must be idempotent");
             Chat stored = chats.findAll().getFirst();
-            assertEquals("claudeCli", stored.providerId());
+            assertEquals("claudeCli", stored.channelId());
             assertEquals("claude", stored.modelTargetId());
-            assertEquals("default", stored.providerModelName());
+            assertEquals(java.util.Optional.empty(), stored.providerModelName());
             assertEquals("session-1", stored.providerSessionId());
         }
     }

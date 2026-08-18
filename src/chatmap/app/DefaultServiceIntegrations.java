@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import chatmap.application.port.llm.LlmProvider;
-import chatmap.application.port.llm.ProviderId;
+import chatmap.application.port.llm.Channel;
 import chatmap.application.port.provider.ChatProvider;
 import chatmap.infrastructure.llm.DefaultLlmProviders;
 import chatmap.infrastructure.provider.DefaultChatProviders;
@@ -27,7 +27,7 @@ public final class DefaultServiceIntegrations {
         return DefaultChatProviders.ordered();
     }
 
-    public static Map<ProviderId, LlmProvider> promptProviders() {
+    public static Map<Channel, LlmProvider> promptProviders() {
         return DefaultLlmProviders.providers();
     }
 }

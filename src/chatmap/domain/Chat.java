@@ -1,6 +1,7 @@
 package chatmap.domain;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * One imported conversation.
@@ -20,9 +21,9 @@ public record Chat(
         boolean archived,
         ImportMetadata importMetadata,
         ChatOrigin originatedBy,
-        String providerId,
+        String channelId,
         String modelTargetId,
-        String providerModelName,
+        Optional<String> providerModelName,
         String providerSessionId) {
 
     public Chat {
@@ -81,9 +82,9 @@ public record Chat(
         private String sourceUpdatedAt;
         private String lastImportedAt;
         private ChatOrigin originatedBy = ChatOrigin.imported;
-        private String providerId;
+        private String channelId;
         private String modelTargetId;
-        private String providerModelName;
+        private Optional<String> providerModelName = Optional.empty();
         private String providerSessionId;
 
         public Builder() {
@@ -104,7 +105,7 @@ public record Chat(
             this.sourceUpdatedAt = chat.importMetadata.sourceUpdatedAt();
             this.lastImportedAt = chat.importMetadata.lastImportedAt();
             this.originatedBy = chat.originatedBy;
-            this.providerId = chat.providerId;
+            this.channelId = chat.channelId;
             this.modelTargetId = chat.modelTargetId;
             this.providerModelName = chat.providerModelName;
             this.providerSessionId = chat.providerSessionId;
@@ -180,8 +181,8 @@ public record Chat(
             return this;
         }
 
-        public Builder providerId(String providerId) {
-            this.providerId = providerId;
+        public Builder channelId(String channelId) {
+            this.channelId = channelId;
             return this;
         }
 
@@ -191,7 +192,7 @@ public record Chat(
         }
 
         public Builder providerModelName(String providerModelName) {
-            this.providerModelName = providerModelName;
+            this.providerModelName = Optional.ofNullable(providerModelName);
             return this;
         }
 
@@ -206,7 +207,7 @@ public record Chat(
             return new Chat(id, projectId, source, title, createdAt, updatedAt, importedAt,
                     archived, new ImportMetadata(externalConversationId, sourceUri,
                             contentHash, actualSourceUpdatedAt, actualLastImportedAt), originatedBy,
-                    providerId, modelTargetId, providerModelName, providerSessionId);
+                    channelId, modelTargetId, providerModelName, providerSessionId);
         }
     }
 }
