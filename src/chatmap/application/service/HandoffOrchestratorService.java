@@ -117,46 +117,11 @@ public final class HandoffOrchestratorService {
             }
             worktreeCreated = true;
 
-            ModelTarget target = agentTargets.get(task.agent());
-            if (target == null) {
-                LOG.warn("No configured model target for agent '{}'", task.agent());
-                return recordFailure(inboxRepo, file, projectKey,
-                        "No configured model target for agent '" + task.agent() + "'.");
-            }
-            LlmProvider provider = providers.get(target.providerId());
-            if (!(provider instanceof CommandBackedLlmProvider backend)) {
-                LOG.warn("No command-backed LLM provider for agent '{}'", task.agent());
-                return recordFailure(inboxRepo, file, projectKey,
-                        "No command-backed LLM provider for agent '" + task.agent() + "'.");
-            }
-
-            LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
-            Path agentStdout = inboxManager.agentOutputPath(file, "stdout.log");
-            Path agentStderr = inboxManager.agentOutputPath(file, "stderr.log");
-            createDirectories(Objects.requireNonNull(agentStdout.getParent(), "agent output parent"));
-            LlmRequest request = LlmRequest.of(task.body())
-                    .withWorkingDirectory(worktree)
-                    .withPermissionMode(PermissionMode.unrestricted)
-                    .withOutputPaths(agentStdout, agentStderr);
-            if (provider.capabilities(target).contains(LlmCapability.streamJson)) {
-                request = request.withOutputFormat(OutputFormat.streamJson);
-            }
-            CommandResult agentResult;
-            try {
-                agentResult = backend.executeWithResult(target, request).commandResult();
-            } catch (LlmBackendExecutionException executionFailure) {
-                LOG.warn("{} for {}: {}", task.agent(), file, executionFailure.getMessage());
-                return recordFailure(inboxRepo, file, projectKey, executionFailure.getMessage(),
-                        executionFailure.commandResult().orElse(null));
-            } catch (LlmBackendStartupException startupFailure) {
-                LOG.warn("Could not run {} for {}: {}", task.agent(), file, startupFailure.getMessage());
-                return recordFailure(inboxRepo, file, projectKey,
-                        "Could not run " + task.agent() + ": " + startupFailure.getMessage());
-            }
-
-            HandoffRunResult successResult = recordSuccess(inboxRepo, file, task, worktree, agentResult);
+            HandoffRunResult successResult = runAgentInWorktree(inboxRepo, file, task, worktree);
             taskSucceeded = true;
             return successResult;
+        } catch (HandoffStepFailedException stepFailure) {
+            return recordFailure(inboxRepo, file, projectKey, stepFailure.getMessage(), stepFailure.commandResult());
         } catch (GitWorkspaceManager.WorktreeCommitFailedException commitFailure) {
             preserveWorktree = true;
             return recordFailure(inboxRepo, file, projectKey,
@@ -185,6 +150,69 @@ public final class HandoffOrchestratorService {
                     LOG.debug("Removed worktree {}", worktree);
                 }
             }
+        }
+    }
+
+    /**
+     * Resolves the agent's backend, runs it in {@code worktree}, and records the
+     * successful outcome. Throws {@link HandoffStepFailedException} for every failure
+     * that isn't already a git/filesystem-layer exception {@link #processOne} itself
+     * handles -- its single catch clause turns any of them into the same failure result
+     * a caller would get from an inline {@code return recordFailure(...)}.
+     */
+    private HandoffRunResult runAgentInWorktree(Path inboxRepo, Path file, HandoffTask task, Path worktree) {
+        ModelTarget target = agentTargets.get(task.agent());
+        if (target == null) {
+            LOG.warn("No configured model target for agent '{}'", task.agent());
+            throw new HandoffStepFailedException("No configured model target for agent '" + task.agent() + "'.");
+        }
+        LlmProvider provider = providers.get(target.providerId());
+        if (!(provider instanceof CommandBackedLlmProvider backend)) {
+            LOG.warn("No command-backed LLM provider for agent '{}'", task.agent());
+            throw new HandoffStepFailedException("No command-backed LLM provider for agent '" + task.agent() + "'.");
+        }
+
+        LOG.info("Running agent '{}' on branch {} in {}", task.agent(), task.branch(), worktree);
+        Path agentStdout = inboxManager.agentOutputPath(file, "stdout.log");
+        Path agentStderr = inboxManager.agentOutputPath(file, "stderr.log");
+        createDirectories(Objects.requireNonNull(agentStdout.getParent(), "agent output parent"));
+        LlmRequest request = LlmRequest.of(task.body())
+                .withWorkingDirectory(worktree)
+                .withPermissionMode(PermissionMode.unrestricted)
+                .withOutputPaths(agentStdout, agentStderr);
+        if (provider.capabilities(target).contains(LlmCapability.streamJson)) {
+            request = request.withOutputFormat(OutputFormat.streamJson);
+        }
+        CommandResult agentResult;
+        try {
+            agentResult = backend.executeWithResult(target, request).commandResult();
+        } catch (LlmBackendExecutionException executionFailure) {
+            LOG.warn("{} for {}: {}", task.agent(), file, executionFailure.getMessage());
+            throw new HandoffStepFailedException(executionFailure.getMessage(),
+                    executionFailure.commandResult().orElse(null));
+        } catch (LlmBackendStartupException startupFailure) {
+            LOG.warn("Could not run {} for {}: {}", task.agent(), file, startupFailure.getMessage());
+            throw new HandoffStepFailedException("Could not run " + task.agent() + ": " + startupFailure.getMessage());
+        }
+
+        return recordSuccess(inboxRepo, file, task, worktree, agentResult);
+    }
+
+    /** Signals a non-git, non-filesystem failure inside {@link #runAgentInWorktree}. */
+    private static final class HandoffStepFailedException extends RuntimeException {
+        private final CommandResult commandResult;
+
+        HandoffStepFailedException(String message) {
+            this(message, null);
+        }
+
+        HandoffStepFailedException(String message, CommandResult commandResult) {
+            super(message);
+            this.commandResult = commandResult;
+        }
+
+        CommandResult commandResult() {
+            return commandResult;
         }
     }
 
