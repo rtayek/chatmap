@@ -6,12 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import org.slf4j.Logger;
+
 import chatmap.application.port.command.CommandExecutor;
 import chatmap.application.port.command.CommandRequest;
 import chatmap.application.port.command.CommandResult;
 import chatmap.application.port.handoff.HandoffFileStore;
+import chatmap.application.support.Log;
 
 class GitWorkspaceManager {
+    private static final Logger LOG = Log.of(GitWorkspaceManager.class);
     private static final Duration GIT_TIMEOUT = Duration.ofSeconds(60);
     private final CommandExecutor commandExecutor;
     private final HandoffFileStore fileStore;
@@ -36,8 +40,20 @@ class GitWorkspaceManager {
         return git(targetRepo, "worktree", "add", "-b", branch, worktree.toString());
     }
 
+    /**
+     * Removes {@code worktree} from git's worktree metadata and deletes its directory.
+     * If git itself refuses or fails to remove the worktree (e.g. a file locked by
+     * another process), the directory is left in place instead of being force-deleted
+     * out from under git -- deleting it anyway would leave {@code .git/worktrees} out
+     * of sync with the filesystem, corrupting later {@code git worktree} operations.
+     */
     void removeWorktree(Path targetRepo, Path worktree) {
-        git(targetRepo, "worktree", "remove", "--force", worktree.toString());
+        CommandResult removeResult = git(targetRepo, "worktree", "remove", "--force", worktree.toString());
+        if (removeResult.exitCode() != 0) {
+            LOG.warn("git worktree remove failed for {}; leaving it in place: {}",
+                    worktree, commandFailureDetail(removeResult));
+            return;
+        }
         fileStore.deleteRecursively(worktree);
     }
 

@@ -423,6 +423,76 @@ class HandoffOrchestratorServiceTest {
     }
 
     @Test
+    void dirtyAgentFailurePreservesTheWorktreeForManualRecovery() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(" M file.txt\n"));
+        executor.respond("claude -p", new CommandResult(1, "", "boom", Duration.ofSeconds(1), false));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        HandoffRunResult result = results.get(0);
+        assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
+        assertFalse(executor.calledWithPrefix("git worktree remove"),
+                "the agent left uncommitted edits before failing, so the worktree must be preserved");
+        assertTrue(Files.exists(task), "a failed task's source file must not be moved");
+    }
+
+    @Test
+    void dirtyAgentTimeoutPreservesTheWorktreeForManualRecovery() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(" M file.txt\n"));
+        executor.respond("claude -p", new CommandResult(0, "", "", Duration.ofMinutes(30), true));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        HandoffRunResult result = results.get(0);
+        assertEquals(HandoffRunResult.Outcome.failure, result.outcome());
+        assertFalse(executor.calledWithPrefix("git worktree remove"),
+                "the agent left uncommitted edits before timing out, so the worktree must be preserved");
+    }
+
+    @Test
+    void cleanAgentFailureStillRemovesTheWorktree() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        executor.respond("claude -p", new CommandResult(1, "", "boom", Duration.ofSeconds(1), false));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        assertEquals(HandoffRunResult.Outcome.failure, results.get(0).outcome());
+        assertTrue(executor.calledWithPrefix("git worktree remove --force"),
+                "a clean worktree (no edits made before the failure) must still be cleaned up");
+    }
+
+    @Test
+    void cleanSuccessStillRemovesTheWorktree() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        List<HandoffRunResult> results = service.processInboxOnce(inbox);
+
+        assertEquals(HandoffRunResult.Outcome.success, results.get(0).outcome());
+        assertTrue(executor.calledWithPrefix("git worktree remove --force"),
+                "a successful, clean run must still remove its worktree");
+    }
+
+    @Test
     void worktreeAddFailureIsReportedWithoutRunningTheAgent() throws IOException {
         projectDir("chatmap");
         Path chatmapDir = inbox.resolve("chatmap");

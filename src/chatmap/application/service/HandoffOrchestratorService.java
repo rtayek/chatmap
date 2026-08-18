@@ -105,6 +105,8 @@ public final class HandoffOrchestratorService {
 
         Path worktree = fileStore.allocateWorktreeDirectory(task.branch());
         LOG.debug("Allocated worktree {} for branch {} of {}", worktree, task.branch(), targetRepo);
+        boolean worktreeCreated = false;
+        boolean taskSucceeded = false;
         boolean preserveWorktree = false;
         try {
             CommandResult worktreeResult = gitManager.addWorktree(targetRepo, worktree, task.branch());
@@ -113,6 +115,7 @@ public final class HandoffOrchestratorService {
                 return recordFailure(inboxRepo, file, projectKey,
                         "git worktree add failed: " + worktreeResult.standardError().strip());
             }
+            worktreeCreated = true;
 
             ModelTarget target = agentTargets.get(task.agent());
             if (target == null) {
@@ -151,7 +154,9 @@ public final class HandoffOrchestratorService {
                         "Could not run " + task.agent() + ": " + startupFailure.getMessage());
             }
 
-            return recordSuccess(inboxRepo, file, task, worktree, agentResult);
+            HandoffRunResult successResult = recordSuccess(inboxRepo, file, task, worktree, agentResult);
+            taskSucceeded = true;
+            return successResult;
         } catch (GitWorkspaceManager.WorktreeCommitFailedException commitFailure) {
             preserveWorktree = true;
             return recordFailure(inboxRepo, file, projectKey,
@@ -168,13 +173,39 @@ public final class HandoffOrchestratorService {
             return recordFailure(inboxRepo, file, projectKey,
                     "Could not finalize handoff task: " + archiveFailure.getMessage());
         } finally {
-            if (preserveWorktree) {
-                LOG.warn("Preserving worktree {} instead of removing it so the commit failure can be recovered manually",
-                        worktree);
-            } else {
-                gitManager.removeWorktree(targetRepo, worktree);
-                LOG.debug("Removed worktree {}", worktree);
+            if (worktreeCreated) {
+                if (!taskSucceeded && !preserveWorktree) {
+                    preserveWorktree = shouldPreserveWorktree(worktree);
+                }
+                if (preserveWorktree) {
+                    LOG.warn("Preserving worktree {} instead of removing it so its uncommitted changes "
+                            + "can be recovered manually", worktree);
+                } else {
+                    gitManager.removeWorktree(targetRepo, worktree);
+                    LOG.debug("Removed worktree {}", worktree);
+                }
             }
+        }
+    }
+
+    /**
+     * Whether {@code worktree} has uncommitted changes worth keeping around. A
+     * committed-and-pushed success always removes its worktree, same as before this
+     * check existed -- this only gates the FAILURE paths, where the agent may have
+     * started editing files but never got the chance to commit them. Once the agent has
+     * started, ANY such failure that leaves the worktree dirty must preserve it, not
+     * just a commit failure, so this is the single source of truth the {@code finally}
+     * block in {@link #processOne} defers to for every failure path. If we can't even
+     * prove the worktree is clean (e.g. {@code git status} itself fails on a broken
+     * worktree), fail safe and preserve it rather than risk deleting real work.
+     */
+    private boolean shouldPreserveWorktree(Path worktree) {
+        try {
+            return gitManager.hasChanges(worktree);
+        } catch (GitWorkspaceManager.GitCommandFailedException cannotDetermine) {
+            LOG.warn("Could not determine whether worktree {} has uncommitted changes; preserving it to be safe: {}",
+                    worktree, cannotDetermine.getMessage());
+            return true;
         }
     }
 
