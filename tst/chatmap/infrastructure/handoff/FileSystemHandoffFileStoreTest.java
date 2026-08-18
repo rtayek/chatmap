@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -57,6 +59,32 @@ class FileSystemHandoffFileStoreTest {
     @Test
     void readStringThrowsHandoffFileStoreExceptionWhenFileIsMissing() {
         assertThrows(HandoffFileStoreException.class, () -> store.readString(tempDir.resolve("missing.txt")));
+    }
+
+    @Test
+    void readAllCollectsEveryCharacterFromAReaderWithNoDiskInvolved() throws IOException {
+        assertEquals("hello world", FileSystemHandoffFileStore.readAll(new StringReader("hello world")));
+    }
+
+    @Test
+    void readAllHandlesContentLargerThanOneBufferFill() throws IOException {
+        String large = "x".repeat(20_000);
+
+        assertEquals(large, FileSystemHandoffFileStore.readAll(new StringReader(large)));
+    }
+
+    @Test
+    void readAllOnAnEmptyReaderReturnsEmptyString() throws IOException {
+        assertEquals("", FileSystemHandoffFileStore.readAll(new StringReader("")));
+    }
+
+    @Test
+    void writeAllWritesContentToTheWriterWithNoDiskInvolved() throws IOException {
+        StringWriter writer = new StringWriter();
+
+        FileSystemHandoffFileStore.writeAll(writer, "hello world");
+
+        assertEquals("hello world", writer.toString());
     }
 
     @Test
