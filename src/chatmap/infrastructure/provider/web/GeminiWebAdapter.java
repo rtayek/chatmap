@@ -98,7 +98,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
             }
             return Optional.of(new OpenConversation(
                     title == null || title.isBlank() ? "Gemini conversation" : title, page.url(), page));
-        } catch (Exception unavailable) {
+        } catch (IllegalStateException unavailable) {
             return Optional.empty();
         }
     }
@@ -141,7 +141,7 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         CdpPage page;
         try {
             page = openPage(siteBaseUrl());
-        } catch (Exception unopenable) {
+        } catch (IllegalStateException unopenable) {
             return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
         }
         try {
@@ -324,8 +324,8 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         Objects.requireNonNull(page, "page");
         try {
             page.waitForSelector("user-query, model-response", 5000);
-        } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        } catch (Exception ignored) { // intentional catch-all
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         // Read each turn's clean content element (avoids the a11y "You said"/"Gemini said" prefix).
@@ -415,3 +415,4 @@ public final class GeminiWebAdapter extends CdpTranscriptAdapter {
         return links;
     }
 }
+

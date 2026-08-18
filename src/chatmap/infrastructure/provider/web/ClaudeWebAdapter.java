@@ -57,8 +57,8 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         Objects.requireNonNull(page, "page");
         try {
             page.waitForSelector("a[href*='/chat/']", 5000);
-        } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        } catch (Exception ignored) { // intentional catch-all
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
@@ -114,8 +114,8 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
 
         try {
             page.waitForSelector(String.join(", ", turnSelectorCandidates), 5000);
-        } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        } catch (Exception ignored) { // intentional catch-all
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         for (String selector : turnSelectorCandidates) {
@@ -170,7 +170,7 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         CdpPage page;
         try {
             page = openPage(siteBaseUrl());
-        } catch (Exception unopenable) {
+        } catch (IllegalStateException unopenable) {
             return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
         }
 
@@ -285,6 +285,7 @@ public final class ClaudeWebAdapter extends CdpTranscriptAdapter {
         return chatmap.domain.MessageRole.unknown.dbValue();
     }
 }
+
 
 
 

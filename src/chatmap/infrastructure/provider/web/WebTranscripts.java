@@ -74,7 +74,7 @@ final class WebTranscripts {
     static String safeInnerText(CdpPage.CdpLocator locator) {
         try {
             return locator.innerText();
-        } catch (Exception ignored) {
+        } catch (IllegalStateException ignored) {
             LOG.trace("Silenced exception reading innerText: {}", ignored.getMessage(), ignored);
             return null;
         }
@@ -108,3 +108,4 @@ final class WebTranscripts {
         return new ImportedChat(chat, messages);
     }
 }
+

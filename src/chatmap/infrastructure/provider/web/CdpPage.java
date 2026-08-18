@@ -330,8 +330,8 @@ final class CdpPage implements AutoCloseable {
                             }
                         }
                     }
-                } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+                } catch (Exception ignored) { // intentional catch-all for robustness in WebSocket listener
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
             }
             socket.request(1);
@@ -358,9 +358,10 @@ final class CdpPage implements AutoCloseable {
         public void close() {
             try {
                 webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "done").join();
-            } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+            } catch (Exception ignored) { // intentional catch-all for robustness in WebSocket listener
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
         }
     }
 }
+

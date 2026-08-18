@@ -122,7 +122,7 @@ public class ChromeCdpLauncher {
         try {
             int port = URI.create(cdpUrl).getPort();
             return port == -1 ? DEFAULT_CDP_PORT : port;
-        } catch (Exception malformed) {
+        } catch (IllegalArgumentException malformed) {
             return DEFAULT_CDP_PORT;
         }
     }
@@ -146,3 +146,4 @@ public class ChromeCdpLauncher {
         return Path.of(System.getProperty("user.home"), PROFILE_DIR_NAME).toString();
     }
 }
+

@@ -86,7 +86,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
                 return List.of();
             }
             return List.copyOf(listChats(openPage(siteBaseUrl())));
-        } catch (Exception unavailable) {
+        } catch (IllegalStateException unavailable) {
             lastUnavailableReason = diagnostic(unavailable);
             return List.of();
         } finally {
@@ -116,7 +116,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
                 lastUnavailableReason = result.reason();
             }
             return result;
-        } catch (Exception failure) {
+        } catch (IllegalStateException failure) {
             String reason = diagnostic(failure);
             lastUnavailableReason = reason;
             return WebDiscoveryResult.failed(providerLabel(), reason);
@@ -195,7 +195,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
         CdpPage page;
         try {
             page = openPage(siteBaseUrl());
-        } catch (Exception unopenable) {
+        } catch (IllegalStateException unopenable) {
             return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
         }
         return accumulate(page);
@@ -223,7 +223,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             List<ChatWebSummary> batch;
             try {
                 batch = listChats(page);
-            } catch (Exception selectorFailure) {
+            } catch (IllegalStateException selectorFailure) {
                 return new WebDiscoveryResult(providerLabel(), List.copyOf(byIdentity.values()),
                         DiscoveryStatus.incomplete,
                         "Selector failure while reading the conversation list: " + diagnostic(selectorFailure));
@@ -275,7 +275,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
                 return Optional.empty();
             }
             return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));
-        } catch (Exception unavailable) {
+        } catch (IllegalStateException unavailable) {
             lastUnavailableReason = diagnostic(unavailable);
             return Optional.empty();
         } finally {
@@ -299,7 +299,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
                 return Optional.empty();
             }
             return Optional.of(new Transcript(conversation.get().title(), conversation.get().url(), turns));
-        } catch (Exception unavailable) {
+        } catch (IllegalStateException unavailable) {
             lastUnavailableReason = diagnostic(unavailable);
             return Optional.empty();
         } finally {
@@ -326,7 +326,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
             CdpPage page = browser.openPage(url).orElseThrow();
             openPages.add(page);
             return page;
-        } catch (Exception unavailable) {
+        } catch (java.io.IOException | InterruptedException unavailable) {
             throw new IllegalStateException("Could not open CDP page", unavailable);
         }
     }
@@ -336,8 +336,8 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
         for (CdpPage page : openPages) {
             try {
                 page.close();
-            } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+            } catch (Exception ignored) { // intentional catch-all for robustness during cleanup
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
         }
         openPages.clear();
@@ -369,4 +369,7 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
     }
 
 }
+
+
+
 

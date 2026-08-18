@@ -53,8 +53,8 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         Objects.requireNonNull(page, "page");
         try {
             page.waitForSelector("a[href*='/c/']", 5000);
-        } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        } catch (Exception ignored) { // intentional catch-all
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         List<ChatWebSummary> summaries = new ArrayList<>();
@@ -86,8 +86,8 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         Objects.requireNonNull(page, "page");
         try {
             page.waitForSelector("[data-message-author-role]", 5000);
-        } catch (Exception ignored) {
-            LOG.debug("Silenced exception: {}", ignored.getMessage(), ignored);
+        } catch (Exception ignored) { // intentional catch-all
+            LOG.warn("Silenced exception: {}", ignored.getMessage(), ignored);
         }
 
         List<ClaudeTurn> turns = new ArrayList<>();
@@ -154,7 +154,7 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         CdpPage page;
         try {
             page = openPage(siteBaseUrl());
-        } catch (Exception unopenable) {
+        } catch (IllegalStateException unopenable) {
             return WebDiscoveryResult.unavailable(providerLabel(), diagnostic(unopenable));
         }
 
@@ -338,6 +338,7 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         return Math.min(PAGE_DELAY_MILLIS * (1L << Math.min(retry, 3)), MAX_RETRY_DELAY_MILLIS);
     }
 }
+
 
 
 
