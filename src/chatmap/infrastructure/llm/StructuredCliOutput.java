@@ -37,7 +37,11 @@ final class StructuredCliOutput {
         if (!texts.isEmpty()) {
             return new Parsed(String.join("\n", texts), sessionId);
         }
-        return new Parsed(sawJson ? "" : standardOutput, sessionId);
+        if (sawJson) {
+            String snippet = standardOutput.length() > 2000 ? standardOutput.substring(0, 2000) + "... (truncated)" : standardOutput;
+            throw new StructuredOutputException("Agent produced structured output but no recognized response text (possible schema change). Raw output: " + snippet);
+        }
+        return new Parsed(standardOutput, sessionId);
     }
 
     private static String extractSessionId(JsonObject object) {

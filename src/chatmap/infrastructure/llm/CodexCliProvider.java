@@ -48,12 +48,17 @@ public final class CodexCliProvider extends CliLlmProvider {
 
     @Override
     protected LlmResponse parseResponse(ModelTarget target, LlmRequest request, CommandResult result) {
-        StructuredCliOutput.Parsed parsed = StructuredCliOutput.parse(
-                result.standardOutput(), request.sessionId().orElse(null));
-        return new LlmResponse(parsed.text(), backendId(target), result.duration(), target, parsed.sessionId());
+        try {
+            StructuredCliOutput.Parsed parsed = StructuredCliOutput.parse(
+                    result.standardOutput(), request.sessionId().orElse(null));
+            return new LlmResponse(parsed.text(), backendId(target), result.duration(), target, parsed.sessionId());
+        } catch (StructuredOutputException e) {
+            throw new chatmap.application.port.llm.LlmBackendExecutionException(e.getMessage(), backendId(target), result);
+        }
     }
 
     static String executableName(String osName) {
         return "codex";
     }
 }
+
