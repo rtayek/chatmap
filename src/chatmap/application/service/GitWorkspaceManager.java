@@ -25,19 +25,19 @@ class GitWorkspaceManager {
         this.fileStore = Objects.requireNonNull(fileStore, "fileStore");
     }
 
-    CommandResult pull(Path repository) {
-        return git(repository, "pull");
+    GitOutcome pull(Path repository) {
+        return GitOutcome.of(git(repository, "pull"), this);
     }
 
-    CommandResult addWorktree(Path targetRepo, Path worktree, String branch) {
+    GitOutcome addWorktree(Path targetRepo, Path worktree, String branch) {
         CommandResult branchExists = git(targetRepo, "show-ref", "--verify", "--quiet", "refs/heads/" + branch);
         if (branchExists.exitCode() == 0) {
-            return git(targetRepo, "worktree", "add", worktree.toString(), branch);
+            return GitOutcome.of(git(targetRepo, "worktree", "add", worktree.toString(), branch), this);
         }
         if (branchExists.exitCode() != 1) {
             throw new GitCommandFailedException("git show-ref failed: " + commandFailureDetail(branchExists));
         }
-        return git(targetRepo, "worktree", "add", "-b", branch, worktree.toString());
+        return GitOutcome.of(git(targetRepo, "worktree", "add", "-b", branch, worktree.toString()), this);
     }
 
     /**
@@ -59,15 +59,15 @@ class GitWorkspaceManager {
 
     boolean hasChanges(Path worktree) {
         CommandResult status = git(worktree, "status", "--porcelain");
-        requireGitSuccess("git status failed in worktree", status);
+        requireGitSuccess("git status failed in worktree", GitOutcome.of(status, this));
         return !status.standardOutput().isBlank();
     }
     
-    CommandResult addAll(Path repository) {
-        return git(repository, "add", "-A");
+    GitOutcome addAll(Path repository) {
+        return GitOutcome.of(git(repository, "add", "-A"), this);
     }
 
-    CommandResult gitAddPaths(Path repository, Path... paths) {
+    GitOutcome gitAddPaths(Path repository, Path... paths) {
         List<String> command = new ArrayList<>();
         command.add("add");
         command.add("--");
@@ -76,24 +76,24 @@ class GitWorkspaceManager {
                 command.add(relativeName(repository, path));
             }
         }
-        return git(repository, command.toArray(String[]::new));
+        return GitOutcome.of(git(repository, command.toArray(String[]::new)), this);
     }
 
-    CommandResult commit(Path repository, String message) {
-        return git(repository, "commit", "-m", message);
+    GitOutcome commit(Path repository, String message) {
+        return GitOutcome.of(git(repository, "commit", "-m", message), this);
     }
 
-    CommandResult push(Path repository) {
-        return git(repository, "push");
+    GitOutcome push(Path repository) {
+        return GitOutcome.of(git(repository, "push"), this);
     }
 
-    CommandResult pushUpstream(Path repository, String branch) {
-        return git(repository, "push", "-u", "origin", branch);
+    GitOutcome pushUpstream(Path repository, String branch) {
+        return GitOutcome.of(git(repository, "push", "-u", "origin", branch), this);
     }
 
-    void requireGitSuccess(String operation, CommandResult result) {
-        if (result.exitCode() != 0) {
-            throw new GitCommandFailedException(operation + ": " + commandFailureDetail(result));
+    void requireGitSuccess(String operation, GitOutcome result) {
+        if (!result.success()) {
+            throw new GitCommandFailedException(operation + ": " + result.errorDetail());
         }
     }
 
@@ -135,3 +135,5 @@ class GitWorkspaceManager {
         }
     }
 }
+
+

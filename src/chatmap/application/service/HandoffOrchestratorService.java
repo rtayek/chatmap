@@ -65,9 +65,9 @@ public final class HandoffOrchestratorService {
         Objects.requireNonNull(inboxRepo, "inboxRepo");
         LOG.info("Executing handoff orchestrator check on {}", inboxRepo);
         
-        CommandResult pullResult = gitManager.pull(inboxRepo);
-        if (pullResult.exitCode() != 0) {
-            LOG.warn("git pull failed for inbox {}: {}", inboxRepo, pullResult.standardError().strip());
+        GitOutcome pullResult = gitManager.pull(inboxRepo);
+        if (pullResult.success() == false) {
+            LOG.warn("git pull failed for inbox {}: {}", inboxRepo, pullResult.errorDetail());
             return List.of();
         }
 
@@ -110,11 +110,11 @@ public final class HandoffOrchestratorService {
         boolean taskSucceeded = false;
         boolean preserveWorktree = false;
         try {
-            CommandResult worktreeResult = gitManager.addWorktree(targetRepo, worktree, task.branch());
-            if (worktreeResult.exitCode() != 0) {
-                LOG.warn("git worktree add failed for {}: {}", targetRepo, worktreeResult.standardError().strip());
+            GitOutcome worktreeResult = gitManager.addWorktree(targetRepo, worktree, task.branch());
+            if (worktreeResult.success() == false) {
+                LOG.warn("git worktree add failed for {}: {}", targetRepo, worktreeResult.errorDetail());
                 return recordFailure(inboxRepo, file, projectKey,
-                        "git worktree add failed: " + worktreeResult.standardError().strip());
+                        "git worktree add failed: " + worktreeResult.errorDetail());
             }
             worktreeCreated = true;
 
@@ -252,17 +252,17 @@ public final class HandoffOrchestratorService {
         boolean pushPending = false;
         if (worktreeHasChanges) {
             gitManager.requireGitSuccess("git add failed in worktree", gitManager.addAll(worktree));
-            CommandResult commitResult = gitManager.commit(worktree, "Handoff: " + task.branch());
-            if (commitResult.exitCode() != 0) {
+            GitOutcome commitResult = gitManager.commit(worktree, "Handoff: " + task.branch());
+            if (commitResult.success() == false) {
                 throw new GitWorkspaceManager.WorktreeCommitFailedException("git commit failed in worktree for branch "
-                        + task.branch() + ": " + commitResult.standardError().strip());
+                        + task.branch() + ": " + commitResult.errorDetail());
             }
             if (autoPush) {
-                CommandResult pushResult = gitManager.pushUpstream(worktree, task.branch());
-                if (pushResult.exitCode() != 0) {
+                GitOutcome pushResult = gitManager.pushUpstream(worktree, task.branch());
+                if (pushResult.success() == false) {
                     pushPending = true;
                     LOG.warn("git push failed in worktree for branch {}: {}", task.branch(),
-                            gitManager.commandFailureDetail(pushResult));
+                            pushResult.errorDetail());
                 }
             } else {
                 pushPending = true;
@@ -274,13 +274,13 @@ public final class HandoffOrchestratorService {
         gitManager.gitAddPaths(inboxRepo, file, archived, resultFile,
                 agentResult.standardOutputPath(), agentResult.standardErrorPath());
         
-        CommandResult archiveCommitResult = gitManager.commit(inboxRepo, "Archive completed handoff: " + GitWorkspaceManager.relativeName(inboxRepo, archived));
-        boolean archiveCommitFailed = archiveCommitResult.exitCode() != 0;
+        GitOutcome archiveCommitResult = gitManager.commit(inboxRepo, "Archive completed handoff: " + GitWorkspaceManager.relativeName(inboxRepo, archived));
+        boolean archiveCommitFailed = archiveCommitResult.success() == false;
         if (archiveCommitFailed) {
             pushPending = true;
         } else if (autoPush) {
-            CommandResult pushResult = gitManager.push(inboxRepo);
-            pushPending = pushPending || pushResult.exitCode() != 0;
+            GitOutcome pushResult = gitManager.push(inboxRepo);
+            pushPending = pushPending || pushResult.success() == false;
         } else {
             pushPending = true;
         }
@@ -289,7 +289,7 @@ public final class HandoffOrchestratorService {
         if (archiveCommitFailed) {
             detail = "Agent completed and task archived to " + GitWorkspaceManager.relativeName(inboxRepo, archived)
                     + ", but committing the archive to the inbox failed: "
-                    + archiveCommitResult.standardError().strip();
+                    + archiveCommitResult.errorDetail();
             LOG.warn("Handoff task {} partially succeeded ({})", file, detail);
         } else {
             detail = worktreeHasChanges
@@ -318,32 +318,34 @@ public final class HandoffOrchestratorService {
                     false);
         }
 
-        CommandResult addResult = agentResult == null
+        GitOutcome addResult = agentResult == null
                 ? gitManager.gitAddPaths(inboxRepo, reportPath)
                 : gitManager.gitAddPaths(inboxRepo, reportPath, agentResult.standardOutputPath(), agentResult.standardErrorPath());
-        if (addResult.exitCode() != 0) {
+        if (addResult.success() == false) {
             return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure,
                     reason + " (additionally, could not stage failure report: "
-                            + gitManager.commandFailureDetail(addResult) + ")",
+                            + addResult.errorDetail() + ")",
                     false);
         }
-        CommandResult commitResult = gitManager.commit(inboxRepo, "Add failure report for: " + GitWorkspaceManager.relativeName(inboxRepo, file));
-        if (commitResult.exitCode() != 0) {
+        GitOutcome commitResult = gitManager.commit(inboxRepo, "Add failure report for: " + GitWorkspaceManager.relativeName(inboxRepo, file));
+        if (commitResult.success() == false) {
             return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure,
                     reason + " (additionally, could not commit failure report: "
-                            + gitManager.commandFailureDetail(commitResult) + ")",
+                            + commitResult.errorDetail() + ")",
                     false);
         }
         boolean pushPending = true;
         if (autoPush) {
-            CommandResult pushResult = gitManager.push(inboxRepo);
-            pushPending = pushResult.exitCode() != 0;
+            GitOutcome pushResult = gitManager.push(inboxRepo);
+            pushPending = pushResult.success() == false;
             if (pushPending) {
                 LOG.warn("git push failed for inbox failure report {}: {}", reportPath,
-                        gitManager.commandFailureDetail(pushResult));
+                        pushResult.errorDetail());
             }
         }
         return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure, reason, pushPending);
     }
 }
+
+
 
