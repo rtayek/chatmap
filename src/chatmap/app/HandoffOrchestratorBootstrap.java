@@ -1,9 +1,9 @@
 package chatmap.app;
 
-import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
+import chatmap.application.port.ProjectRegistry;
 
 import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.ModelTarget;
@@ -23,7 +23,7 @@ public final class HandoffOrchestratorBootstrap {
     private HandoffOrchestratorBootstrap() {
     }
 
-    public static HandoffOrchestratorService create(Map<String, Path> projectRegistry, Clock clock, boolean autoPush) {
+    public static HandoffOrchestratorService create(ProjectRegistry projectRegistry, Clock clock, boolean autoPush) {
         ProcessRunner commandExecutor = new ProcessRunner();
         Map<Channel, LlmProvider> providers = DefaultLlmProviders.providers(commandExecutor, AGENT_TIMEOUT);
         Map<String, ModelTarget> agentTargets = Map.of(
@@ -35,3 +35,5 @@ public final class HandoffOrchestratorBootstrap {
                 fileStore, projectRegistry, clock, autoPush);
     }
 }
+
+

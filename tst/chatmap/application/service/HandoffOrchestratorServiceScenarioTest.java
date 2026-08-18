@@ -55,7 +55,7 @@ class HandoffOrchestratorServiceScenarioTest {
         providers.put(Channel.codexCli, new CodexCliProvider(executor, Duration.ofMinutes(30)));
         return new HandoffOrchestratorService(executor, providers,
                 Map.of("claude", ModelTarget.claude, "codex", ModelTarget.codex),
-                FILE_STORE, registry, CLOCK, autoPush);
+                FILE_STORE, new chatmap.application.port.ProjectRegistry(registry), CLOCK, autoPush);
     }
 
     private Path projectDir(String name) throws IOException {
@@ -382,3 +382,4 @@ class HandoffOrchestratorServiceScenarioTest {
         }
     }
 }
+

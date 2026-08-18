@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import chatmap.application.port.ProjectRegistry;
 
 import org.slf4j.Logger;
 
@@ -36,7 +37,7 @@ public final class HandoffOrchestratorService {
     private final Map<Channel, LlmProvider> providers;
     private final Map<String, ModelTarget> agentTargets;
     private final HandoffFileStore fileStore;
-    private final Map<String, Path> projectRegistry;
+    private final ProjectRegistry projectRegistry;
     private final boolean autoPush;
     
     private final GitWorkspaceManager gitManager;
@@ -47,13 +48,13 @@ public final class HandoffOrchestratorService {
             Map<Channel, LlmProvider> providers,
             Map<String, ModelTarget> agentTargets,
             HandoffFileStore fileStore,
-            Map<String, Path> projectRegistry,
+            ProjectRegistry projectRegistry,
             Clock clock,
             boolean autoPush) {
         this.providers = Map.copyOf(Objects.requireNonNull(providers, "providers"));
         this.agentTargets = Map.copyOf(Objects.requireNonNull(agentTargets, "agentTargets"));
         this.fileStore = Objects.requireNonNull(fileStore, "fileStore");
-        this.projectRegistry = Map.copyOf(Objects.requireNonNull(projectRegistry, "projectRegistry"));
+        this.projectRegistry = Objects.requireNonNull(projectRegistry, "projectRegistry");
         this.autoPush = autoPush;
         
         this.gitManager = new GitWorkspaceManager(Objects.requireNonNull(commandExecutor, "commandExecutor"), this.fileStore);
@@ -96,7 +97,7 @@ public final class HandoffOrchestratorService {
                     "Could not parse handoff file: " + parseFailure.getMessage());
         }
 
-        Path targetRepo = projectRegistry.get(projectKey);
+        Path targetRepo = projectRegistry.pathFor(projectKey).orElse(null);
         if (targetRepo == null) {
             LOG.warn("No configured target project path for project key '{}'", projectKey);
             return recordFailure(inboxRepo, file, projectKey,
@@ -345,3 +346,4 @@ public final class HandoffOrchestratorService {
         return new HandoffRunResult(file, projectKey, HandoffRunResult.Outcome.failure, reason, pushPending);
     }
 }
+

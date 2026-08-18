@@ -7,6 +7,7 @@ import java.time.Clock;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import chatmap.application.port.ProjectRegistry;
 import java.util.Properties;
 
 import chatmap.app.HandoffOrchestratorBootstrap;
@@ -52,7 +53,7 @@ public final class HandoffOrchestratorCli {
 
         Map<String, Path> registry = loadRegistry(options.registry());
         HandoffOrchestratorService service = HandoffOrchestratorBootstrap.create(
-                registry, Clock.systemUTC(), options.autoPush());
+                new ProjectRegistry(registry), Clock.systemUTC(), options.autoPush());
 
         if (options.intervalSeconds() == null) {
             runOnce(service, options.inbox());
@@ -160,3 +161,4 @@ public final class HandoffOrchestratorCli {
     record Options(Path inbox, Path registry, Long intervalSeconds, boolean autoPush) {
     }
 }
+

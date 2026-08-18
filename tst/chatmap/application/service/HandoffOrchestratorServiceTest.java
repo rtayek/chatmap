@@ -41,7 +41,7 @@ class HandoffOrchestratorServiceTest {
         EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         providers.put(Channel.claudeCli, new ClaudeCliProvider(executor, Duration.ofMinutes(30)));
         return new HandoffOrchestratorService(executor, providers, Map.of("claude", ModelTarget.claude),
-                FILE_STORE, registry, CLOCK, autoPush);
+                FILE_STORE, new chatmap.application.port.ProjectRegistry(registry), CLOCK, autoPush);
     }
 
     @TempDir
@@ -607,3 +607,4 @@ class HandoffOrchestratorServiceTest {
         }
     }
 }
+
