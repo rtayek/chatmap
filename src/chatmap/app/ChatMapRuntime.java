@@ -1,6 +1,5 @@
 package chatmap.app;
 
-import java.nio.file.Files;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.List;
@@ -9,12 +8,12 @@ import java.util.concurrent.Future;
 
 import org.slf4j.Logger;
 
+import chatmap.app.ApplicationBootstrap;
 import chatmap.app.bootstrap.ChatMapPaths;
 import chatmap.app.bootstrap.ChatMapPaths.ParsedArguments;
 import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.app.ServiceGraph;
-import chatmap.infrastructure.persistence.sqlite.Database;
 import chatmap.presentation.ui.ChatMapController;
 import chatmap.application.support.Log;
 
@@ -54,18 +53,16 @@ public final class ChatMapRuntime implements AutoCloseable {
         ResolvedPaths paths = parsedArguments.paths();
         Logger log = Log.of(ChatMapRuntime.class);
         log.info(ChatMapPaths.diagnostics(paths));
-        Files.createDirectories(paths.homeDirectory());
 
-        var connection = new Database("jdbc:sqlite:" + paths.databasePath()).openAndInitialize();
+        ServiceGraph services = ApplicationBootstrap.open(paths, DefaultServiceIntegrations.create());
         try {
-            ServiceGraph services = ServiceGraph.create(connection, DefaultServiceIntegrations.create(), paths);
             SerializedTaskExecutor dbExecutor = new SerializedTaskExecutor("chatmap-db");
             SerializedTaskExecutor backendExecutor = new SerializedTaskExecutor("chatmap-llm-backend");
             return new ChatMapRuntime(log, paths, services, new ChatMapController(services), dbExecutor,
                     backendExecutor);
-        } catch (Exception failure) {
+        } catch (RuntimeException failure) {
             try {
-                connection.close();
+                services.close();
             } catch (SQLException closeFailure) {
                 failure.addSuppressed(closeFailure);
             }
