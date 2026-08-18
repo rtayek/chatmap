@@ -352,4 +352,21 @@ abstract class CdpTranscriptAdapter implements AutoCloseable {
         }
         return simpleName + ": " + message;
     }
+    protected static com.google.gson.JsonObject parseOrNull(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return com.google.gson.JsonParser.parseString(raw.toString()).getAsJsonObject();
+        } catch (RuntimeException malformed) {
+            return null;
+        }
+    }
+
+    protected static String stringField(com.google.gson.JsonObject object, String name) {
+        com.google.gson.JsonElement value = object.get(name);
+        return value == null || value.isJsonNull() ? null : value.getAsString();
+    }
+
 }
+

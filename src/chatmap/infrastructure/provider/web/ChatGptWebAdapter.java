@@ -10,7 +10,6 @@ import chatmap.infrastructure.provider.ProviderIdentity;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -338,20 +337,7 @@ public final class ChatGptWebAdapter extends CdpTranscriptAdapter {
         }
         return Math.min(PAGE_DELAY_MILLIS * (1L << Math.min(retry, 3)), MAX_RETRY_DELAY_MILLIS);
     }
-
-    private static JsonObject parseOrNull(Object raw) {
-        if (raw == null) {
-            return null;
-        }
-        try {
-            return JsonParser.parseString(raw.toString()).getAsJsonObject();
-        } catch (RuntimeException malformed) {
-            return null;
-        }
-    }
-
-    private static String stringField(JsonObject object, String name) {
-        JsonElement value = object.get(name);
-        return value == null || value.isJsonNull() ? null : value.getAsString();
-    }
 }
+
+
+
