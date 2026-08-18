@@ -8,11 +8,9 @@ import java.util.Set;
 
 import chatmap.application.port.llm.LlmCapability;
 import chatmap.application.port.llm.LlmRequest;
-import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.PermissionMode;
 import chatmap.application.port.command.CommandExecutor;
-import chatmap.application.port.command.CommandResult;
 
 public final class CodexCliProvider extends CliLlmProvider {
     public CodexCliProvider(CommandExecutor commandExecutor, Duration timeout) {
@@ -46,19 +44,10 @@ public final class CodexCliProvider extends CliLlmProvider {
         return command;
     }
 
-    @Override
-    protected LlmResponse parseResponse(ModelTarget target, LlmRequest request, CommandResult result) {
-        try {
-            StructuredCliOutput.Parsed parsed = StructuredCliOutput.parse(
-                    result.standardOutput(), request.sessionId().orElse(null));
-            return new LlmResponse(parsed.text(), backendId(target), result.duration(), target, parsed.sessionId());
-        } catch (StructuredOutputException e) {
-            throw new chatmap.application.port.llm.LlmBackendExecutionException(e.getMessage(), backendId(target), result);
-        }
-    }
 
     static String executableName(String osName) {
         return "codex";
     }
 }
+
 

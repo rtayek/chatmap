@@ -62,8 +62,13 @@ public abstract class CliLlmProvider implements CommandBackedLlmProvider {
     }
 
     protected LlmResponse parseResponse(ModelTarget target, LlmRequest request, CommandResult result) {
-        return new LlmResponse(result.standardOutput(), backendId(target), result.duration(), target,
-                request.sessionId().orElse(null));
+        try {
+            StructuredCliOutput.Parsed parsed = StructuredCliOutput.parse(
+                    result.standardOutput(), request.sessionId().orElse(null));
+            return new LlmResponse(parsed.text(), backendId(target), result.duration(), target, parsed.sessionId());
+        } catch (StructuredOutputException e) {
+            throw new LlmBackendExecutionException(e.getMessage(), backendId(target), result);
+        }
     }
 
     protected final BackendId backendId(ModelTarget target) {
