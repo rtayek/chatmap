@@ -72,7 +72,7 @@ class HandoffOrchestratorServiceTest {
         Files.writeString(archiveDir.resolve("old.md"), "---\nagent: claude\nbranch: b\n---\nold\n");
         Path b = writeTask(other, "b.md", "codex", "b2", "body");
 
-        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox, FILE_STORE);
+        List<Path> found = new HandoffInboxManager(FILE_STORE, java.time.Clock.systemUTC()).scanForTaskFiles(inbox);
 
         assertEquals(List.of(a, b).stream()
                 .sorted(java.util.Comparator.comparing(Path::toString)).toList(), found);
@@ -85,7 +85,7 @@ class HandoffOrchestratorServiceTest {
         Files.writeString(chatmapDir.resolve("failure-report-test.md"), "some failure report content");
         Files.writeString(chatmapDir.resolve("template.md"), "template content");
 
-        List<Path> found = HandoffOrchestratorService.scanForTaskFiles(inbox, FILE_STORE);
+        List<Path> found = new HandoffInboxManager(FILE_STORE, java.time.Clock.systemUTC()).scanForTaskFiles(inbox);
 
         assertEquals(List.of(validTask), found);
     }
