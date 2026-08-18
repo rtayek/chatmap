@@ -246,7 +246,7 @@ class HandoffOrchestratorServiceScenarioTest {
         boolean claudeHasSkip = executor.calls().stream().anyMatch(c ->
                 c.command().contains("claude") && c.command().contains("--dangerously-skip-permissions"));
         boolean codexHasWorkspaceWrite = executor.calls().stream().anyMatch(c ->
-                c.command().contains("codex.cmd") && c.command().contains("--sandbox")
+                c.command().contains("codex") && c.command().contains("--sandbox")
                         && c.command().contains("workspace-write"));
         assertTrue(claudeHasSkip, "claude invocation should carry the unrestricted-permission flag");
         assertTrue(codexHasWorkspaceWrite, "codex invocation should carry its own workspace-write sandbox flag");

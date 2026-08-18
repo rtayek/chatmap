@@ -55,6 +55,6 @@ public final class CodexCliProvider extends CliLlmProvider {
 
     static String executableName(String osName) {
         String normalized = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
-        return normalized.contains("win") ? "codex.cmd" : "codex";
+        return normalized.contains("win") ? "codex" : "codex";
     }
 }

@@ -42,7 +42,7 @@ final class OtherCliBackendsTest {
         assertEquals("Codex answer", response.text());
         assertEquals("codex-session-1", response.sessionId().orElseThrow());
         assertEquals("Codex", response.backendId().value());
-        assertEquals(List.of("codex.cmd", "exec", "--json", "-"), executor.request.command());
+        assertEquals(List.of("codex", "exec", "--json", "-"), executor.request.command());
         assertEquals("Explain recursion", executor.request.standardInput());
         // codexCli is CodexCliHistoryProvider's value for real imported sessions;
         // this backend's Q&A recordings must not share it (see Source's class doc).
@@ -57,14 +57,14 @@ final class OtherCliBackendsTest {
 
         backend.execute(ModelTarget.codex, LlmRequest.withSession("Next step", "codex-sess-1"));
 
-        assertEquals(List.of("codex.cmd", "exec", "--json", "resume", "codex-sess-1", "-"),
+        assertEquals(List.of("codex", "exec", "--json", "resume", "codex-sess-1", "-"),
                 executor.request.command());
         assertEquals("Next step", executor.request.standardInput());
     }
 
     @Test
     void codexExecutableSelectionIsPlatformSpecific() {
-        assertEquals("codex.cmd", CodexCliProvider.executableName("Windows 11"));
+        assertEquals("codex", CodexCliProvider.executableName("Windows 11"));
         assertEquals("codex", CodexCliProvider.executableName("Linux"));
         assertEquals("codex", CodexCliProvider.executableName("Ubuntu on WSL"));
     }
@@ -106,7 +106,7 @@ final class OtherCliBackendsTest {
 
         codex.executeWithResult(ModelTarget.codex,
                 LlmRequest.of("hello").withPermissionMode(PermissionMode.unrestricted));
-        assertEquals(List.of("codex.cmd", "exec", "--json", "--sandbox", "workspace-write", "-"),
+        assertEquals(List.of("codex", "exec", "--json", "--sandbox", "workspace-write", "-"),
                 executor.request.command());
 
         assertThrows(LlmBackendUnsupportedRequestException.class,
