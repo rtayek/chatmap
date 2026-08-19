@@ -235,6 +235,60 @@ final class ProcessRunnerTest {
                 failure.getMessage());
     }
 
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    void argumentsAreNotShellInterpreted() {
+        String argument = "one; echo BAD && $HOME `date` \"quoted\"\nsecond line";
+        CommandRequest request = new CommandRequest(
+                probeCommand("echoArg", argument), "", Duration.ofSeconds(5));
+
+        CommandResult result = new ProcessRunner().run(request);
+
+        assertEquals(argument, result.standardOutput());
+        assertEquals(0, result.exitCode());
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    void unicodeOutputRoundTrips() {
+        CommandRequest request = new CommandRequest(
+                probeCommand("unicode"), "", Duration.ofSeconds(5));
+
+        CommandResult result = new ProcessRunner().run(request);
+
+        assertEquals(ProcessRunnerProbe.UNICODE_SAMPLE, result.standardOutput());
+        assertEquals(0, result.exitCode());
+    }
+
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    void embeddedQuotesAndMetacharactersArePreserved() {
+        String argument = "single' ; && || $PATH `whoami` < > |";
+        CommandRequest request = new CommandRequest(
+                probeCommand("echoArg", argument), "", Duration.ofSeconds(5));
+
+        CommandResult result = new ProcessRunner().run(request);
+
+        assertEquals(argument, result.standardOutput());
+        assertEquals(0, result.exitCode());
+    }
+
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    void simultaneousLargeStdoutAndStderrDoNotDeadlock() {
+        int size = 65536;
+        CommandRequest request = new CommandRequest(
+                probeCommand("split-streams", Integer.toString(size)), "", Duration.ofSeconds(10));
+
+        CommandResult result = new ProcessRunner().run(request);
+
+        assertEquals(0, result.exitCode());
+        assertEquals("O".repeat(size), result.standardOutput());
+        assertEquals("E".repeat(size), result.standardError());
+        assertFalse(result.standardOutputTruncated());
+        assertFalse(result.standardErrorTruncated());
+    }
+
     private static List<String> probeCommand(String... arguments) {
         return ProcessRunnerProbe.command(arguments);
     }
@@ -266,6 +320,8 @@ final class ProcessRunnerTest {
 
 final class ProcessRunnerProbe {
 
+    static final String UNICODE_SAMPLE = "☃ 日本語 🦞🤖 Ω";
+
     private ProcessRunnerProbe() {
     }
 
@@ -295,6 +351,16 @@ final class ProcessRunnerProbe {
                 int bytes = Integer.parseInt(args[1]);
                 writeRepeated(System.out, bytes, 'O');
                 writeRepeated(System.err, bytes, 'E');
+            }
+            case "echoArg" -> {
+                try (var out = new java.io.PrintStream(System.out, true, StandardCharsets.UTF_8)) {
+                    out.print(args[1]);
+                }
+            }
+            case "unicode" -> {
+                try (var out = new java.io.PrintStream(System.out, true, StandardCharsets.UTF_8)) {
+                    out.print(UNICODE_SAMPLE);
+                }
             }
             default -> throw new IllegalArgumentException("Unknown probe mode: " + args[0]);
         }
