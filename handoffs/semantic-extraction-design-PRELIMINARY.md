@@ -84,16 +84,21 @@ From the survey — real memory files fall into distinct types with different va
 - **Silent staleness is the enemy.** Self-flagged-stale is safe; confidently-wrong
   is dangerous. Reconcile must surface contradictions, even if it can't resolve them.
 
+## Settled Decisions
+
+1. **Reconcile output: annotate in place or emit a triage report?**
+   **Decision**: Emit a separate triage report. Annotating in place requires a robust Markdown parser/writer that preserves exact formatting, which is notoriously brittle. A separate `reconciliation-report.md` is safer and fits the "propose" principle better.
+2. **What counts as a "concrete claim"?**
+   **Decision**: Start strictly with file paths, class/interface names, and package names. These can be deterministically verified via `fd` or `grep` (or their Java equivalents). Prose assertions are too fuzzy for a V1 diff.
+3. **Does it run per-file, per-project, or per-chat?**
+   **Decision**: Per-project. A memory file in `~/.claude/projects/*/memory/` is inherently scoped to the project. Running it at the project level gives the LLM the correct context boundary.
+
 ## Open questions (for the real design conversation — NOT decided)
 
-1. Reconcile output: annotate the file in place, or emit a separate triage report?
-2. What counts as a "concrete claim" the differ can check? (package names, paths,
-   commit hashes are easy; prose assertions are hard.)
-3. Does it run per-file, per-project, or per-chat?
 4. On-demand only, or eventual idle/AutoDream-style consolidation?
 5. Does ChatMap ingest Claude Code memory files at all, or only its own chats?
    (The .claude/projects corpus is a tempting second source but carries the temp-
-   worktree litter problem.)
+   worktree litter problem. *Note: See Addendum below; we are targeting Claude Code and Codex Markdown.*)
 6. Contradiction handling when a new chat reverses an old decision — surface only,
    or attempt merge? (Field considers this unsolved; scope conservatively.)
 
