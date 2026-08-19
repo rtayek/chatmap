@@ -4,8 +4,6 @@ import org.slf4j.Logger;
 import chatmap.application.support.Log;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -40,8 +38,8 @@ public final class FileSystemHandoffFileStore implements HandoffFileStore {
 
     @Override
     public String readString(Path file) {
-        try (Reader reader = Files.newBufferedReader(file)) {
-            return readAll(reader);
+        try {
+            return Files.readString(file);
         } catch (IOException failure) {
             throw new HandoffFileStoreException("Could not read " + file, failure);
         }
@@ -49,34 +47,11 @@ public final class FileSystemHandoffFileStore implements HandoffFileStore {
 
     @Override
     public void writeString(Path file, String content) {
-        try (Writer writer = Files.newBufferedWriter(file)) {
-            writeAll(writer, content);
+        try {
+            Files.writeString(file, content);
         } catch (IOException failure) {
             throw new HandoffFileStoreException("Could not write " + file, failure);
         }
-    }
-
-    /**
-     * Reads {@code reader} to exhaustion. Package-visible and file-agnostic so the
-     * char-copy logic itself can be unit-tested directly against a {@code StringReader},
-     * without touching disk.
-     */
-    static String readAll(Reader reader) throws IOException {
-        StringBuilder text = new StringBuilder();
-        char[] buffer = new char[8192];
-        int charsRead;
-        while ((charsRead = reader.read(buffer)) != -1) {
-            text.append(buffer, 0, charsRead);
-        }
-        return text.toString();
-    }
-
-    /**
-     * Writes {@code content} to {@code writer}. Package-visible and file-agnostic so it
-     * can be unit-tested directly against a {@code StringWriter}, without touching disk.
-     */
-    static void writeAll(Writer writer, String content) throws IOException {
-        writer.write(content);
     }
 
     @Override
