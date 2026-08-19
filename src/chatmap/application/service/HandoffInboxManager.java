@@ -50,18 +50,20 @@ class HandoffInboxManager {
 
     Path writeResultFile(Path archivedTaskFile, HandoffTask task, CommandResult agentResult) {
         Path resultPath = resultFilePath(archivedTaskFile);
-        String content = "# Agent Result: " + archivedTaskFile.getFileName() + "\n\n"
-                + "- Project: " + task.projectKey() + "\n"
-                + "- Agent: " + task.agent() + "\n"
-                + "- Branch: " + task.branch() + "\n"
-                + "- Timestamp: " + clock.instant() + "\n"
-                + "- Exit code: " + agentResult.exitCode() + "\n\n"
-                + "- Full stdout: " + optionalRelativeName(archivedTaskFile.getParent(), agentResult.standardOutputPath()) + "\n"
-                + "- Full stderr: " + optionalRelativeName(archivedTaskFile.getParent(), agentResult.standardErrorPath()) + "\n\n"
-                + "## Output\n\n"
-                + agentResult.standardOutput();
+        StringBuilder content = new StringBuilder()
+                .append("# Agent Result: ").append(archivedTaskFile.getFileName()).append("\n\n")
+                .append("- Project: ").append(task.projectKey()).append("\n")
+                .append("- Agent: ").append(task.agent()).append("\n")
+                .append("- Branch: ").append(task.branch()).append("\n")
+                .append("- Timestamp: ").append(clock.instant()).append("\n")
+                .append("- Exit code: ").append(agentResult.exitCode()).append("\n\n")
+                .append("- Full stdout: ")
+                .append(optionalRelativeName(archivedTaskFile.getParent(), agentResult.standardOutputPath())).append("\n")
+                .append("- Full stderr: ")
+                .append(optionalRelativeName(archivedTaskFile.getParent(), agentResult.standardErrorPath())).append("\n");
+        MarkdownFences.appendFencedSection(content, "Output", agentResult.standardOutput());
         try {
-            fileStore.writeString(resultPath, content);
+            fileStore.writeString(resultPath, content.toString());
             return resultPath;
         } catch (HandoffFileStoreException failure) {
             LOG.warn("Could not write agent result file {}: {}", resultPath, failure.getMessage());
@@ -71,16 +73,17 @@ class HandoffInboxManager {
 
     Path writeFailureReport(Path taskFile, String projectKey, String reason, CommandResult agentResult, Path inboxRepo) {
         Path reportPath = failureReportPath(taskFile);
-        String report = "# Handoff Failure Report\n\n"
-                + "- Source file: " + GitWorkspaceManager.relativeName(inboxRepo, taskFile) + "\n"
-                + "- Project: " + projectKey + "\n"
-                + "- Timestamp: " + clock.instant() + "\n\n"
-                + "## Reason\n\n"
-                + reason + "\n";
+        StringBuilder report = new StringBuilder()
+                .append("# Handoff Failure Report\n\n")
+                .append("- Source file: ").append(GitWorkspaceManager.relativeName(inboxRepo, taskFile)).append("\n")
+                .append("- Project: ").append(projectKey).append("\n")
+                .append("- Timestamp: ").append(clock.instant()).append("\n\n")
+                .append("## Reason\n\n")
+                .append(reason).append("\n");
         if (agentResult != null) {
-            report += "\n## Agent Output\n\n" + agentResult.standardOutput() + "\n";
+            MarkdownFences.appendFencedSection(report, "Agent Output", agentResult.standardOutput());
         }
-        fileStore.writeString(reportPath, report);
+        fileStore.writeString(reportPath, report.toString());
         return reportPath;
     }
 
