@@ -112,3 +112,49 @@ From the survey — real memory files fall into distinct types with different va
 4. (Much later, maybe) idle consolidation.
 
 Own long-lived branch. Design-first (diagrams) before code, same as model/channel.
+
+---
+
+## Addendum: Cross-tool memory source survey (2026-08-19)
+
+Surveyed where each local AI tool stores its memory, to answer open-question #5
+(is reconcile single-source or multi-source?). Result: **the accessible sources
+are Claude Code and Codex, both Markdown. Antigravity is not practically readable;
+Ollama has none.**
+
+| Tool | Memory location | Format | Minable? |
+|---|---|---|---|
+| Claude Code | `~/.claude/projects/*/memory/*.md` | Markdown + YAML frontmatter | **Yes** — surveyed (12 files) |
+| Codex | `~/.codex/memories/` (`rollout_summaries/`, `MEMORY.md`, `raw_memories.md`, `extensions/ad_hoc/notes/`) | Markdown + SQLite index (`memories_1.sqlite`) | **Yes** — rich; 20 timestamped session summaries, 2.5–7.5 KB each |
+| Antigravity (Gemini) | `~/.gemini/antigravity/` (`agyhub_summaries_proto.pb`, `*.pbtxt`, `conversations/*.db`, `conversation_summaries.db`, `brain/`, `knowledge/`) | **Protobuf + SQLite** — undocumented schema | **No** (practically) — binary, no published schema |
+| Ollama | `~/.ollama/` (models + config only) | — | none |
+
+### Implications for reconcile
+
+- **Target Markdown sources only: Claude Code + Codex.** Both readable, rich,
+  already surveyed. This keeps the parser simple (Markdown, not protobuf/SQLite).
+- **Antigravity is out of scope** — not low-value, just not accessibly formatted.
+  If ever wanted, `conversation_summaries.db` (SQLite) is the only openable door;
+  the `.pb` protobuf is a black box. Defer indefinitely.
+- **Codex is frozen as of 2026-08-17** (credit limit — usage stopped). Its
+  summaries are a stable snapshot, and guaranteed stale relative to any work after
+  that date — which makes it a clean *test case* for reconcile's staleness detection.
+- **All 20 Codex rollout files share an Aug 17 mtime** (last-use date, not content
+  date). Trust the filename ISO timestamp for recency, never the filesystem mtime.
+
+### The bigger signal
+
+Four tools, four incompatible memory strategies (Markdown / Markdown+SQLite /
+protobuf+SQLite / none). This fragmentation across local AI tools is squarely the
+problem ChatMap exists to address (design.md: unify chat history across providers).
+ChatMap can realistically unify the **readable** subset — Claude Code + Codex — and
+that alone is a concrete, well-scoped, mission-aligned capability.
+
+### Cross-tool cross-check (noted, not yet tested)
+
+Both Claude Code AND Codex independently distilled the same ChatMap sessions
+(e.g. concurrency/architecture review appears in both). Where two independent AI
+distillations of the same work AGREE → high-confidence signal. Where they DIVERGE →
+exactly what reconcile should surface. A future experiment: diff Codex's
+`chatmap_architecture_review_concurrency...md` against Claude Code's
+`concurrency-design-settled.md` against current code — two memories vs. reality.
