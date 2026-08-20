@@ -1,3 +1,11 @@
+> **SUPERSEDED 2026-08-20.** This document's core content (chats are
+> transient, knowledge is durable, semantic compression, format-independence,
+> multiple views, human review lifecycle, raw chats as permanent evidence)
+> duplicated `first-principles.md` Principles 2, 6, 7, 8, 10, 12, 15. The one
+> unique part — the staged roadmap and future-input list — has been folded
+> into `first-principles.md` under "Staged Evolution." Kept here for history
+> only; do not treat as current design. See `first-principles.md` instead.
+
 # ChatMap Vision Handoff
 ## From Chat Manager to Personal Knowledge System
 

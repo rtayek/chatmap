@@ -390,3 +390,45 @@ Capability — finds or extracts structure that was not already explicit
 Substrate work is often a prerequisite for capability work, but it is not a
 substitute for it. A growing pile of well-organized transcripts is not, by
 itself, progress toward the mining goal.
+
+---
+
+# Staged Evolution
+
+*(Folded in from `vision.md`, 2026-08-20 — the rest of that document duplicated
+Principles 2, 6, 7, 8, 10, 12, 15 above and has been superseded. See
+`handoffs/archive/vision.md`.)*
+
+The project should evolve in stages. Only after experience with earlier stages
+should later stages be designed.
+
+1. **Import** — normalize, organize, search, export. No AI required.
+2. **Semantic extraction** — Principle 8's transformation, applied.
+3. **Knowledge objects** — atomic units (Principle 3) with provenance
+   (Principle 4).
+4. **Relationships** — connections between knowledge objects (Principle 11).
+5. **Cross-chat synthesis** — automatic, later; recognizing that two chats are
+   really one conversation continued in a different tool (Principle 17).
+
+## Possible future inputs
+
+Chats are the first source, not the only one. Other candidate sources, once
+the pipeline above is proven on chats:
+
+- Markdown notes
+- PDFs
+- Git repositories
+- design documents
+- research papers
+- meeting notes
+- other project documentation
+
+Each source contributes knowledge through the same pipeline (Principle 7).
+No new input source should require inventing a parallel semantic model.
+
+## Near-term boundary
+
+The immediate objective is not building the entire staged vision. ChatMap
+should first remain useful as a deterministic tool (Stage 1). Semantic
+extraction (Stage 2) should be introduced only after its model and review
+workflow are understood — see `semantic-extraction-design-PRELIMINARY.md`.
