@@ -146,6 +146,18 @@ tasks.register<JavaExec>("routePrompt") {
     }
 }
 
+tasks.register<JavaExec>("seedWorkspaceProjects") {
+    group = "application"
+    description = "Adds Ray's known local projects. Usage: -Pargs='--project <name>=<dir>'"
+    mainClass.set("chatmap.presentation.cli.SeedWorkspaceProjectsCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString().split(" "))
+    }
+}
+
 tasks.register<JavaExec>("handoffOrchestrator") {
     group = "application"
     description = "Polls a Git handoff inbox repo and runs discovered tasks against isolated worktrees. " +

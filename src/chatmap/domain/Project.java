@@ -29,6 +29,11 @@ public record Project(
         this(id, name, description, null, createdAt, updatedAt);
     }
 
+    @Override
+    public String toString() {
+        return repositoryPath == null ? name : name + " (" + repositoryPath + ")";
+    }
+
     private static String requireNonblank(String value, String field) {
         Objects.requireNonNull(value, field);
         if (value.isBlank()) {

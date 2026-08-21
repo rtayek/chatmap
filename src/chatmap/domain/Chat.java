@@ -53,6 +53,12 @@ public record Chat(
         return importMetadata.lastImportedAt();
     }
 
+    @Override
+    public String toString() {
+        String chatTitle = title == null || title.isBlank() ? "untitled chat" : title;
+        return chatTitle + " [" + source.displayName() + ", id=" + id + "]";
+    }
+
     /**
      * A mutable copy of this chat. Callers change fields by name and {@link Builder#build()},
      * instead of rebuilding all 13 fields positionally (which risks silently transposing

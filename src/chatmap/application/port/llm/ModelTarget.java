@@ -78,6 +78,11 @@ public enum ModelTarget {
         return displayName;
     }
 
+    @Override
+    public String toString() {
+        return displayName + " [" + id + "]";
+    }
+
     public Model model() {
         return model;
     }

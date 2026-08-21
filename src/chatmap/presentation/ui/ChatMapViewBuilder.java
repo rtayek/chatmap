@@ -204,6 +204,8 @@ public final class ChatMapViewBuilder {
         Button sendButton = button("Send", onSend, errorHandler);
         Label classificationLabel = new Label("Classification: none");
         Label routeLabel = new Label("Route: none");
+        classificationLabel.setWrapText(true);
+        routeLabel.setWrapText(true);
 
         TextArea responseArea = createDetailTextArea();
         responseArea.setPromptText("Response");
@@ -214,11 +216,13 @@ public final class ChatMapViewBuilder {
                 projectChoice,
                 new Label("Conversation"),
                 conversationField,
-                sendButton,
+                sendButton);
+        VBox resultLabels = new VBox(4,
                 classificationLabel,
                 routeLabel);
         VBox pane = new VBox(6,
                 controls,
+                resultLabels,
                 new Label("Prompt"),
                 promptArea,
                 new Label("Response"),

@@ -244,15 +244,21 @@ public final class ChatMapApp extends Application {
     }
 
     private void showPromptResult(PromptRoutingResult result) {
-        promptClassificationLabel.setText("Classification: " + result.classification().level()
-                + " (" + result.classification().confidence() + ")");
-        promptRouteLabel.setText("Route: " + result.route().target().channel().name()
-                + " / " + result.route().target().id()
-                + " / " + result.promptResult().providerModelName().orElse("unspecified"));
+        promptClassificationLabel.setText(PromptResultDisplay.classificationText(result));
+        promptRouteLabel.setText(PromptResultDisplay.routeText(result));
         promptResponseArea.setText(result.promptResult().response());
-        status.setText("Prompt stored for " + result.projectContext().workingProjectIdentity()
-                + " / " + result.conversationContext().id());
-        runInBackground("Refreshing chats...", null, () -> controller.loadAllChats());
+        refreshChatsAfterPrompt(result);
+    }
+
+    private void refreshChatsAfterPrompt(PromptRoutingResult result) {
+        backgroundActions.runSnapshot("Refreshing chats...", null, controller::loadAllChats, snapshot -> {
+            selection.applyListState(snapshot);
+            selection.updateSelectionActionStates();
+            status.setText(PromptResultDisplay.successStatus(result));
+        }, exception -> {
+            selection.updateSelectionActionStates();
+            reportError(exception);
+        });
     }
 
     /**
