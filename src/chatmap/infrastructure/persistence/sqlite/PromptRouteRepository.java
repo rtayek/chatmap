@@ -28,26 +28,28 @@ public final class PromptRouteRepository implements PromptRouteStore {
     @Override
     public PromptRouteRecord insert(PromptRouteRecord record) throws SQLException {
         synchronized (conn) {
-            String sql = "INSERT INTO promptRoutes (chatId, chatMapProjectIdentity, workingProjectIdentity, "
+            String sql = "INSERT INTO promptRoutes (chatId, chatMapProjectIdentity, workingProjectId, "
+                    + "workingProjectIdentity, "
                     + "conversationId, repositoryPath, classification, classificationConfidence, "
                     + "classificationReasons, routeProviderId, routeModelTargetId, providerModelName, "
                     + "providerSessionId, requestStatus, createdAt) "
-                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setLong(1, record.chatId());
                 ps.setString(2, record.chatMapProjectIdentity());
-                ps.setString(3, record.workingProjectIdentity());
-                ps.setString(4, record.conversationId());
-                ps.setString(5, record.repositoryPath().orElse(null));
-                ps.setString(6, record.classificationLevel().name());
-                ps.setDouble(7, record.classificationConfidence());
-                ps.setString(8, encodeReasons(record.classificationReasons()));
-                ps.setString(9, record.routeProviderId());
-                ps.setString(10, record.routeModelTargetId());
-                ps.setString(11, record.providerModelName().orElse(null));
-                ps.setString(12, record.providerSessionId().orElse(null));
-                ps.setString(13, record.requestStatus());
-                ps.setString(14, record.createdAt());
+                ps.setLong(3, record.workingProjectId());
+                ps.setString(4, record.workingProjectIdentity());
+                ps.setString(5, record.conversationId());
+                ps.setString(6, record.repositoryPath().orElse(null));
+                ps.setString(7, record.classificationLevel().name());
+                ps.setDouble(8, record.classificationConfidence());
+                ps.setString(9, encodeReasons(record.classificationReasons()));
+                ps.setString(10, record.routeProviderId());
+                ps.setString(11, record.routeModelTargetId());
+                ps.setString(12, record.providerModelName().orElse(null));
+                ps.setString(13, record.providerSessionId().orElse(null));
+                ps.setString(14, record.requestStatus());
+                ps.setString(15, record.createdAt());
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     keys.next();
@@ -68,6 +70,26 @@ public final class PromptRouteRepository implements PromptRouteStore {
                         return Optional.empty();
                     }
                     return Optional.of(read(rs));
+                }
+            }
+        }
+    }
+
+    @Override
+    public List<PromptRouteRecord> findByWorkingProjectIdAndConversation(long workingProjectId, String conversationId)
+            throws SQLException {
+        synchronized (conn) {
+            String sql = selectColumns()
+                    + " WHERE workingProjectId = ? AND conversationId = ? ORDER BY id";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, workingProjectId);
+                ps.setString(2, conversationId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    List<PromptRouteRecord> records = new ArrayList<>();
+                    while (rs.next()) {
+                        records.add(read(rs));
+                    }
+                    return records;
                 }
             }
         }
@@ -95,14 +117,14 @@ public final class PromptRouteRepository implements PromptRouteStore {
 
     private static PromptRouteRecord withId(PromptRouteRecord record, long id) {
         return new PromptRouteRecord(id, record.chatId(), record.chatMapProjectIdentity(),
-                record.workingProjectIdentity(), record.conversationId(), record.repositoryPath(),
+                record.workingProjectId(), record.workingProjectIdentity(), record.conversationId(), record.repositoryPath(),
                 record.classificationLevel(), record.classificationConfidence(), record.classificationReasons(),
                 record.routeProviderId(), record.routeModelTargetId(), record.providerModelName(),
                 record.providerSessionId(), record.requestStatus(), record.createdAt());
     }
 
     private static String selectColumns() {
-        return "SELECT id, chatId, chatMapProjectIdentity, workingProjectIdentity, conversationId, "
+        return "SELECT id, chatId, chatMapProjectIdentity, workingProjectId, workingProjectIdentity, conversationId, "
                 + "repositoryPath, classification, classificationConfidence, classificationReasons, "
                 + "routeProviderId, routeModelTargetId, providerModelName, providerSessionId, "
                 + "requestStatus, createdAt FROM promptRoutes";
@@ -113,6 +135,7 @@ public final class PromptRouteRepository implements PromptRouteStore {
                 rs.getLong("id"),
                 rs.getLong("chatId"),
                 rs.getString("chatMapProjectIdentity"),
+                rs.getLong("workingProjectId"),
                 rs.getString("workingProjectIdentity"),
                 rs.getString("conversationId"),
                 Optional.ofNullable(rs.getString("repositoryPath")),

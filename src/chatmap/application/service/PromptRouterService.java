@@ -42,8 +42,8 @@ public final class PromptRouterService {
         Objects.requireNonNull(prompt, "prompt");
 
         Instant started = clock.instant();
-        Project project = projectService.findOrCreate(projectContext.workingProjectIdentity(),
-                "ChatMap routed prompt project", started.toString());
+        Project project = resolveProject(projectContext, started);
+        ProjectContext effectiveProjectContext = projectService.contextFor(project);
         PromptClassification classification = classifier.classify(prompt);
         ModelRoute route = routeSelector.select(classification);
 
@@ -54,9 +54,10 @@ public final class PromptRouterService {
                 0,
                 promptResult.chatId(),
                 projectContext.chatMapProjectIdentity(),
-                projectContext.workingProjectIdentity(),
+                project.id(),
+                project.name(),
                 conversationContext.id(),
-                projectContext.repositoryPath().map(Path::toString),
+                effectiveProjectContext.repositoryPath().map(Path::toString),
                 classification.level(),
                 classification.confidence(),
                 classification.reasons(),
@@ -67,6 +68,17 @@ public final class PromptRouterService {
                 "SUCCEEDED",
                 started.toString()));
 
-        return new PromptRoutingResult(projectContext, conversationContext, classification, route, promptResult, saved);
+        return new PromptRoutingResult(effectiveProjectContext, conversationContext, classification, route,
+                promptResult, saved);
+    }
+
+    private Project resolveProject(ProjectContext projectContext, Instant started) throws SQLException {
+        if (projectContext.projectId() > 0) {
+            return projectService.findById(projectContext.projectId())
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown project id: " + projectContext.projectId()));
+        }
+        return projectService.findOrCreate(projectContext.workingProjectIdentity(),
+                "ChatMap routed prompt project", started.toString(),
+                projectContext.repositoryPath().map(Path::toString).orElse(null));
     }
 }

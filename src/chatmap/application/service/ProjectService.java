@@ -40,18 +40,42 @@ public final class ProjectService {
      * instead of failing.
      */
     public Project findOrCreate(String name, String description, String timestamp) throws SQLException {
+        return findOrCreate(name, description, timestamp, null);
+    }
+
+    public Project findOrCreate(String name, String description, String timestamp, String repositoryPath)
+            throws SQLException {
+        Optional<Project> byPath = projects.findByRepositoryPath(repositoryPath);
+        if (byPath.isPresent()) {
+            return byPath.get();
+        }
         Optional<Project> existing = projects.findByName(name);
         if (existing.isPresent()) {
-            return existing.get();
+            Project project = existing.get();
+            if (project.repositoryPath() == null && repositoryPath != null && !repositoryPath.isBlank()) {
+                Project updated = new Project(project.id(), project.name(), project.description(), repositoryPath,
+                        project.createdAt(), timestamp);
+                projects.update(updated);
+                return updated;
+            }
+            return project;
         }
         try {
-            return projects.insert(new Project(0, name, description, timestamp, timestamp));
+            return projects.insert(new Project(0, name, description, repositoryPath, timestamp, timestamp));
         } catch (SQLException e) {
             if (!projects.isDuplicateNameError(e)) {
                 throw e;
             }
+            Optional<Project> pathWinner = projects.findByRepositoryPath(repositoryPath);
+            if (pathWinner.isPresent()) {
+                return pathWinner.get();
+            }
             return projects.findByName(name).orElseThrow(() -> e);
         }
+    }
+
+    public ProjectContext contextFor(Project project) {
+        return ProjectContext.from(project);
     }
 
     public Optional<Project> findById(long projectId) throws SQLException {

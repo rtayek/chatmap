@@ -50,13 +50,15 @@ class RoutePromptCliTest {
                 Instant.parse("2026-08-20T12:00:00Z"), ZoneOffset.UTC));
 
         assertEquals("Foo", result.projectContext().workingProjectIdentity());
+        assertTrue(result.projectContext().projectId() > 0);
         assertEquals("foo-task", result.conversationContext().id());
         assertEquals(PromptClassificationLevel.LIGHTWEIGHT, result.classification().level());
         assertEquals(ModelTarget.ollamaQwen257b.id(), result.route().target().id());
 
         try (Connection conn = new Database("jdbc:sqlite:" + home.resolve("chatmap.db")).openAndInitialize()) {
             PromptRouteRepository routes = new PromptRouteRepository(conn);
-            assertTrue(routes.findByChatId(result.promptResult().chatId()).isPresent());
+            assertEquals(result.projectContext().projectId(),
+                    routes.findByChatId(result.promptResult().chatId()).orElseThrow().workingProjectId());
         }
     }
 

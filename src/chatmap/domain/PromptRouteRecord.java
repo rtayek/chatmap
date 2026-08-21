@@ -9,6 +9,7 @@ public record PromptRouteRecord(
         long id,
         long chatId,
         String chatMapProjectIdentity,
+        long workingProjectId,
         String workingProjectIdentity,
         String conversationId,
         Optional<String> repositoryPath,
@@ -24,6 +25,9 @@ public record PromptRouteRecord(
 
     public PromptRouteRecord {
         Objects.requireNonNull(chatMapProjectIdentity, "chatMapProjectIdentity");
+        if (workingProjectId < 0) {
+            throw new IllegalArgumentException("workingProjectId must not be negative");
+        }
         Objects.requireNonNull(workingProjectIdentity, "workingProjectIdentity");
         Objects.requireNonNull(conversationId, "conversationId");
         Objects.requireNonNull(repositoryPath, "repositoryPath");

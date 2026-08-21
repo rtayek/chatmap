@@ -183,12 +183,14 @@ public final class Database {
             addColumnIfMissing(conn, "chats", "providerModelName", "TEXT");
             addColumnIfMissing(conn, "chats", "providerSessionId", "TEXT");
             addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
+            addColumnIfMissing(conn, "projects", "repositoryPath", "TEXT");
 
             try (Statement st = conn.createStatement()) {
                 st.execute("CREATE TABLE IF NOT EXISTS promptRoutes ("
                         + "id INTEGER PRIMARY KEY, "
                         + "chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE, "
                         + "chatMapProjectIdentity TEXT NOT NULL, "
+                        + "workingProjectId INTEGER REFERENCES projects(id) ON DELETE SET NULL, "
                         + "workingProjectIdentity TEXT NOT NULL, "
                         + "conversationId TEXT NOT NULL, "
                         + "repositoryPath TEXT, "
@@ -201,8 +203,12 @@ public final class Database {
                         + "providerSessionId TEXT, "
                         + "requestStatus TEXT NOT NULL, "
                         + "createdAt TEXT NOT NULL)");
+                addColumnIfMissing(conn, "promptRoutes", "workingProjectId",
+                        "INTEGER REFERENCES projects(id) ON DELETE SET NULL");
                 st.execute("CREATE INDEX IF NOT EXISTS promptRoutesConversationIndex "
                         + "ON promptRoutes(workingProjectIdentity, conversationId, id)");
+                st.execute("CREATE INDEX IF NOT EXISTS promptRoutesProjectConversationIndex "
+                        + "ON promptRoutes(workingProjectId, conversationId, id)");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
                         + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptSessionIndex "
@@ -237,6 +243,8 @@ public final class Database {
             try (Statement st = conn.createStatement()) {
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsNameIndex "
                         + "ON projects(name COLLATE NOCASE)");
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsRepositoryPathIndex "
+                        + "ON projects(repositoryPath) WHERE repositoryPath IS NOT NULL");
             }
 
             if (previousAutoCommit) {

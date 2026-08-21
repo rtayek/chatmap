@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -96,6 +97,31 @@ class ProjectTagServiceTest {
 
         assertEquals(first.id(), second.id());
         assertEquals(1, projectService.listAll().size());
+    }
+
+    @Test
+    void findOrCreateUsesRepositoryPathAsStableIdentity() throws Exception {
+        Project first = projectService.findOrCreate("Foo", "desc",
+                "2026-08-10T00:00:00Z", "C:/work/foo");
+        Project second = projectService.findOrCreate("Renamed Foo", "desc",
+                "2026-08-10T00:01:00Z", "C:/work/foo");
+
+        assertEquals(first.id(), second.id());
+        assertEquals("Foo", second.name());
+        assertEquals("C:/work/foo", second.repositoryPath());
+        assertEquals(1, projectService.listAll().size());
+    }
+
+    @Test
+    void contextForProjectCarriesStableProjectIdAndLocation() throws Exception {
+        Project project = projectService.findOrCreate("Foo", "desc",
+                "2026-08-10T00:00:00Z", "C:/work/foo");
+
+        ProjectContext context = projectService.contextFor(project);
+
+        assertEquals(project.id(), context.projectId());
+        assertEquals("Foo", context.workingProjectIdentity());
+        assertEquals(Path.of("C:/work/foo"), context.repositoryPath().orElseThrow());
     }
 
     @Test

@@ -88,7 +88,10 @@ class PromptRouterServiceTest {
         assertEquals(ModelTarget.ollamaQwen257b.id(), result.route().target().id());
         PromptRouteRecord stored = promptRoutes.findByChatId(result.promptResult().chatId()).orElseThrow();
         assertEquals("chatmap", stored.chatMapProjectIdentity());
+        assertTrue(stored.workingProjectId() > 0);
+        assertEquals(stored.workingProjectId(), result.projectContext().projectId());
         assertEquals("Foo", stored.workingProjectIdentity());
+        assertEquals("C:\\work\\foo", stored.repositoryPath().orElseThrow());
         assertEquals("foo-current-task", stored.conversationId());
         assertEquals(PromptClassificationLevel.LIGHTWEIGHT, stored.classificationLevel());
         assertEquals(Channel.ollama.name(), stored.routeProviderId());
@@ -123,7 +126,8 @@ class PromptRouterServiceTest {
         router.route(ProjectContext.of("Foo", null), new ConversationContext("same"),
                 "Review architecture across multiple modules.");
 
-        List<PromptRouteRecord> records = promptRoutes.findByWorkingProjectAndConversation("Foo", "same");
+        long projectId = projects.findByName("Foo").orElseThrow().id();
+        List<PromptRouteRecord> records = promptRoutes.findByWorkingProjectIdAndConversation(projectId, "same");
         assertEquals(2, records.size());
         assertEquals(ModelTarget.ollamaQwen257b.id(), records.get(0).routeModelTargetId());
         assertEquals(ModelTarget.claude.id(), records.get(1).routeModelTargetId());

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS projects (
     id          INTEGER PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT,
+    repositoryPath TEXT,
     createdAt   TEXT NOT NULL,
     updatedAt   TEXT NOT NULL
 );
@@ -84,6 +85,7 @@ CREATE TABLE IF NOT EXISTS promptRoutes (
     id INTEGER PRIMARY KEY,
     chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
     chatMapProjectIdentity TEXT NOT NULL,
+    workingProjectId INTEGER REFERENCES projects(id) ON DELETE SET NULL,
     workingProjectIdentity TEXT NOT NULL,
     conversationId TEXT NOT NULL,
     repositoryPath TEXT,

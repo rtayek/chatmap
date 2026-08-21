@@ -12,6 +12,9 @@ public interface PromptRouteStore {
 
     Optional<PromptRouteRecord> findByChatId(long chatId) throws SQLException;
 
+    List<PromptRouteRecord> findByWorkingProjectIdAndConversation(long workingProjectId, String conversationId)
+            throws SQLException;
+
     List<PromptRouteRecord> findByWorkingProjectAndConversation(String workingProjectIdentity, String conversationId)
             throws SQLException;
 }
