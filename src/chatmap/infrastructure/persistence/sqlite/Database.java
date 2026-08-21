@@ -185,6 +185,24 @@ public final class Database {
             addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
 
             try (Statement st = conn.createStatement()) {
+                st.execute("CREATE TABLE IF NOT EXISTS promptRoutes ("
+                        + "id INTEGER PRIMARY KEY, "
+                        + "chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE, "
+                        + "chatMapProjectIdentity TEXT NOT NULL, "
+                        + "workingProjectIdentity TEXT NOT NULL, "
+                        + "conversationId TEXT NOT NULL, "
+                        + "repositoryPath TEXT, "
+                        + "classification TEXT NOT NULL, "
+                        + "classificationConfidence REAL NOT NULL, "
+                        + "classificationReasons TEXT NOT NULL, "
+                        + "routeProviderId TEXT NOT NULL, "
+                        + "routeModelTargetId TEXT NOT NULL, "
+                        + "providerModelName TEXT, "
+                        + "providerSessionId TEXT, "
+                        + "requestStatus TEXT NOT NULL, "
+                        + "createdAt TEXT NOT NULL)");
+                st.execute("CREATE INDEX IF NOT EXISTS promptRoutesConversationIndex "
+                        + "ON promptRoutes(workingProjectIdentity, conversationId, id)");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
                         + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptSessionIndex "

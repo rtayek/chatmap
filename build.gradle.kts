@@ -134,6 +134,18 @@ tasks.register<JavaExec>("runPrompt") {
     }
 }
 
+tasks.register<JavaExec>("routePrompt") {
+    group = "application"
+    description = "Classifies, routes, submits, and stores a prompt. Usage: -Pargs='--project <name> <prompt>'"
+    mainClass.set("chatmap.presentation.cli.RoutePromptCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString().split(" "))
+    }
+}
+
 tasks.register<JavaExec>("handoffOrchestrator") {
     group = "application"
     description = "Polls a Git handoff inbox repo and runs discovered tasks against isolated worktrees. " +

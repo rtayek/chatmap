@@ -80,6 +80,27 @@ CREATE TABLE IF NOT EXISTS chatSummaries (
 
 CREATE INDEX IF NOT EXISTS chatSummariesChatIndex ON chatSummaries(chatId, generatedAt);
 
+CREATE TABLE IF NOT EXISTS promptRoutes (
+    id INTEGER PRIMARY KEY,
+    chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    chatMapProjectIdentity TEXT NOT NULL,
+    workingProjectIdentity TEXT NOT NULL,
+    conversationId TEXT NOT NULL,
+    repositoryPath TEXT,
+    classification TEXT NOT NULL,
+    classificationConfidence REAL NOT NULL,
+    classificationReasons TEXT NOT NULL,
+    routeProviderId TEXT NOT NULL,
+    routeModelTargetId TEXT NOT NULL,
+    providerModelName TEXT,
+    providerSessionId TEXT,
+    requestStatus TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS promptRoutesConversationIndex
+ON promptRoutes(workingProjectIdentity, conversationId, id);
+
 -- ---------------------------------------------------------------------------
 -- Full-text search: external-content FTS5 table over messages.text.
 --

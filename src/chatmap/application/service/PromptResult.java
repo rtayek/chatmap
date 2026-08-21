@@ -15,7 +15,8 @@ import java.util.Optional;
         String channelId,
         String targetId,
         Optional<String> providerModelName,
-        String providerSessionId
+        String providerSessionId,
+        long chatId
 ) {
     public PromptResult {
         Objects.requireNonNull(backendLabel, "backendLabel");
@@ -26,7 +27,7 @@ import java.util.Optional;
     }
 
     public PromptResult(String backendLabel, String response, Path transcriptPath) {
-        this(backendLabel, response, transcriptPath, "unknown", "unknown", Optional.empty(), null);
+        this(backendLabel, response, transcriptPath, "unknown", "unknown", Optional.empty(), null, 0);
     }
 
     /** The transcript file, when one could be written. */

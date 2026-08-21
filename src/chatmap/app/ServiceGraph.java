@@ -20,6 +20,7 @@ import chatmap.application.port.llm.LlmBackendUnsupportedRequestException;
 import chatmap.application.port.persistence.ChatStore;
 import chatmap.application.port.persistence.MessageStore;
 import chatmap.application.port.persistence.ProjectStore;
+import chatmap.application.port.persistence.PromptRouteStore;
 import chatmap.application.port.persistence.SearchStore;
 import chatmap.application.port.persistence.SummaryStore;
 import chatmap.application.port.persistence.TagStore;
@@ -29,6 +30,9 @@ import chatmap.application.service.ImportService;
 import chatmap.application.service.LiveChatFetchService;
 import chatmap.application.service.ProjectService;
 import chatmap.application.service.PromptService;
+import chatmap.application.service.PromptRouterService;
+import chatmap.application.service.DeterministicPromptClassifier;
+import chatmap.application.service.PromptRouteSelector;
 import chatmap.application.service.SearchService;
 import chatmap.application.service.SummaryService;
 import chatmap.application.service.TagService;
@@ -40,6 +44,7 @@ import chatmap.infrastructure.importer.DefaultConversationFileReader;
 import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 import chatmap.infrastructure.persistence.sqlite.MessageRepository;
 import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
+import chatmap.infrastructure.persistence.sqlite.PromptRouteRepository;
 import chatmap.infrastructure.persistence.sqlite.SearchRepository;
 import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
 import chatmap.infrastructure.persistence.sqlite.TagRepository;
@@ -55,6 +60,7 @@ public record ServiceGraph(
         ChatStore chats,
         MessageStore messages,
         ProjectStore projects,
+        PromptRouteStore promptRoutes,
         TagStore tags,
         SummaryStore summaries,
         SearchStore search,
@@ -67,7 +73,8 @@ public record ServiceGraph(
         SearchService searchService,
         ProjectService projectService,
         TagService tagService,
-        PromptService promptService) implements AutoCloseable {
+        PromptService promptService,
+        PromptRouterService promptRouterService) implements AutoCloseable {
 
     /**
      * Optional outside-world capabilities. Core import/search/export can run with
@@ -104,6 +111,7 @@ public record ServiceGraph(
         ChatRepository chats = new ChatRepository(connection);
         MessageRepository messages = new MessageRepository(connection);
         ProjectRepository projects = new ProjectRepository(connection);
+        PromptRouteRepository promptRoutes = new PromptRouteRepository(connection);
         TagRepository tags = new TagRepository(connection);
         SummaryRepository summaries = new SummaryRepository(connection);
         SearchRepository search = new SearchRepository(connection);
@@ -128,11 +136,18 @@ public record ServiceGraph(
                 importService,
                 java.time.Clock.systemUTC(),
                 paths.transcriptsDirectory());
+        PromptRouterService promptRouterService = new PromptRouterService(
+                new DeterministicPromptClassifier(),
+                PromptRouteSelector.defaults(),
+                promptService,
+                projectService,
+                promptRoutes,
+                java.time.Clock.systemUTC());
 
-        return new ServiceGraph(connection, chats, messages, projects, tags, summaries, search,
+        return new ServiceGraph(connection, chats, messages, projects, promptRoutes, tags, summaries, search,
                 importService, archiveImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
-                exportService, searchService, projectService, tagService, promptService);
+                exportService, searchService, projectService, tagService, promptService, promptRouterService);
     }
 
     /** Closes the underlying connection. */

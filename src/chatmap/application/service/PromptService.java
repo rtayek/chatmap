@@ -107,13 +107,14 @@ public final class PromptService {
         String backendId = response.backendId().value();
         String effectiveSessionId = response.sessionId().orElse(sessionId);
 
+        long chatId = 0;
         if (importService != null) {
-            recordInDatabase(target, prompt, responseText, started, effectiveSessionId);
+            chatId = recordInDatabase(target, prompt, responseText, started, effectiveSessionId);
         }
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
         return new PromptResult(backendId, responseText, transcriptPath,
-                response.channel().name(), target.id(), response.providerModelName(), effectiveSessionId);
+                response.channel().name(), target.id(), response.providerModelName(), effectiveSessionId, chatId);
     }
 
     /**
@@ -123,7 +124,7 @@ public final class PromptService {
      * becoming its own; with no session id, every call still creates a new
      * chat, since there is no provider session to key on.
      */
-    private void recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
+    private long recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
             String sessionId) throws SQLException {
         String now = started.toString();
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
@@ -145,11 +146,10 @@ public final class PromptService {
         Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);
         List<Message> messages = List.of(userMsg, assistantMsg);
 
-        if (sessionId != null && !sessionId.isBlank()) {
-            importService.appendToConversation(chat, messages);
-        } else {
-            importService.persist(new ImportedChat(chat, messages));
-        }
+        ImportService.PersistResult result = (sessionId != null && !sessionId.isBlank())
+                ? importService.appendToConversation(chat, messages)
+                : importService.persist(new ImportedChat(chat, messages));
+        return result.chat().id();
     }
 
     private Path writeLocalTranscript(Instant started, String backendId, String prompt, String responseText) {
