@@ -59,6 +59,18 @@ public final class ChatMapViewBuilder {
     public record TagBarWidgets(HBox tagBar, ComboBox<Tag> tagChoice) {
     }
 
+    /** Widgets from {@link #createPromptPane} for routed prompt execution. */
+    public record PromptPaneWidgets(
+            VBox promptPane,
+            ComboBox<Project> projectChoice,
+            TextField conversationField,
+            TextArea promptArea,
+            Button sendButton,
+            Label classificationLabel,
+            Label routeLabel,
+            TextArea responseArea) {
+    }
+
     public static Button button(String text, ThrowingRunnable action, Consumer<Exception> errorHandler) {
         Button button = new Button(text);
         button.setStyle(COMPACT_BUTTON_STYLE);
@@ -173,6 +185,49 @@ public final class ChatMapViewBuilder {
         return new TagBarWidgets(tagBar, tagChoice);
     }
 
+    /** Minimal prompt-routing pane backed by the application router service. */
+    public static PromptPaneWidgets createPromptPane(ThrowingRunnable onSend, Consumer<Exception> errorHandler) {
+        ComboBox<Project> projectChoice = new ComboBox<>();
+        projectChoice.setPromptText("Prompt project");
+        projectChoice.setConverter(namedProjectConverter());
+
+        TextField conversationField = new TextField("current-task");
+        conversationField.setPromptText("Conversation");
+        conversationField.setMinWidth(180);
+
+        TextArea promptArea = new TextArea();
+        promptArea.setPromptText("Prompt");
+        promptArea.setWrapText(true);
+        promptArea.setPrefRowCount(4);
+        promptArea.setMinWidth(360);
+
+        Button sendButton = button("Send", onSend, errorHandler);
+        Label classificationLabel = new Label("Classification: none");
+        Label routeLabel = new Label("Route: none");
+
+        TextArea responseArea = createDetailTextArea();
+        responseArea.setPromptText("Response");
+        responseArea.setPrefRowCount(8);
+
+        HBox controls = new HBox(8,
+                new Label("Prompt Project"),
+                projectChoice,
+                new Label("Conversation"),
+                conversationField,
+                sendButton,
+                classificationLabel,
+                routeLabel);
+        VBox pane = new VBox(6,
+                controls,
+                new Label("Prompt"),
+                promptArea,
+                new Label("Response"),
+                responseArea);
+        pane.setPadding(new Insets(8));
+        return new PromptPaneWidgets(pane, projectChoice, conversationField, promptArea, sendButton,
+                classificationLabel, routeLabel, responseArea);
+    }
+
     public static ListView<SearchResult> createChatListView(ChangeListener<SearchResult> selectionListener) {
         ListView<SearchResult> list = new ListView<>();
         list.setMinWidth(180);
@@ -197,13 +252,24 @@ public final class ChatMapViewBuilder {
 
     public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar, Node tagBar,
             Node content, Node status) {
+        return assembleRootPane(toolbar, searchBar, projectBar, tagBar, null, content, status);
+    }
+
+    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar, Node tagBar,
+            Node promptPane, Node content, Node status) {
         BorderPane pane = new BorderPane();
-        pane.setTop(new VBox(6, toolbar, searchBar, projectBar, tagBar));
+        VBox top = promptPane == null
+                ? new VBox(6, toolbar, searchBar, projectBar, tagBar)
+                : new VBox(6, toolbar, searchBar, projectBar, tagBar, promptPane);
+        pane.setTop(top);
         pane.setCenter(content);
         pane.setBottom(new VBox(status));
         BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
         BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));
         BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));
+        if (promptPane != null) {
+            BorderPane.setMargin(promptPane, new Insets(0, 8, 0, 8));
+        }
         BorderPane.setMargin(content, new Insets(8));
         BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
         return pane;

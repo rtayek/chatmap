@@ -118,6 +118,10 @@ public final class ImportService {
 
     private Optional<Chat> existingConversation(Chat chatTemplate) throws SQLException {
         if (chatTemplate.providerSessionId() != null && !chatTemplate.providerSessionId().isBlank()) {
+            if (chatTemplate.projectId() != null && chatTemplate.projectId() > 0) {
+                return chats.findByPromptSession(chatTemplate.projectId(), chatTemplate.channelId(),
+                        chatTemplate.modelTargetId(), chatTemplate.providerSessionId());
+            }
             return chats.findByPromptSession(chatTemplate.channelId(), chatTemplate.modelTargetId(),
                     chatTemplate.providerSessionId());
         }

@@ -93,6 +93,15 @@ public final class PromptService {
      */
     public PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId)
             throws SQLException {
+        return submit(backendName, prompt, profile, sessionId, null);
+    }
+
+    public PromptResult submitForProject(String backendName, String prompt, long projectId) throws SQLException {
+        return submit(backendName, prompt, PromptProfile.general, null, projectId);
+    }
+
+    private PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId,
+            Long projectId) throws SQLException {
         ModelTarget target = ModelTarget.require(backendName);
         LlmProvider provider = providerFor(target);
 
@@ -109,7 +118,7 @@ public final class PromptService {
 
         long chatId = 0;
         if (importService != null) {
-            chatId = recordInDatabase(target, prompt, responseText, started, effectiveSessionId);
+            chatId = recordInDatabase(target, prompt, responseText, started, effectiveSessionId, projectId);
         }
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
@@ -125,11 +134,12 @@ public final class PromptService {
      * chat, since there is no provider session to key on.
      */
     private long recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
-            String sessionId) throws SQLException {
+            String sessionId, Long projectId) throws SQLException {
         String now = started.toString();
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
         Chat chat = Chat.builder()
                 .id(0L)
+                .projectId(projectId)
                 .source(target.source())
                 .title(title)
                 .createdAt(now)

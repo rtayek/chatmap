@@ -22,7 +22,11 @@ import chatmap.application.service.ImportService;
 import chatmap.application.service.LiveChatFetchService;
 import chatmap.application.service.ProjectService;
 import chatmap.application.service.PromptResult;
+import chatmap.application.service.PromptRouterService;
+import chatmap.application.service.PromptRoutingResult;
 import chatmap.application.service.PromptService;
+import chatmap.application.service.ConversationContext;
+import chatmap.application.service.ProjectContext;
 import chatmap.application.service.SearchService;
 import chatmap.app.ServiceGraph;
 import chatmap.application.service.SummaryService;
@@ -42,6 +46,7 @@ public final class ChatMapController {
     private final ChatGptArchiveImportService archiveImportService;
     private final ConversationInventoryService conversationInventoryService;
     private final PromptService promptService;
+    private final PromptRouterService promptRouterService;
     private final ChatListState listState;
     
     /**
@@ -105,6 +110,22 @@ public final class ChatMapController {
             ChatGptArchiveImportService archiveImportService,
             ConversationInventoryService conversationInventoryService,
             PromptService promptService) {
+        this(importService, exportService, searchService, projectService, tagService, summaryService,
+                liveChatFetchService, archiveImportService, conversationInventoryService, promptService, null);
+    }
+
+    public ChatMapController(
+            ImportService importService,
+            ExportService exportService,
+            SearchService searchService,
+            ProjectService projectService,
+            TagService tagService,
+            SummaryService summaryService,
+            LiveChatFetchService liveChatFetchService,
+            ChatGptArchiveImportService archiveImportService,
+            ConversationInventoryService conversationInventoryService,
+            PromptService promptService,
+            PromptRouterService promptRouterService) {
         this.importService = importService;
         this.exportService = exportService;
         this.searchService = searchService;
@@ -115,6 +136,7 @@ public final class ChatMapController {
         this.archiveImportService = archiveImportService;
         this.conversationInventoryService = conversationInventoryService;
         this.promptService = promptService;
+        this.promptRouterService = promptRouterService;
         listState = new ChatListState();
     }
 
@@ -123,7 +145,7 @@ public final class ChatMapController {
         this(services.importService(), services.exportService(), services.searchService(),
                 services.projectService(), services.tagService(), services.summaryService(),
                 services.liveChatFetchService(), services.archiveImportService(),
-                services.conversationInventoryService(), services.promptService());
+                services.conversationInventoryService(), services.promptService(), services.promptRouterService());
     }
 
     public ChatFilterCriteria filterCriteria() {
@@ -184,6 +206,18 @@ public final class ChatMapController {
             throw new IllegalStateException("Prompt service is not configured.");
         }
         return promptService.submit(backendName, prompt);
+    }
+
+    public PromptRoutingResult routePrompt(Project project, String conversationId, String prompt) throws SQLException {
+        if (promptRouterService == null) {
+            throw new IllegalStateException("Prompt router is not configured.");
+        }
+        if (project == null) {
+            throw new IllegalArgumentException("Project is required.");
+        }
+        String trimmedPrompt = requireName(prompt, "Prompt");
+        ConversationContext conversation = new ConversationContext(requireName(conversationId, "Conversation"));
+        return promptRouterService.route(ProjectContext.from(project), conversation, trimmedPrompt);
     }
 
     public ChatListState.Snapshot selectChat(long chatId) {

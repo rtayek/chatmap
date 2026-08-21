@@ -30,24 +30,30 @@ final class BackgroundActionRunner {
     void runSnapshot(String pendingStatus, Button triggerButton, SnapshotCall call,
             Consumer<ChatListState.Snapshot> onSuccess, Consumer<Exception> onFailure) {
         setPending(pendingStatus, triggerButton);
-        runtime.submit(snapshotRunnable(call, onSuccess, onFailure));
+        runtime.submit(snapshotRunnable(call, triggerButton, onSuccess, onFailure));
     }
 
     void runSnapshotOnBackendLane(String pendingStatus, Button triggerButton, SnapshotCall call,
             Consumer<ChatListState.Snapshot> onSuccess, Consumer<Exception> onFailure) {
         setPending(pendingStatus, triggerButton);
-        runtime.submitBackendWork(snapshotRunnable(call, onSuccess, onFailure));
+        runtime.submitBackendWork(snapshotRunnable(call, triggerButton, onSuccess, onFailure));
     }
 
-    private Runnable snapshotRunnable(SnapshotCall call, Consumer<ChatListState.Snapshot> onSuccess,
-            Consumer<Exception> onFailure) {
+    private Runnable snapshotRunnable(SnapshotCall call, Button triggerButton,
+            Consumer<ChatListState.Snapshot> onSuccess, Consumer<Exception> onFailure) {
         return () -> {
             try {
                 ChatListState.Snapshot snapshot = call.run();
-                Platform.runLater(() -> onSuccess.accept(snapshot));
+                Platform.runLater(() -> {
+                    finish(triggerButton);
+                    onSuccess.accept(snapshot);
+                });
             } catch (Exception exception) {
                 LOGGER.log(System.Logger.Level.WARNING, "Background snapshot action failed", exception);
-                Platform.runLater(() -> onFailure.accept(exception));
+                Platform.runLater(() -> {
+                    finish(triggerButton);
+                    onFailure.accept(exception);
+                });
             }
         };
     }
@@ -55,23 +61,29 @@ final class BackgroundActionRunner {
     <T> void runValue(String pendingStatus, Button triggerButton,
             Callable<T> call, Consumer<T> onSuccess) {
         setPending(pendingStatus, triggerButton);
-        runtime.submit(valueRunnable(call, onSuccess));
+        runtime.submit(valueRunnable(call, triggerButton, onSuccess));
     }
 
     <T> void runValueOnBackendLane(String pendingStatus, Button triggerButton,
             Callable<T> call, Consumer<T> onSuccess) {
         setPending(pendingStatus, triggerButton);
-        runtime.submitBackendWork(valueRunnable(call, onSuccess));
+        runtime.submitBackendWork(valueRunnable(call, triggerButton, onSuccess));
     }
 
-    private <T> Runnable valueRunnable(Callable<T> call, Consumer<T> onSuccess) {
+    private <T> Runnable valueRunnable(Callable<T> call, Button triggerButton, Consumer<T> onSuccess) {
         return () -> {
             try {
                 T result = call.call();
-                Platform.runLater(() -> onSuccess.accept(result));
+                Platform.runLater(() -> {
+                    finish(triggerButton);
+                    onSuccess.accept(result);
+                });
             } catch (Exception exception) {
                 LOGGER.log(System.Logger.Level.WARNING, "Background value action failed", exception);
-                Platform.runLater(() -> errorReporter.accept(exception));
+                Platform.runLater(() -> {
+                    finish(triggerButton);
+                    errorReporter.accept(exception);
+                });
             }
         };
     }
@@ -82,6 +94,12 @@ final class BackgroundActionRunner {
         }
         if (triggerButton != null) {
             triggerButton.setDisable(true);
+        }
+    }
+
+    private static void finish(Button triggerButton) {
+        if (triggerButton != null) {
+            triggerButton.setDisable(false);
         }
     }
 

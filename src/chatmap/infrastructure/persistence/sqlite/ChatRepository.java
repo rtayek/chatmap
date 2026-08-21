@@ -249,6 +249,33 @@ public final class ChatRepository implements ChatStore {
     }
 
     @Override
+    public Optional<Chat> findByPromptSession(long projectId, String providerId, String modelTargetId,
+            String providerSessionId) throws SQLException {
+        return locked(() -> {
+            if (projectId <= 0 || providerId == null || providerId.isBlank()
+                    || modelTargetId == null || modelTargetId.isBlank()
+                    || providerSessionId == null || providerSessionId.isBlank()) {
+                return Optional.empty();
+            }
+            String sql = ChatRowMapper.selectColumns()
+                    + "FROM chats WHERE projectId = ? AND providerId = ? "
+                    + "AND modelTargetId = ? AND providerSessionId = ?";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, projectId);
+                ps.setString(2, providerId);
+                ps.setString(3, modelTargetId);
+                ps.setString(4, providerSessionId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(ChatRowMapper.read(rs));
+                }
+            }
+        });
+    }
+
+    @Override
     public List<String> findPromptSessions(String providerId, String modelTargetId) throws SQLException {
         return locked(() -> {
             if (providerId == null || providerId.isBlank() || modelTargetId == null || modelTargetId.isBlank()) {

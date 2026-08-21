@@ -47,8 +47,7 @@ public final class PromptRouterService {
         PromptClassification classification = classifier.classify(prompt);
         ModelRoute route = routeSelector.select(classification);
 
-        PromptResult promptResult = promptService.submit(route.target().id(), prompt);
-        projectService.assignChat(promptResult.chatId(), project.id());
+        PromptResult promptResult = promptService.submitForProject(route.target().id(), prompt, project.id());
 
         PromptRouteRecord saved = promptRoutes.insert(new PromptRouteRecord(
                 0,

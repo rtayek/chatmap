@@ -27,6 +27,7 @@ import chatmap.domain.ConversationInventory;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
 import chatmap.domain.Project;
+import chatmap.domain.PromptClassificationLevel;
 import chatmap.domain.Source;
 import chatmap.domain.Tag;
 import chatmap.application.port.llm.LlmBackend;
@@ -37,12 +38,16 @@ import chatmap.application.port.llm.BackendId;
 import chatmap.application.port.llm.ModelTarget;
 import chatmap.application.port.llm.Channel;
 import chatmap.application.model.ChatExportModel;
+import chatmap.application.service.DeterministicPromptClassifier;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ConversationInventoryService;
 import chatmap.application.service.ImportService;
 import chatmap.application.service.LiveChatFetchService;
 import chatmap.application.service.ProjectService;
+import chatmap.application.service.PromptRouteSelector;
 import chatmap.application.service.PromptResult;
+import chatmap.application.service.PromptRouterService;
+import chatmap.application.service.PromptRoutingResult;
 import chatmap.application.service.PromptService;
 import chatmap.application.service.SearchService;
 import chatmap.application.service.SummaryService;
@@ -51,9 +56,11 @@ import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 import chatmap.infrastructure.persistence.sqlite.Database;
 import chatmap.infrastructure.persistence.sqlite.MessageRepository;
 import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
+import chatmap.infrastructure.persistence.sqlite.PromptRouteRepository;
 import chatmap.infrastructure.persistence.sqlite.SearchRepository;
 import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
 import chatmap.infrastructure.persistence.sqlite.TagRepository;
+import chatmap.infrastructure.persistence.sqlite.TransactionRunner;
 
 class ChatMapControllerTest {
 
@@ -243,6 +250,86 @@ class ChatMapControllerTest {
     }
 
     @Test
+    void routePromptClassifiesRoutesAndPersistsTheTurn() throws Exception {
+        ChatMapController promptController = promptController(recordingProvider("ok"));
+        Project project = promptController.createProject("Foo");
+
+        PromptRoutingResult result = promptController.routePrompt(project, "foo-current-task",
+                "Explain this compile error.");
+
+        assertEquals(PromptClassificationLevel.LIGHTWEIGHT, result.classification().level());
+        assertEquals(ModelTarget.ollamaQwen257b.id(), result.route().target().id());
+        assertEquals("ok " + ModelTarget.ollamaQwen257b.id(), result.promptResult().response());
+        assertEquals(project.id(), result.projectContext().projectId());
+        assertEquals("foo-current-task", result.conversationContext().id());
+        assertEquals(project.id(), chats.findById(result.promptResult().chatId()).orElseThrow().projectId());
+    }
+
+    @Test
+    void routePromptDisplaysActualMonsterTargetFromRouterResult() throws Exception {
+        ChatMapController promptController = promptController(recordingProvider("ok"));
+        Project project = promptController.createProject("Foo");
+
+        PromptRoutingResult result = promptController.routePrompt(project, "foo-current-task",
+                "Review architecture across multiple modules.");
+
+        assertEquals(PromptClassificationLevel.MONSTER, result.classification().level());
+        assertEquals(ModelTarget.claude.id(), result.route().target().id());
+        assertEquals(Channel.claudeCli.name(), result.route().target().channel().name());
+    }
+
+    @Test
+    void routePromptRejectsMissingProjectConversationAndPrompt() throws Exception {
+        ChatMapController promptController = promptController(recordingProvider("ok"));
+        Project project = promptController.createProject("Foo");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> promptController.routePrompt(null, "foo-current-task", "hi"));
+        assertThrows(IllegalArgumentException.class,
+                () -> promptController.routePrompt(project, " ", "hi"));
+        assertThrows(IllegalArgumentException.class,
+                () -> promptController.routePrompt(project, "foo-current-task", " "));
+    }
+
+    @Test
+    void routePromptSurfacesProviderFailure() throws Exception {
+        ChatMapController promptController = promptController(new LlmProvider() {
+            @Override
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
+                throw new IllegalStateException("provider unavailable");
+            }
+
+            @Override
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        });
+        Project project = promptController.createProject("Foo");
+
+        IllegalStateException thrown = assertThrows(IllegalStateException.class,
+                () -> promptController.routePrompt(project, "foo-current-task", "Explain this compile error."));
+
+        assertEquals("provider unavailable", thrown.getMessage());
+    }
+
+    @Test
+    void routePromptKeepsFooAndBarProjectsSeparate() throws Exception {
+        ChatMapController promptController = promptController(recordingProvider("ok"));
+        Project foo = promptController.createProject("Foo");
+        Project bar = promptController.createProject("Bar");
+
+        PromptRoutingResult fooResult = promptController.routePrompt(foo, "current",
+                "Explain this compile error in Foo.java.");
+        PromptRoutingResult barResult = promptController.routePrompt(bar, "current",
+                "Explain this compile error in Bar.java.");
+
+        assertEquals(foo.id(), fooResult.projectContext().projectId());
+        assertEquals(bar.id(), barResult.projectContext().projectId());
+        assertEquals(foo.id(), chats.findById(fooResult.promptResult().chatId()).orElseThrow().projectId());
+        assertEquals(bar.id(), chats.findById(barResult.promptResult().chatId()).orElseThrow().projectId());
+    }
+
+    @Test
     void loadsHydratedChatDetails() throws Exception {
         Chat chat = insertChat("Details", "Detail message");
 
@@ -419,6 +506,61 @@ class ChatMapControllerTest {
             providers.put(id, noop);
         }
         providers.put(Channel.claudeCli, claudeProvider);
+        return providers;
+    }
+
+    private ChatMapController promptController(LlmProvider provider) throws Exception {
+        ImportService importService = new ImportService(chats, messages, new TransactionRunner(conn),
+                new chatmap.infrastructure.importer.DefaultConversationFileReader());
+        ProjectRepository projects = new ProjectRepository(conn);
+        TagRepository tags = new TagRepository(conn);
+        PromptService promptService = new PromptService(
+                allProviders(provider),
+                importService,
+                Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC),
+                tempDir);
+        PromptRouterService router = new PromptRouterService(
+                new DeterministicPromptClassifier(),
+                PromptRouteSelector.defaults(),
+                promptService,
+                new ProjectService(projects, chats),
+                new PromptRouteRepository(conn),
+                Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC));
+        return new ChatMapController(
+                importService,
+                new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()),
+                new SearchService(new SearchRepository(conn)),
+                new ProjectService(projects, chats),
+                new TagService(tags, chats),
+                new SummaryService(chats, messages, new SummaryRepository(conn), tags, summaryBackend()),
+                new LiveChatFetchService(List.of(), importService, chats),
+                null,
+                null,
+                promptService,
+                router);
+    }
+
+    private static LlmProvider recordingProvider(String responsePrefix) {
+        return new LlmProvider() {
+            @Override
+            public LlmResponse execute(ModelTarget target, LlmRequest request) {
+                return new LlmResponse(responsePrefix + " " + target.id(), new BackendId("Fake"),
+                        Duration.ZERO, target, target.id() + "-session");
+            }
+
+            @Override
+            public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
+                return Set.of();
+            }
+        };
+    }
+
+    private static Map<Channel, LlmProvider> allProviders(LlmProvider provider) {
+        EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
+        for (Channel channel : Channel.values()) {
+            providers.put(channel, provider);
+        }
         return providers;
     }
 

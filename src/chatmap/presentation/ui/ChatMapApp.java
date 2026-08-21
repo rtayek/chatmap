@@ -10,6 +10,7 @@ import chatmap.domain.ConversationInventory;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
+import chatmap.application.service.PromptRoutingResult;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.scene.Scene;
@@ -36,7 +37,14 @@ public final class ChatMapApp extends Application {
     private TextArea detail;
     private TextField searchField;
     private ComboBox<Project> projectChoice;
+    private ComboBox<Project> promptProjectChoice;
     private ComboBox<Tag> tagChoice;
+    private TextField promptConversationField;
+    private TextArea promptArea;
+    private TextArea promptResponseArea;
+    private Button promptSendButton;
+    private Label promptClassificationLabel;
+    private Label promptRouteLabel;
     private Button getLatestChatButton;
     private Button inventoryButton;
     private Button summarizeButton;
@@ -104,10 +112,21 @@ public final class ChatMapApp extends Application {
                 this::clearSearchAndFilters, this::reportError);
         tagChoice = tagBarWidgets.tagChoice();
 
+        ChatMapViewBuilder.PromptPaneWidgets promptPaneWidgets = ChatMapViewBuilder.createPromptPane(
+                this::sendPrompt, this::reportError);
+        promptProjectChoice = promptPaneWidgets.projectChoice();
+        promptConversationField = promptPaneWidgets.conversationField();
+        promptArea = promptPaneWidgets.promptArea();
+        promptSendButton = promptPaneWidgets.sendButton();
+        promptClassificationLabel = promptPaneWidgets.classificationLabel();
+        promptRouteLabel = promptPaneWidgets.routeLabel();
+        promptResponseArea = promptPaneWidgets.responseArea();
+
         SplitPane content = new SplitPane(chatList, detail);
         content.setDividerPositions(0.32);
         root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.toolBar(), searchBarWidgets.searchBar(),
-                projectBarWidgets.projectBar(), tagBarWidgets.tagBar(), content, status);
+                projectBarWidgets.projectBar(), tagBarWidgets.tagBar(), promptPaneWidgets.promptPane(),
+                content, status);
 
         refreshOrganizationChoices();
         runInBackground("Loading chats...", null, () -> controller.loadAllChats());
@@ -195,6 +214,45 @@ public final class ChatMapApp extends Application {
         // Blocking claude CLI call; run on the backend lane.
         runOnBackendLane("Summarizing chat " + chatId + "...", summarizeButton,
                 () -> controller.summarizeAndTag(chatId));
+    }
+
+    private void sendPrompt() {
+        Project project = promptProjectChoice.getValue();
+        if (project == null) {
+            status.setText("Select a project before sending.");
+            return;
+        }
+        String conversationId = promptConversationField.getText() == null ? "" : promptConversationField.getText().trim();
+        if (conversationId.isEmpty()) {
+            status.setText("Conversation is required.");
+            promptConversationField.requestFocus();
+            return;
+        }
+        String prompt = promptArea.getText() == null ? "" : promptArea.getText().trim();
+        if (prompt.isEmpty()) {
+            status.setText("Prompt is required.");
+            promptArea.requestFocus();
+            return;
+        }
+
+        promptResponseArea.clear();
+        promptClassificationLabel.setText("Classification: pending");
+        promptRouteLabel.setText("Route: pending");
+        backgroundActions.runValueOnBackendLane("Routing prompt...", promptSendButton,
+                () -> controller.routePrompt(project, conversationId, prompt),
+                this::showPromptResult);
+    }
+
+    private void showPromptResult(PromptRoutingResult result) {
+        promptClassificationLabel.setText("Classification: " + result.classification().level()
+                + " (" + result.classification().confidence() + ")");
+        promptRouteLabel.setText("Route: " + result.route().target().channel().name()
+                + " / " + result.route().target().id()
+                + " / " + result.promptResult().providerModelName().orElse("unspecified"));
+        promptResponseArea.setText(result.promptResult().response());
+        status.setText("Prompt stored for " + result.projectContext().workingProjectIdentity()
+                + " / " + result.conversationContext().id());
+        runInBackground("Refreshing chats...", null, () -> controller.loadAllChats());
     }
 
     /**
@@ -332,8 +390,13 @@ public final class ChatMapApp extends Application {
         backgroundActions.runValue(null, null,
                 () -> new OrganizationChoices(controller.listProjects(), controller.listTags()),
                 choices -> {
-                    projectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
+                    var projects = FXCollections.observableArrayList(choices.projects());
+                    projectChoice.setItems(projects);
+                    promptProjectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
                     tagChoice.setItems(FXCollections.observableArrayList(choices.tags()));
+                    if (!choices.projects().isEmpty() && promptProjectChoice.getValue() == null) {
+                        promptProjectChoice.getSelectionModel().selectFirst();
+                    }
                 });
     }
 

@@ -211,9 +211,14 @@ public final class Database {
                         + "ON promptRoutes(workingProjectId, conversationId, id)");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
                         + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
+                st.execute("DROP INDEX IF EXISTS chatsPromptSessionIndex");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptSessionIndex "
                         + "ON chats(providerId, modelTargetId, providerSessionId) "
-                        + "WHERE providerId IS NOT NULL AND modelTargetId IS NOT NULL "
+                        + "WHERE projectId IS NULL AND providerId IS NOT NULL AND modelTargetId IS NOT NULL "
+                        + "AND providerSessionId IS NOT NULL");
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsPromptProjectSessionIndex "
+                        + "ON chats(projectId, providerId, modelTargetId, providerSessionId) "
+                        + "WHERE projectId IS NOT NULL AND providerId IS NOT NULL AND modelTargetId IS NOT NULL "
                         + "AND providerSessionId IS NOT NULL");
             }
 
