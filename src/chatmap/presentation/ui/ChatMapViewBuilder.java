@@ -3,6 +3,7 @@ package chatmap.presentation.ui;
 import java.util.List;
 import java.util.function.Consumer;
 
+import chatmap.domain.Chat;
 import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
@@ -68,6 +69,8 @@ public final class ChatMapViewBuilder {
             VBox promptPane,
             ComboBox<Project> projectChoice,
             TextField conversationField,
+            ComboBox<Chat> resumeChatChoice,
+            TextArea historyArea,
             TextArea promptArea,
             Button sendButton,
             Label classificationLabel,
@@ -216,6 +219,15 @@ public final class ChatMapViewBuilder {
         conversationField.setPromptText("Conversation");
         conversationField.setMinWidth(180);
 
+        ComboBox<Chat> resumeChatChoice = new ComboBox<>();
+        resumeChatChoice.setPromptText("Resume chat");
+        resumeChatChoice.setConverter(namedChatConverter());
+        resumeChatChoice.setMinWidth(220);
+
+        TextArea historyArea = createDetailTextArea();
+        historyArea.setPromptText("History");
+        historyArea.setPrefRowCount(6);
+
         TextArea promptArea = new TextArea();
         promptArea.setPromptText("Prompt");
         promptArea.setWrapText(true);
@@ -237,6 +249,8 @@ public final class ChatMapViewBuilder {
                 projectChoice,
                 new Label("Conversation"),
                 conversationField,
+                new Label("Resume"),
+                resumeChatChoice,
                 sendButton);
         VBox resultLabels = new VBox(4,
                 classificationLabel,
@@ -244,13 +258,15 @@ public final class ChatMapViewBuilder {
         VBox pane = new VBox(6,
                 controls,
                 resultLabels,
+                new Label("History"),
+                historyArea,
                 new Label("Prompt"),
                 promptArea,
                 new Label("Response"),
                 responseArea);
         pane.setPadding(new Insets(8));
-        return new PromptPaneWidgets(pane, projectChoice, conversationField, promptArea, sendButton,
-                classificationLabel, routeLabel, responseArea);
+        return new PromptPaneWidgets(pane, projectChoice, conversationField, resumeChatChoice, historyArea,
+                promptArea, sendButton, classificationLabel, routeLabel, responseArea);
     }
 
     public static ListView<SearchResult> createChatListView(ChangeListener<SearchResult> selectionListener) {
@@ -338,6 +354,26 @@ public final class ChatMapViewBuilder {
 
             @Override
             public Project fromString(String text) {
+                return null;
+            }
+        };
+    }
+
+    public static StringConverter<Chat> namedChatConverter() {
+        return new StringConverter<>() {
+            @Override
+            public String toString(Chat chat) {
+                if (chat == null) {
+                    return "";
+                }
+                String title = chat.title() == null || chat.title().isBlank() ? "Untitled chat" : chat.title();
+                String session = chat.providerSessionId() == null || chat.providerSessionId().isBlank()
+                        ? "" : " / " + chat.providerSessionId();
+                return title + " [" + chat.id() + session + "]";
+            }
+
+            @Override
+            public Chat fromString(String text) {
                 return null;
             }
         };

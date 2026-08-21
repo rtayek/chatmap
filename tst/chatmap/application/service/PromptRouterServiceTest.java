@@ -27,8 +27,13 @@ import chatmap.application.port.llm.LlmProvider;
 import chatmap.application.port.llm.LlmRequest;
 import chatmap.application.port.llm.LlmResponse;
 import chatmap.application.port.llm.ModelTarget;
+import chatmap.domain.Chat;
+import chatmap.domain.Message;
+import chatmap.domain.MessageRole;
+import chatmap.domain.Project;
 import chatmap.domain.PromptClassificationLevel;
 import chatmap.domain.PromptRouteRecord;
+import chatmap.domain.Source;
 import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 import chatmap.infrastructure.persistence.sqlite.Database;
 import chatmap.infrastructure.persistence.sqlite.MessageRepository;
@@ -134,6 +139,78 @@ class PromptRouterServiceTest {
         assertTrue(records.stream().allMatch(record -> record.conversationId().equals("same")));
     }
 
+    @Test
+    void resumedPromptUsesSelectedChatSessionAndAppendsToExistingChat() throws Exception {
+        Project project = projects.insert(new Project(0, "Foo", null,
+                "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z"));
+        Chat existing = chats.insert(Chat.builder()
+                .id(0)
+                .projectId(project.id())
+                .source(Source.claudeCliPrompt)
+                .title("Existing conversation")
+                .createdAt("2026-08-20T00:00:00Z")
+                .updatedAt("2026-08-20T00:00:00Z")
+                .importedAt("2026-08-20T00:00:00Z")
+                .archived(false)
+                .originatedBy(chatmap.domain.ChatOrigin.generated)
+                .channelId(Channel.claudeCli.name())
+                .modelTargetId(ModelTarget.claude.id())
+                .providerSessionId("session-abc")
+                .build());
+        messages.insertAll(List.of(
+                new Message(0, existing.id(), MessageRole.user, "old prompt", 0, null, null),
+                new Message(0, existing.id(), MessageRole.assistant, "old response", 1, null, null)));
+
+        PromptRoutingResult result = router.route(ProjectContext.from(project), new ConversationContext("resume"),
+                "Explain this compile error.", existing);
+
+        assertEquals(existing.id(), result.promptResult().chatId());
+        assertEquals(ModelTarget.claude.id(), result.route().target().id());
+        assertEquals("session-abc", provider.requests.getFirst().sessionId().orElseThrow());
+        assertEquals(List.of("old prompt", "old response", "Explain this compile error.",
+                "response for claude"), messages.findByChat(existing.id()).stream().map(Message::text).toList());
+        assertEquals(1, chats.findAll().size());
+    }
+
+    @Test
+    void routeWithoutResumeStillCreatesNewChatForEachPrompt() throws Exception {
+        Project project = projects.insert(new Project(0, "Foo", null,
+                "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z"));
+
+        PromptRoutingResult first = router.route(ProjectContext.from(project), new ConversationContext("same"),
+                "Explain this compile error.");
+        PromptRoutingResult second = router.route(ProjectContext.from(project), new ConversationContext("same"),
+                "Explain this other compile error.");
+
+        assertTrue(first.promptResult().chatId() != second.promptResult().chatId());
+        assertEquals(2, chats.findAll().size());
+    }
+
+    @Test
+    void refusesToResumeChatFromAnotherProject() throws Exception {
+        Project foo = projects.insert(new Project(0, "Foo", null,
+                "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z"));
+        Project bar = projects.insert(new Project(0, "Bar", null,
+                "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z"));
+        Chat barChat = chats.insert(Chat.builder()
+                .id(0)
+                .projectId(bar.id())
+                .source(Source.claudeCliPrompt)
+                .title("Bar conversation")
+                .importedAt("2026-08-20T00:00:00Z")
+                .channelId(Channel.claudeCli.name())
+                .modelTargetId(ModelTarget.claude.id())
+                .providerSessionId("bar-session")
+                .build());
+
+        IllegalArgumentException thrown = org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> router.route(ProjectContext.from(foo), new ConversationContext("resume"),
+                        "Explain this compile error.", barChat));
+
+        assertEquals("Resume chat belongs to a different project.", thrown.getMessage());
+    }
+
     private static Map<Channel, LlmProvider> providers(LlmProvider provider) {
         EnumMap<Channel, LlmProvider> providers = new EnumMap<>(Channel.class);
         for (Channel channel : Channel.values()) {
@@ -148,13 +225,14 @@ class PromptRouterServiceTest {
         @Override
         public LlmResponse execute(ModelTarget target, LlmRequest request) {
             requests.add(request);
+            String sessionId = request.sessionId().isPresent() ? null : target.id() + "-session-" + requests.size();
             return new LlmResponse("response for " + target.id(), new BackendId("Fake " + target.id()),
-                    Duration.ofMillis(1), target, target.id() + "-session-" + requests.size());
+                    Duration.ofMillis(1), target, sessionId);
         }
 
         @Override
         public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
-            return Set.of();
+            return Set.of(chatmap.application.port.llm.LlmCapability.sessions);
         }
     }
 }

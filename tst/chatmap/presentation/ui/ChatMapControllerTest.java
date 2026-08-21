@@ -332,6 +332,56 @@ class ChatMapControllerTest {
     }
 
     @Test
+    void promptResumeCandidatesStayScopedToSelectedProject() throws Exception {
+        Project foo = controller.createProject("Foo");
+        Project bar = controller.createProject("Bar");
+        Chat fooChat = insertChat("Foo chat", "foo body").toBuilder().projectId(foo.id()).build();
+        chats.assignProject(fooChat.id(), foo.id());
+        Chat barChat = insertChat("Bar chat", "bar body").toBuilder().projectId(bar.id()).build();
+        chats.assignProject(barChat.id(), bar.id());
+        insertChat("Unassigned", "no project");
+
+        assertEquals(List.of(fooChat.id()), controller.listPromptResumeCandidates(foo).stream()
+                .map(Chat::id).toList());
+        assertEquals(List.of(barChat.id()), controller.listPromptResumeCandidates(bar).stream()
+                .map(Chat::id).toList());
+    }
+
+    @Test
+    void routePromptWithSelectedChatAppendsToExistingChat() throws Exception {
+        CapturingPromptProvider provider = new CapturingPromptProvider();
+        ChatMapController promptController = promptController(provider);
+        Project project = promptController.createProject("Foo");
+        Chat existing = chats.insert(Chat.builder()
+                .id(0)
+                .projectId(project.id())
+                .source(Source.claudeCliPrompt)
+                .title("Existing prompt chat")
+                .createdAt("2026-08-12T00:00:00Z")
+                .updatedAt("2026-08-12T00:00:00Z")
+                .importedAt("2026-08-12T00:00:00Z")
+                .archived(false)
+                .originatedBy(chatmap.domain.ChatOrigin.generated)
+                .channelId(Channel.claudeCli.name())
+                .modelTargetId(ModelTarget.claude.id())
+                .providerSessionId("session-abc")
+                .build());
+        messages.insertAll(List.of(
+                new Message(0, existing.id(), MessageRole.user, "old prompt", 0, null, null),
+                new Message(0, existing.id(), MessageRole.assistant, "old answer", 1, null, null)));
+
+        PromptRoutingResult result = promptController.routePrompt(project, "existing-prompt-chat",
+                "Explain this compile error.", existing);
+
+        assertEquals(existing.id(), result.promptResult().chatId());
+        assertEquals(ModelTarget.claude.id(), result.route().target().id());
+        assertEquals("session-abc", provider.requests.getFirst().sessionId().orElseThrow());
+        assertEquals(List.of("old prompt", "old answer", "Explain this compile error.", "ok claude"),
+                messages.findByChat(existing.id()).stream().map(Message::text).toList());
+        assertEquals(1, chats.findAll().size());
+    }
+
+    @Test
     void loadsHydratedChatDetails() throws Exception {
         Chat chat = insertChat("Details", "Detail message");
 
@@ -566,15 +616,33 @@ class ChatMapControllerTest {
         return new LlmProvider() {
             @Override
             public LlmResponse execute(ModelTarget target, LlmRequest request) {
+                String sessionId = request.sessionId().isPresent() ? null : target.id() + "-session";
                 return new LlmResponse(responsePrefix + " " + target.id(), new BackendId("Fake"),
-                        Duration.ZERO, target, target.id() + "-session");
+                        Duration.ZERO, target, sessionId);
             }
 
             @Override
             public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
-                return Set.of();
+                return Set.of(chatmap.application.port.llm.LlmCapability.sessions);
             }
         };
+    }
+
+    private static final class CapturingPromptProvider implements LlmProvider {
+        private final List<LlmRequest> requests = new java.util.ArrayList<>();
+
+        @Override
+        public LlmResponse execute(ModelTarget target, LlmRequest request) {
+            requests.add(request);
+            String sessionId = request.sessionId().isPresent() ? null : target.id() + "-session";
+            return new LlmResponse("ok " + target.id(), new BackendId("Fake"),
+                    Duration.ZERO, target, sessionId);
+        }
+
+        @Override
+        public Set<chatmap.application.port.llm.LlmCapability> capabilities(ModelTarget target) {
+            return Set.of(chatmap.application.port.llm.LlmCapability.sessions);
+        }
     }
 
     private static Map<Channel, LlmProvider> allProviders(LlmProvider provider) {

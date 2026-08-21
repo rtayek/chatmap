@@ -100,6 +100,11 @@ public final class PromptService {
         return submit(backendName, prompt, PromptProfile.general, null, projectId);
     }
 
+    public PromptResult submitForProject(String backendName, String prompt, Long projectId, String sessionId)
+            throws SQLException {
+        return submit(backendName, prompt, PromptProfile.general, sessionId, projectId);
+    }
+
     private PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId,
             Long projectId) throws SQLException {
         ModelTarget target = ModelTarget.require(backendName);

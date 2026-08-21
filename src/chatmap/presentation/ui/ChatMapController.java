@@ -209,6 +209,11 @@ public final class ChatMapController {
     }
 
     public PromptRoutingResult routePrompt(Project project, String conversationId, String prompt) throws SQLException {
+        return routePrompt(project, conversationId, prompt, null);
+    }
+
+    public PromptRoutingResult routePrompt(Project project, String conversationId, String prompt, Chat resumeChat)
+            throws SQLException {
         if (promptRouterService == null) {
             throw new IllegalStateException("Prompt router is not configured.");
         }
@@ -217,7 +222,14 @@ public final class ChatMapController {
         }
         String trimmedPrompt = requireName(prompt, "Prompt");
         ConversationContext conversation = new ConversationContext(requireName(conversationId, "Conversation"));
-        return promptRouterService.route(ProjectContext.from(project), conversation, trimmedPrompt);
+        return promptRouterService.route(ProjectContext.from(project), conversation, trimmedPrompt, resumeChat);
+    }
+
+    public List<Chat> listPromptResumeCandidates(Project project) throws SQLException {
+        if (project == null) {
+            return List.of();
+        }
+        return projectService.listChats(project.id());
     }
 
     public ChatListState.Snapshot selectChat(long chatId) {

@@ -76,4 +76,39 @@ final class ChatDetailRendererTest {
 
         assertEquals("Planning\nSource: ChatGPT web", rendered);
     }
+
+    @Test
+    void promptHistoryRendersMessagesInStoredOrder() {
+        Chat chat = Chat.builder()
+                            .id(9)
+                            .projectId(null)
+                            .source(Source.claudeCliPrompt)
+                            .title("Resume Target")
+                            .createdAt(null)
+                            .updatedAt(null)
+                            .importedAt("2026-08-08T00:00:00Z")
+                            .archived(false)
+                            .providerSessionId("session-abc")
+                            .build();
+        ChatExportModel model = new ChatExportModel(chat, List.of(
+                new Message(1, chat.id(), MessageRole.user, "First", 0, null, null),
+                new Message(2, chat.id(), MessageRole.assistant, "Second", 1, null, null),
+                new Message(3, chat.id(), MessageRole.user, "Third", 2, null, null)));
+
+        assertEquals("""
+                Resume Target
+                Source: Claude CLI prompt
+                Session: session-abc
+
+                [User]
+                First
+
+                [Assistant]
+                Second
+
+                [User]
+                Third
+
+                """, PromptResultDisplay.historyText(model));
+    }
 }

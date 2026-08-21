@@ -41,6 +41,8 @@ public final class ChatMapApp extends Application {
     private ComboBox<Project> promptProjectChoice;
     private ComboBox<Tag> tagChoice;
     private TextField promptConversationField;
+    private ComboBox<Chat> promptResumeChatChoice;
+    private TextArea promptHistoryArea;
     private TextArea promptArea;
     private TextArea promptResponseArea;
     private Button promptSendButton;
@@ -123,11 +125,17 @@ public final class ChatMapApp extends Application {
                 this::sendPrompt, this::reportError);
         promptProjectChoice = promptPaneWidgets.projectChoice();
         promptConversationField = promptPaneWidgets.conversationField();
+        promptResumeChatChoice = promptPaneWidgets.resumeChatChoice();
+        promptHistoryArea = promptPaneWidgets.historyArea();
         promptArea = promptPaneWidgets.promptArea();
         promptSendButton = promptPaneWidgets.sendButton();
         promptClassificationLabel = promptPaneWidgets.classificationLabel();
         promptRouteLabel = promptPaneWidgets.routeLabel();
         promptResponseArea = promptPaneWidgets.responseArea();
+        promptProjectChoice.getSelectionModel().selectedItemProperty()
+                .addListener((observable, previous, selectedProject) -> refreshPromptResumeChoices(selectedProject));
+        promptResumeChatChoice.getSelectionModel().selectedItemProperty()
+                .addListener((observable, previous, selectedChat) -> loadPromptHistory(selectedChat));
 
         SplitPane content = new SplitPane(chatList, detail);
         content.setDividerPositions(0.32);
@@ -241,12 +249,13 @@ public final class ChatMapApp extends Application {
             promptArea.requestFocus();
             return;
         }
+        Chat resumeChat = promptResumeChatChoice.getValue();
 
         promptResponseArea.clear();
         promptClassificationLabel.setText("Classification: pending");
         promptRouteLabel.setText("Route: pending");
         backgroundActions.runValueOnBackendLane("Routing prompt...", promptSendButton,
-                () -> controller.routePrompt(project, conversationId, prompt),
+                () -> controller.routePrompt(project, conversationId, prompt, resumeChat),
                 this::showPromptResult);
     }
 
@@ -254,7 +263,38 @@ public final class ChatMapApp extends Application {
         promptClassificationLabel.setText(PromptResultDisplay.classificationText(result));
         promptRouteLabel.setText(PromptResultDisplay.routeText(result));
         promptResponseArea.setText(result.promptResult().response());
+        loadPromptHistory(result.promptResult().chatId());
         refreshChatsAfterPrompt(result);
+    }
+
+    private void refreshPromptResumeChoices(Project project) {
+        promptResumeChatChoice.getSelectionModel().clearSelection();
+        promptResumeChatChoice.setItems(FXCollections.observableArrayList());
+        promptHistoryArea.clear();
+        if (project == null) {
+            return;
+        }
+        backgroundActions.runValue(null, null,
+                () -> controller.listPromptResumeCandidates(project),
+                chats -> promptResumeChatChoice.setItems(FXCollections.observableArrayList(chats)));
+    }
+
+    private void loadPromptHistory(Chat chat) {
+        if (chat == null) {
+            promptHistoryArea.clear();
+            return;
+        }
+        loadPromptHistory(chat.id());
+        String title = chat.title() == null || chat.title().isBlank() ? "chat-" + chat.id() : chat.title();
+        promptConversationField.setText(ChatMapViewBuilder.safeFileName(title));
+    }
+
+    private void loadPromptHistory(long chatId) {
+        backgroundActions.runValue("Loading prompt history...", null,
+                () -> controller.loadChatDetails(chatId),
+                details -> promptHistoryArea.setText(details
+                        .map(PromptResultDisplay::historyText)
+                        .orElse("")));
     }
 
     private void refreshChatsAfterPrompt(PromptRoutingResult result) {
@@ -440,6 +480,8 @@ public final class ChatMapApp extends Application {
                     tagChoice.setItems(FXCollections.observableArrayList(choices.tags()));
                     if (!choices.projects().isEmpty() && promptProjectChoice.getValue() == null) {
                         promptProjectChoice.getSelectionModel().selectFirst();
+                    } else {
+                        refreshPromptResumeChoices(promptProjectChoice.getValue());
                     }
                 });
     }
