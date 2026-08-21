@@ -21,6 +21,7 @@ import chatmap.application.port.persistence.ChatStore;
 import chatmap.application.port.persistence.MessageStore;
 import chatmap.application.port.persistence.ProjectStore;
 import chatmap.application.port.persistence.PromptRouteStore;
+import chatmap.application.port.persistence.RelatedProjectStore;
 import chatmap.application.port.persistence.SearchStore;
 import chatmap.application.port.persistence.SummaryStore;
 import chatmap.application.port.persistence.TagStore;
@@ -45,6 +46,7 @@ import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 import chatmap.infrastructure.persistence.sqlite.MessageRepository;
 import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
 import chatmap.infrastructure.persistence.sqlite.PromptRouteRepository;
+import chatmap.infrastructure.persistence.sqlite.RelatedProjectRepository;
 import chatmap.infrastructure.persistence.sqlite.SearchRepository;
 import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
 import chatmap.infrastructure.persistence.sqlite.TagRepository;
@@ -60,6 +62,7 @@ public record ServiceGraph(
         ChatStore chats,
         MessageStore messages,
         ProjectStore projects,
+        RelatedProjectStore relatedProjects,
         PromptRouteStore promptRoutes,
         TagStore tags,
         SummaryStore summaries,
@@ -111,6 +114,7 @@ public record ServiceGraph(
         ChatRepository chats = new ChatRepository(connection);
         MessageRepository messages = new MessageRepository(connection);
         ProjectRepository projects = new ProjectRepository(connection);
+        RelatedProjectRepository relatedProjects = new RelatedProjectRepository(connection);
         PromptRouteRepository promptRoutes = new PromptRouteRepository(connection);
         TagRepository tags = new TagRepository(connection);
         SummaryRepository summaries = new SummaryRepository(connection);
@@ -129,7 +133,7 @@ public record ServiceGraph(
         ExportService exportService = new ExportService(
                 chats, messages, projects, tags, new MarkdownExporter(), new HandoffExporter());
         SearchService searchService = new SearchService(search);
-        ProjectService projectService = new ProjectService(projects, chats);
+        ProjectService projectService = new ProjectService(projects, chats, relatedProjects);
         TagService tagService = new TagService(tags, chats);
         PromptService promptService = new PromptService(
                 integrations.promptProviders(),
@@ -144,8 +148,8 @@ public record ServiceGraph(
                 promptRoutes,
                 java.time.Clock.systemUTC());
 
-        return new ServiceGraph(connection, chats, messages, projects, promptRoutes, tags, summaries, search,
-                importService, archiveImportService, conversationInventoryService,
+        return new ServiceGraph(connection, chats, messages, projects, relatedProjects, promptRoutes, tags,
+                summaries, search, importService, archiveImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
                 exportService, searchService, projectService, tagService, promptService, promptRouterService);
     }

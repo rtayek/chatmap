@@ -45,7 +45,7 @@ public final class SeedWorkspaceProjectsCli {
         try {
             List<Project> projects = execute(parsedArguments, seedSet, Clock.systemUTC());
             for (Project project : projects) {
-                System.out.println(project.id() + " " + project.name() + " " + project.repositoryPath());
+                System.out.println(project.id() + " " + project.name() + " " + project.localPath());
             }
         } catch (Exception e) {
             System.err.println("Could not seed projects: " + e.getMessage());
@@ -70,7 +70,7 @@ public final class SeedWorkspaceProjectsCli {
             List<Project> projects = new ArrayList<>();
             for (ProjectSeed seed : seeds) {
                 projects.add(context.services().projectService().findOrCreate(
-                        seed.name(), DESCRIPTION, timestamp, seed.repositoryPath().toString()));
+                        seed.name(), DESCRIPTION, timestamp, seed.localPath().toString()));
             }
             return List.copyOf(projects);
         }
@@ -79,12 +79,12 @@ public final class SeedWorkspaceProjectsCli {
     private static List<ProjectSeed> seeds(Map<String, Path> projectPaths) {
         List<ProjectSeed> seeds = new ArrayList<>();
         for (Map.Entry<String, Path> projectPath : projectPaths.entrySet()) {
-            Path repositoryPath = projectPath.getValue().toAbsolutePath().normalize();
-            if (!Files.isDirectory(repositoryPath)) {
+            Path localPath = projectPath.getValue().toAbsolutePath().normalize();
+            if (!Files.isDirectory(localPath)) {
                 throw new IllegalArgumentException("Project directory does not exist: "
-                        + projectPath.getKey() + "=" + repositoryPath);
+                        + projectPath.getKey() + "=" + localPath);
             }
-            seeds.add(new ProjectSeed(projectPath.getKey(), repositoryPath));
+            seeds.add(new ProjectSeed(projectPath.getKey(), localPath));
         }
         seeds.sort(Comparator.comparing(ProjectSeed::name, String.CASE_INSENSITIVE_ORDER));
         return List.copyOf(seeds);
@@ -102,7 +102,7 @@ public final class SeedWorkspaceProjectsCli {
                 workspace = Path.of(value);
             } else if ("--project".equals(option)) {
                 ProjectSeed seed = parseProjectSeed(value);
-                projectOverrides.put(seed.name(), seed.repositoryPath());
+                projectOverrides.put(seed.name(), seed.localPath());
             } else {
                 throw new IllegalArgumentException("Unknown option: " + option);
             }
@@ -158,6 +158,6 @@ public final class SeedWorkspaceProjectsCli {
         }
     }
 
-    private record ProjectSeed(String name, Path repositoryPath) {
+    private record ProjectSeed(String name, Path localPath) {
     }
 }

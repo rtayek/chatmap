@@ -16,12 +16,16 @@ class ProjectTest {
     }
 
     @Test
-    void normalizesOptionalRepositoryPath() {
+    void normalizesOptionalLocalAndRemotePaths() {
         Project missing = new Project(0, "Foo", null, " ", "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z");
-        Project present = new Project(0, "Foo", null, " C:/work/foo ", "2026-08-20T00:00:00Z",
-                "2026-08-20T00:00:00Z");
+        Project present = new Project(0, "Foo", null, " C:/work/foo ", " https://github.com/rtayek/foo ",
+                "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z");
 
         assertEquals(null, missing.repositoryPath());
+        assertEquals(null, missing.localPath());
+        assertEquals(null, missing.remoteUrl());
         assertEquals("C:/work/foo", present.repositoryPath());
+        assertEquals("C:/work/foo", present.localPath());
+        assertEquals("https://github.com/rtayek/foo", present.remoteUrl());
     }
 }

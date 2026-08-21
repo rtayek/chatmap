@@ -292,6 +292,29 @@ public final class ChatMapController {
         return locked(() -> listState.showSearchResults(matches, formatFilterStatus(matches.size())));
     }
 
+    public ChatListState.Snapshot addRelatedProject(long chatId, long projectId) throws SQLException {
+        projectService.addRelatedProject(chatId, projectId);
+        return refreshCurrent("Related project added", chatId);
+    }
+
+    public ChatListState.Snapshot removeRelatedProject(long chatId, long projectId) throws SQLException {
+        projectService.removeRelatedProject(chatId, projectId);
+        return refreshCurrent("Related project removed", chatId);
+    }
+
+    public List<Project> listRelatedProjects(long chatId) throws SQLException {
+        return projectService.listRelatedProjects(chatId);
+    }
+
+    public ChatListState.Snapshot filterByRelatedProject(long projectId) throws SQLException {
+        ChatFilterCriteria criteria = locked(() -> {
+            filterCriteria = filterCriteria.withRelatedProjectId(projectId);
+            return filterCriteria;
+        });
+        List<SearchResult> matches = searchService.searchResults(criteria.query(), criteria.toSearchOptions());
+        return locked(() -> listState.showSearchResults(matches, formatFilterStatus(matches.size())));
+    }
+
     public List<Tag> listTags() throws SQLException {
         return tagService.listAll();
     }

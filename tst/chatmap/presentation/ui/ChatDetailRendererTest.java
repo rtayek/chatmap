@@ -10,6 +10,7 @@ import chatmap.domain.Chat;
 import chatmap.domain.ChatSummary;
 import chatmap.domain.Message;
 import chatmap.domain.MessageRole;
+import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Source;
 import chatmap.application.model.ChatExportModel;
@@ -34,12 +35,17 @@ final class ChatDetailRendererTest {
         ChatSummary summary = new ChatSummary(3, chat.id(), "Short summary",
                 "claude", "2026-08-08T00:01:00Z", "hash");
 
-        String rendered = ChatDetailRenderer.render(model, summary);
+        Project relatedProject = new Project(1, "Related", null,
+                "2026-08-08T00:00:00Z", "2026-08-08T00:00:00Z");
+
+        String rendered = ChatDetailRenderer.render(model, summary, List.of(relatedProject));
 
         assertEquals("""
                 Planning
                 Source: ChatGPT web
                 Imported: 2026-08-08T00:00:00Z
+
+                Related Projects: Related
 
                 LLM Summary (claude): Short summary
 

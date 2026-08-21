@@ -31,9 +31,9 @@ public record ProjectContext(
         if (project.id() <= 0) {
             throw new IllegalArgumentException("project must have a stable persisted id");
         }
-        Path path = project.repositoryPath() == null || project.repositoryPath().isBlank()
+        Path path = project.localPath() == null || project.localPath().isBlank()
                 ? null
-                : Path.of(project.repositoryPath());
+                : Path.of(project.localPath());
         return new ProjectContext(project.id(), "chatmap", project.name(), Optional.ofNullable(path));
     }
 

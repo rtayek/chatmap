@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS projects (
     name        TEXT NOT NULL,
     description TEXT,
     repositoryPath TEXT,
+    localPath TEXT,
+    remoteUrl TEXT,
     createdAt   TEXT NOT NULL,
     updatedAt   TEXT NOT NULL
 );
@@ -66,6 +68,14 @@ CREATE TABLE IF NOT EXISTS chatTags (
 );
 
 CREATE INDEX IF NOT EXISTS chatTagsTagIndex ON chatTags(tagId);
+
+CREATE TABLE IF NOT EXISTS chatRelatedProjects (
+    chatId    INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    PRIMARY KEY (chatId, projectId)
+);
+
+CREATE INDEX IF NOT EXISTS chatRelatedProjectsProjectIndex ON chatRelatedProjects(projectId);
 
 -- LLM-generated summaries. Derived artifacts only: never referenced by
 -- messages.text or used to rewrite it. A chat may accumulate more than one

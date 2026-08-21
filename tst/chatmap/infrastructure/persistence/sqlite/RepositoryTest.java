@@ -49,17 +49,23 @@ class RepositoryTest {
 
     @Test
     void createsUpdatesAndDeletesProject() throws Exception {
-        Project created = projects.insert(new Project(0, "Work", "Initial",
+        Project created = projects.insert(new Project(0, "Work", "Initial", null,
+                "C:/work/project", "https://github.com/rtayek/project",
                 "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
 
         assertEquals("Work", projects.findById(created.id()).orElseThrow().name());
+        assertEquals("C:/work/project", projects.findByLocalPath("C:/work/project").orElseThrow().localPath());
+        assertEquals("https://github.com/rtayek/project", created.remoteUrl());
 
-        projects.update(new Project(created.id(), "Personal", "Updated",
+        projects.update(new Project(created.id(), "Personal", "Updated", null,
+                "C:/work/personal", "https://github.com/rtayek/personal",
                 created.createdAt(), "2026-07-06T01:00:00Z"));
 
         Project updated = projects.findById(created.id()).orElseThrow();
         assertEquals("Personal", updated.name());
         assertEquals("Updated", updated.description());
+        assertEquals("C:/work/personal", updated.localPath());
+        assertEquals("https://github.com/rtayek/personal", updated.remoteUrl());
 
         projects.delete(created.id());
 

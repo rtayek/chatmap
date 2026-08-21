@@ -53,15 +53,15 @@ class SeedWorkspaceProjectsCliTest {
 
         assertEquals(PROJECT_NAMES, projects.stream().map(Project::name).toList());
         assertEquals(workspace.resolve("cjatmanager").toAbsolutePath().normalize().toString(),
-                projects.getFirst().repositoryPath());
+                projects.getFirst().localPath());
 
         try (Connection conn = new Database("jdbc:sqlite:" + home.resolve("chatmap.db")).openAndInitialize()) {
             ProjectRepository repository = new ProjectRepository(conn);
             assertEquals(PROJECT_NAMES, repository.findAll().stream().map(Project::name).toList());
             assertEquals(dotfiles.toAbsolutePath().normalize().toString(),
-                    repository.findByName("dotfiles").orElseThrow().repositoryPath());
+                    repository.findByName("dotfiles").orElseThrow().localPath());
             assertEquals(workspace.resolve("watchais").toAbsolutePath().normalize().toString(),
-                    repository.findByName("watchais").orElseThrow().repositoryPath());
+                    repository.findByName("watchais").orElseThrow().localPath());
         }
     }
 
@@ -116,7 +116,7 @@ class SeedWorkspaceProjectsCliTest {
         try (Connection conn = new Database("jdbc:sqlite:" + home.resolve("chatmap.db")).openAndInitialize()) {
             ProjectRepository repository = new ProjectRepository(conn);
             assertEquals(utilOverride.toAbsolutePath().normalize().toString(),
-                    repository.findByName("util").orElseThrow().repositoryPath());
+                    repository.findByName("util").orElseThrow().localPath());
         }
     }
 

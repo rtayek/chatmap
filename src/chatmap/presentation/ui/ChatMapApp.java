@@ -37,6 +37,7 @@ public final class ChatMapApp extends Application {
     private TextArea detail;
     private TextField searchField;
     private ComboBox<Project> projectChoice;
+    private ComboBox<Project> relatedProjectChoice;
     private ComboBox<Project> promptProjectChoice;
     private ComboBox<Tag> tagChoice;
     private TextField promptConversationField;
@@ -107,6 +108,12 @@ public final class ChatMapApp extends Application {
                 this::reportError);
         projectChoice = projectBarWidgets.projectChoice();
 
+        ChatMapViewBuilder.RelatedProjectBarWidgets relatedProjectBarWidgets =
+                ChatMapViewBuilder.createRelatedProjectBar(
+                        this::addRelatedProject, this::removeRelatedProject, this::filterByRelatedProject,
+                        this::clearSearchAndFilters, this::reportError);
+        relatedProjectChoice = relatedProjectBarWidgets.relatedProjectChoice();
+
         ChatMapViewBuilder.TagBarWidgets tagBarWidgets = ChatMapViewBuilder.createTagBar(
                 this::createTag, this::addTag, this::removeTag, this::filterByTag,
                 this::clearSearchAndFilters, this::reportError);
@@ -125,8 +132,8 @@ public final class ChatMapApp extends Application {
         SplitPane content = new SplitPane(chatList, detail);
         content.setDividerPositions(0.32);
         root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.toolBar(), searchBarWidgets.searchBar(),
-                projectBarWidgets.projectBar(), tagBarWidgets.tagBar(), promptPaneWidgets.promptPane(),
-                content, status);
+                projectBarWidgets.projectBar(), relatedProjectBarWidgets.relatedProjectBar(),
+                tagBarWidgets.tagBar(), promptPaneWidgets.promptPane(), content, status);
 
         refreshOrganizationChoices();
         runInBackground("Loading chats...", null, () -> controller.loadAllChats());
@@ -349,6 +356,36 @@ public final class ChatMapApp extends Application {
         runInBackground("Filtering...", null, () -> controller.filterByProject(project.id()));
     }
 
+    private void addRelatedProject() {
+        Long chatId = selection.selectedChatId();
+        Project project = relatedProjectChoice.getValue();
+        if (chatId == null || project == null) {
+            status.setText("Select a chat and related project.");
+            return;
+        }
+        runInBackground("Adding related project...", null, () -> controller.addRelatedProject(chatId, project.id()));
+    }
+
+    private void removeRelatedProject() {
+        Long chatId = selection.selectedChatId();
+        Project project = relatedProjectChoice.getValue();
+        if (chatId == null || project == null) {
+            status.setText("Select a chat and related project.");
+            return;
+        }
+        runInBackground("Removing related project...", null,
+                () -> controller.removeRelatedProject(chatId, project.id()));
+    }
+
+    private void filterByRelatedProject() {
+        Project project = relatedProjectChoice.getValue();
+        if (project == null) {
+            status.setText("Select a related project.");
+            return;
+        }
+        runInBackground("Filtering...", null, () -> controller.filterByRelatedProject(project.id()));
+    }
+
     private void createTag() {
         Optional<String> name = requestName("New tag", "Tag name");
         if (name.isEmpty()) {
@@ -399,6 +436,7 @@ public final class ChatMapApp extends Application {
                     var projects = FXCollections.observableArrayList(choices.projects());
                     projectChoice.setItems(projects);
                     promptProjectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
+                    relatedProjectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
                     tagChoice.setItems(FXCollections.observableArrayList(choices.tags()));
                     if (!choices.projects().isEmpty() && promptProjectChoice.getValue() == null) {
                         promptProjectChoice.getSelectionModel().selectFirst();

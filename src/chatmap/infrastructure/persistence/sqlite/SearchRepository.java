@@ -55,6 +55,9 @@ public final class SearchRepository implements SearchStore {
             if (filters.tagId() != null) {
                 sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
             }
+            if (filters.relatedProjectId() != null) {
+                sql.append("JOIN chatRelatedProjects crp ON crp.chatId = c.id ");
+            }
             sql.append("WHERE 1 = 1 ");
             appendFilterConditions(sql, filters);
             sql.append("ORDER BY c.importedAt, c.id");
@@ -95,6 +98,9 @@ public final class SearchRepository implements SearchStore {
             sql.append("LEFT JOIN projects p ON p.id = c.projectId ");
             if (filters.tagId() != null) {
                 sql.append("JOIN chatTags ct ON ct.chatId = c.id ");
+            }
+            if (filters.relatedProjectId() != null) {
+                sql.append("JOIN chatRelatedProjects crp ON crp.chatId = c.id ");
             }
             sql.append("WHERE messageFts MATCH ? ");
             appendFilterConditions(sql, filters);
@@ -188,6 +194,9 @@ public final class SearchRepository implements SearchStore {
         if (filters.tagId() != null) {
             sql.append("AND ct.tagId = ? ");
         }
+        if (filters.relatedProjectId() != null) {
+            sql.append("AND crp.projectId = ? ");
+        }
         if (filters.archived() != null) {
             sql.append("AND c.archived = ? ");
         }
@@ -201,6 +210,9 @@ public final class SearchRepository implements SearchStore {
         }
         if (filters.tagId() != null) {
             ps.setLong(parameter++, filters.tagId());
+        }
+        if (filters.relatedProjectId() != null) {
+            ps.setLong(parameter++, filters.relatedProjectId());
         }
         if (filters.archived() != null) {
             ps.setInt(parameter++, filters.archived() ? 1 : 0);

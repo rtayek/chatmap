@@ -102,6 +102,32 @@ class DatabaseMigrationTest {
     }
 
     @Test
+    void migrationBackfillsProjectLocalPathAndRemoteUrlAndCreatesRelatedProjectsTable() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createSchemaWithRepositoryPath(conn);
+            insertProjectWithRepositoryPath(conn, "Local", "C:/work/local", "2026-08-21T00:00:00Z");
+            insertProjectWithRepositoryPath(conn, "Remote", "https://github.com/rtayek/chatmap",
+                    "2026-08-21T00:01:00Z");
+            insertProjectWithRepositoryPath(conn, "GitSsh", "git@github.com:rtayek/chatmap.git",
+                    "2026-08-21T00:02:00Z");
+
+            Database.applyMigrations(conn);
+
+            ProjectRepository projects = new ProjectRepository(conn);
+            Project local = projects.findByName("Local").orElseThrow();
+            Project remote = projects.findByName("Remote").orElseThrow();
+            Project gitSsh = projects.findByName("GitSsh").orElseThrow();
+            assertEquals("C:/work/local", local.localPath());
+            assertEquals(null, local.remoteUrl());
+            assertEquals(null, remote.localPath());
+            assertEquals("https://github.com/rtayek/chatmap", remote.remoteUrl());
+            assertEquals(null, gitSsh.localPath());
+            assertEquals("git@github.com:rtayek/chatmap.git", gitSsh.remoteUrl());
+            assertTrue(tables(conn).contains("chatRelatedProjects"));
+        }
+    }
+
+    @Test
     void initializeMergesPreExistingDuplicateContentHashChatsBeforeAddingTheUniqueIndex() throws Exception {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
             try (Statement st = conn.createStatement()) {
@@ -114,12 +140,14 @@ class DatabaseMigrationTest {
             // to verify that organization is carried onto the survivor, not lost.
             Database.applySchema(conn);
             long projectId = insertOldProject(conn, "Some Project", "2026-08-10T00:00:00Z");
+            long relatedProjectId = insertOldProject(conn, "Related Project", "2026-08-10T00:00:00Z");
             long tagId = insertTag(conn, "important");
             long survivorId = insertChatWithContentHash(conn, "plainText", "hash-1", "Survivor",
                     "2026-08-10T00:00:00Z");
             long duplicateId = insertChatWithContentHash(conn, "plainText", "hash-1", "Duplicate",
                     "2026-08-10T00:01:00Z");
             assignProject(conn, duplicateId, projectId);
+            assignRelatedProject(conn, duplicateId, relatedProjectId);
             assignTag(conn, duplicateId, tagId);
             insertSummary(conn, duplicateId, "a summary", "claude", "2026-08-10T00:02:00Z");
 
@@ -134,6 +162,10 @@ class DatabaseMigrationTest {
             TagRepository tags = new TagRepository(conn);
             assertEquals(List.of("important"), tags.findByChat(survivorId).stream().map(Tag::name).toList(),
                     "duplicate's tag carried over");
+
+            RelatedProjectRepository relatedProjects = new RelatedProjectRepository(conn);
+            assertEquals(List.of("Related Project"), relatedProjects.findByChat(survivorId)
+                    .stream().map(Project::name).toList(), "duplicate's related project carried over");
 
             SummaryRepository summaries = new SummaryRepository(conn);
             assertEquals(1, summaries.findAllForChat(survivorId).size(), "duplicate's summary reassigned, not lost");
@@ -184,6 +216,15 @@ class DatabaseMigrationTest {
         try (PreparedStatement ps = conn.prepareStatement("UPDATE chats SET projectId = ? WHERE id = ?")) {
             ps.setLong(1, projectId);
             ps.setLong(2, chatId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void assignRelatedProject(Connection conn, long chatId, long projectId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO chatRelatedProjects (chatId, projectId) VALUES (?, ?)")) {
+            ps.setLong(1, chatId);
+            ps.setLong(2, projectId);
             ps.executeUpdate();
         }
     }
@@ -278,6 +319,24 @@ class DatabaseMigrationTest {
         }
     }
 
+    private static long insertProjectWithRepositoryPath(Connection conn, String name, String repositoryPath,
+            String timestamp) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO projects (name, description, repositoryPath, createdAt, updatedAt) "
+                        + "VALUES (?, NULL, ?, ?, ?)",
+                Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, name);
+            ps.setString(2, repositoryPath);
+            ps.setString(3, timestamp);
+            ps.setString(4, timestamp);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
+        }
+    }
+
     private static Chat insertOldChat(Connection conn, long projectId, String title) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "INSERT INTO chats (projectId, source, title, importedAt, archived) VALUES (?, ?, ?, ?, 0)",
@@ -327,10 +386,28 @@ class DatabaseMigrationTest {
         }
     }
 
+    private static void createSchemaWithRepositoryPath(Connection conn) throws Exception {
+        createOldSchema(conn);
+        try (Statement st = conn.createStatement()) {
+            st.execute("ALTER TABLE projects ADD COLUMN repositoryPath TEXT");
+        }
+    }
+
     private static Set<String> columns(Connection conn, String table) throws Exception {
         Set<String> names = new HashSet<>();
         try (Statement st = conn.createStatement();
                 ResultSet rs = st.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                names.add(rs.getString("name"));
+            }
+        }
+        return names;
+    }
+
+    private static Set<String> tables(Connection conn) throws Exception {
+        Set<String> names = new HashSet<>();
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("SELECT name FROM sqlite_master WHERE type = 'table'")) {
             while (rs.next()) {
                 names.add(rs.getString("name"));
             }

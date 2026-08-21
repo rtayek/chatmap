@@ -12,6 +12,8 @@ public record Project(
         String name,
         String description,
         String repositoryPath,
+        String localPath,
+        String remoteUrl,
         String createdAt,
         String updatedAt) {
 
@@ -21,17 +23,29 @@ public record Project(
         }
         name = requireNonblank(name, "name");
         repositoryPath = blankToNull(repositoryPath);
+        localPath = blankToNull(localPath);
+        remoteUrl = blankToNull(remoteUrl);
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
     }
 
+    public Project(long id, String name, String description, String localPath, String remoteUrl,
+            String createdAt, String updatedAt) {
+        this(id, name, description, localPath, localPath, remoteUrl, createdAt, updatedAt);
+    }
+
+    public Project(long id, String name, String description, String repositoryPath,
+            String createdAt, String updatedAt) {
+        this(id, name, description, repositoryPath, repositoryPath, null, createdAt, updatedAt);
+    }
+
     public Project(long id, String name, String description, String createdAt, String updatedAt) {
-        this(id, name, description, null, createdAt, updatedAt);
+        this(id, name, description, null, null, createdAt, updatedAt);
     }
 
     @Override
     public String toString() {
-        return repositoryPath == null ? name : name + " (" + repositoryPath + ")";
+        return localPath == null ? name : name + " (" + localPath + ")";
     }
 
     private static String requireNonblank(String value, String field) {

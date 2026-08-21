@@ -1,6 +1,7 @@
 package chatmap.presentation.ui;
 
 import chatmap.domain.ChatSummary;
+import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.application.model.ChatExportModel;
 import javafx.collections.FXCollections;
@@ -62,18 +63,21 @@ final class ChatMapSelectionCoordinator {
                     controller.selectChat(chatId);
                     ChatExportModel model = controller.loadChatDetails(chatId).orElse(null);
                     ChatSummary summary = model == null ? null : controller.latestSummary(chatId).orElse(null);
-                    return new ChatDetail(model, summary);
+                    java.util.List<Project> relatedProjects = model == null
+                            ? java.util.List.of()
+                            : controller.listRelatedProjects(chatId);
+                    return new ChatDetail(model, summary, relatedProjects);
                 },
-                loaded -> renderChatDetail(loaded.model(), loaded.summary()));
+                loaded -> renderChatDetail(loaded.model(), loaded.summary(), loaded.relatedProjects()));
     }
 
-    private void renderChatDetail(ChatExportModel model, ChatSummary summary) {
+    private void renderChatDetail(ChatExportModel model, ChatSummary summary, java.util.List<Project> relatedProjects) {
         if (model == null) {
             detail.clear();
             status.setText("Selected chat no longer exists.");
             return;
         }
-        detail.setText(ChatDetailRenderer.render(model, summary));
+        detail.setText(ChatDetailRenderer.render(model, summary, relatedProjects));
     }
 
     void applyListState(ChatListState.Snapshot snapshot) {
@@ -120,6 +124,6 @@ final class ChatMapSelectionCoordinator {
     }
 
     /** Carrier for a chat's export model plus its latest summary, loaded off the FX thread. */
-    private record ChatDetail(ChatExportModel model, ChatSummary summary) {
+    private record ChatDetail(ChatExportModel model, ChatSummary summary, java.util.List<Project> relatedProjects) {
     }
 }

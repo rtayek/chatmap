@@ -184,8 +184,17 @@ public final class Database {
             addColumnIfMissing(conn, "chats", "providerSessionId", "TEXT");
             addColumnIfMissing(conn, "chatSummaries", "contentHash", "TEXT");
             addColumnIfMissing(conn, "projects", "repositoryPath", "TEXT");
+            addColumnIfMissing(conn, "projects", "localPath", "TEXT");
+            addColumnIfMissing(conn, "projects", "remoteUrl", "TEXT");
+            backfillProjectPaths(conn);
 
             try (Statement st = conn.createStatement()) {
+                st.execute("CREATE TABLE IF NOT EXISTS chatRelatedProjects ("
+                        + "chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE, "
+                        + "projectId INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE, "
+                        + "PRIMARY KEY (chatId, projectId))");
+                st.execute("CREATE INDEX IF NOT EXISTS chatRelatedProjectsProjectIndex "
+                        + "ON chatRelatedProjects(projectId)");
                 st.execute("CREATE TABLE IF NOT EXISTS promptRoutes ("
                         + "id INTEGER PRIMARY KEY, "
                         + "chatId INTEGER NOT NULL REFERENCES chats(id) ON DELETE CASCADE, "
@@ -250,6 +259,8 @@ public final class Database {
                         + "ON projects(name COLLATE NOCASE)");
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsRepositoryPathIndex "
                         + "ON projects(repositoryPath) WHERE repositoryPath IS NOT NULL");
+                st.execute("CREATE UNIQUE INDEX IF NOT EXISTS projectsLocalPathIndex "
+                        + "ON projects(localPath) WHERE localPath IS NOT NULL");
             }
 
             if (previousAutoCommit) {
@@ -277,6 +288,23 @@ public final class Database {
                     }
                 }
             }
+        }
+    }
+
+    private static void backfillProjectPaths(Connection conn) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE projects SET localPath = repositoryPath "
+                        + "WHERE localPath IS NULL AND repositoryPath IS NOT NULL "
+                        + "AND (repositoryPath LIKE '/%' OR repositoryPath LIKE '\\%' "
+                        + "OR repositoryPath GLOB '[A-Za-z]:*')")) {
+            ps.executeUpdate();
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE projects SET remoteUrl = repositoryPath "
+                        + "WHERE remoteUrl IS NULL AND repositoryPath IS NOT NULL "
+                        + "AND (repositoryPath LIKE 'http://%' OR repositoryPath LIKE 'https://%' "
+                        + "OR repositoryPath LIKE 'ssh://%' OR repositoryPath LIKE 'git@%')")) {
+            ps.executeUpdate();
         }
     }
 
@@ -310,6 +338,13 @@ public final class Database {
                     reassign.setLong(1, survivorId);
                     reassign.setLong(2, duplicateId);
                     reassign.executeUpdate();
+                }
+                try (PreparedStatement reassignRelated = conn.prepareStatement(
+                        "INSERT OR IGNORE INTO chatRelatedProjects (chatId, projectId) "
+                                + "SELECT chatId, ? FROM chatRelatedProjects WHERE projectId = ?")) {
+                    reassignRelated.setLong(1, survivorId);
+                    reassignRelated.setLong(2, duplicateId);
+                    reassignRelated.executeUpdate();
                 }
                 try (PreparedStatement delete = conn.prepareStatement("DELETE FROM projects WHERE id = ?")) {
                     delete.setLong(1, duplicateId);
@@ -351,6 +386,7 @@ public final class Database {
             for (long duplicateId : ids.subList(1, ids.size())) {
                 adoptProjectIfMissing(conn, survivorId, duplicateId);
                 mergeChatTags(conn, survivorId, duplicateId);
+                mergeChatRelatedProjects(conn, survivorId, duplicateId);
                 reassignChatSummaries(conn, survivorId, duplicateId);
                 try (PreparedStatement delete = conn.prepareStatement("DELETE FROM chats WHERE id = ?")) {
                     delete.setLong(1, duplicateId);
@@ -374,6 +410,17 @@ public final class Database {
     private static void mergeChatTags(Connection conn, long survivorId, long duplicateId) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "INSERT OR IGNORE INTO chatTags (chatId, tagId) SELECT ?, tagId FROM chatTags WHERE chatId = ?")) {
+            ps.setLong(1, survivorId);
+            ps.setLong(2, duplicateId);
+            ps.executeUpdate();
+        }
+    }
+
+    private static void mergeChatRelatedProjects(Connection conn, long survivorId, long duplicateId)
+            throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT OR IGNORE INTO chatRelatedProjects (chatId, projectId) "
+                        + "SELECT ?, projectId FROM chatRelatedProjects WHERE chatId = ?")) {
             ps.setLong(1, survivorId);
             ps.setLong(2, duplicateId);
             ps.executeUpdate();

@@ -18,16 +18,18 @@ class ChatFilterCriteriaTest {
         assertEquals("", criteria.query());
         assertNull(criteria.projectId());
         assertNull(criteria.tagId());
+        assertNull(criteria.relatedProjectId());
         assertTrue(criteria.isEmpty());
     }
 
     @Test
     void nullQueryTrimsToEmpty() {
-        ChatFilterCriteria criteria = new ChatFilterCriteria(null, 1L, 2L);
+        ChatFilterCriteria criteria = new ChatFilterCriteria(null, 1L, 2L, 3L);
 
         assertEquals("", criteria.query());
         assertEquals(1L, criteria.projectId());
         assertEquals(2L, criteria.tagId());
+        assertEquals(3L, criteria.relatedProjectId());
         assertFalse(criteria.isEmpty());
     }
 
@@ -48,8 +50,15 @@ class ChatFilterCriteriaTest {
         assertEquals(10L, withTag.projectId());
         assertEquals("test query", withTag.query());
 
-        SearchOptions options = withTag.toSearchOptions();
+        ChatFilterCriteria withRelatedProject = withTag.withRelatedProjectId(30L);
+        assertEquals(30L, withRelatedProject.relatedProjectId());
+        assertEquals(20L, withRelatedProject.tagId());
+        assertEquals(10L, withRelatedProject.projectId());
+        assertEquals("test query", withRelatedProject.query());
+
+        SearchOptions options = withRelatedProject.toSearchOptions();
         assertEquals(10L, options.projectId());
         assertEquals(20L, options.tagId());
+        assertEquals(30L, options.relatedProjectId());
     }
 }

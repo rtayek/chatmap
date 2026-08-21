@@ -147,7 +147,7 @@ class SearchServiceTest {
         tags.assignToChat(match.id(), tag.id());
 
         List<SearchResult> results = searchService.searchResults(
-                "", new SearchOptions(project.id(), tag.id(), null));
+                "", new SearchOptions(project.id(), tag.id(), null, null));
 
         assertEquals(List.of(match.id()), results.stream().map(SearchResult::chatId).toList());
     }

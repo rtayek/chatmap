@@ -4,9 +4,10 @@ package chatmap.domain;
 public record SearchOptions(
         Long projectId,
         Long tagId,
+        Long relatedProjectId,
         Boolean archived) {
 
     public static SearchOptions none() {
-        return new SearchOptions(null, null, null);
+        return new SearchOptions(null, null, null, null);
     }
 }

@@ -57,6 +57,7 @@ import chatmap.infrastructure.persistence.sqlite.Database;
 import chatmap.infrastructure.persistence.sqlite.MessageRepository;
 import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
 import chatmap.infrastructure.persistence.sqlite.PromptRouteRepository;
+import chatmap.infrastructure.persistence.sqlite.RelatedProjectRepository;
 import chatmap.infrastructure.persistence.sqlite.SearchRepository;
 import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
 import chatmap.infrastructure.persistence.sqlite.TagRepository;
@@ -80,8 +81,9 @@ class ChatMapControllerTest {
         chats = new ChatRepository(conn);
         messages = new MessageRepository(conn);
         ProjectRepository projects = new ProjectRepository(conn);
+        RelatedProjectRepository relatedProjects = new RelatedProjectRepository(conn);
         TagRepository tags = new TagRepository(conn);
-        projectService = new ProjectService(projects, chats);
+        projectService = new ProjectService(projects, chats, relatedProjects);
         tagService = new TagService(tags, chats);
         ImportService importService = new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader());
         SummaryService summaryService = new SummaryService(chats, messages,
@@ -383,6 +385,25 @@ class ChatMapControllerTest {
         controller.selectChat(assigned.id());
         ChatListState.Snapshot clearedProject = controller.clearProject(assigned.id());
         assertEquals(null, clearedProject.currentItems().getFirst().chat().projectId());
+    }
+
+    @Test
+    void addsRemovesAndFiltersRelatedProjectsWithoutMainProject() throws Exception {
+        Chat related = insertChat("Related", "related target");
+        insertChat("Outside", "related target");
+        Project project = controller.createProject("Related Project");
+
+        ChatListState.Snapshot afterAdd = controller.addRelatedProject(related.id(), project.id());
+        assertEquals(List.of(project), controller.listRelatedProjects(related.id()));
+        assertEquals(null, chats.findById(related.id()).orElseThrow().projectId());
+        assertEquals(related.id(), afterAdd.selectedChatId());
+
+        ChatListState.Snapshot filtered = controller.filterByRelatedProject(project.id());
+        assertEquals(List.of(related.id()), chatIds(filtered));
+
+        ChatListState.Snapshot afterRemoval = controller.removeRelatedProject(related.id(), project.id());
+        assertTrue(controller.listRelatedProjects(related.id()).isEmpty());
+        assertTrue(afterRemoval.currentItems().isEmpty());
     }
 
     @Test

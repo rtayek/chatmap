@@ -17,6 +17,8 @@ public interface ProjectStore {
 
     Optional<Project> findByRepositoryPath(String repositoryPath) throws SQLException;
 
+    Optional<Project> findByLocalPath(String localPath) throws SQLException;
+
     List<Project> findAll() throws SQLException;
 
     void update(Project project) throws SQLException;

@@ -55,6 +55,10 @@ public final class ChatMapViewBuilder {
     public record ProjectBarWidgets(HBox projectBar, ComboBox<Project> projectChoice) {
     }
 
+    /** Widgets from {@link #createRelatedProjectBar} the caller must keep live references to. */
+    public record RelatedProjectBarWidgets(HBox relatedProjectBar, ComboBox<Project> relatedProjectChoice) {
+    }
+
     /** Widgets from {@link #createTagBar} the caller must keep live references to. */
     public record TagBarWidgets(HBox tagBar, ComboBox<Tag> tagChoice) {
     }
@@ -167,6 +171,23 @@ public final class ChatMapViewBuilder {
         return new ProjectBarWidgets(projectBar, projectChoice);
     }
 
+    /** The related-project bar: project choice plus add/remove/filter actions. */
+    public static RelatedProjectBarWidgets createRelatedProjectBar(ThrowingRunnable onAdd,
+            ThrowingRunnable onRemove, ThrowingRunnable onFilter, ThrowingRunnable onClearFilters,
+            Consumer<Exception> errorHandler) {
+        ComboBox<Project> relatedProjectChoice = new ComboBox<>();
+        relatedProjectChoice.setPromptText("Related project");
+        relatedProjectChoice.setConverter(namedProjectConverter());
+        HBox relatedProjectBar = new HBox(8,
+                new Label("Related Project"),
+                relatedProjectChoice,
+                button("Add", onAdd, errorHandler),
+                button("Remove", onRemove, errorHandler),
+                button("Filter", onFilter, errorHandler),
+                button("Clear Filters", onClearFilters, errorHandler));
+        return new RelatedProjectBarWidgets(relatedProjectBar, relatedProjectChoice);
+    }
+
     /** The tag bar: tag choice plus new/add/remove/filter actions and a filters-wide clear. */
     public static TagBarWidgets createTagBar(ThrowingRunnable onNew, ThrowingRunnable onAdd,
             ThrowingRunnable onRemove, ThrowingRunnable onFilter, ThrowingRunnable onClearFilters,
@@ -254,22 +275,23 @@ public final class ChatMapViewBuilder {
         return textArea;
     }
 
-    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar, Node tagBar,
-            Node content, Node status) {
-        return assembleRootPane(toolbar, searchBar, projectBar, tagBar, null, content, status);
+    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar,
+            Node relatedProjectBar, Node tagBar, Node content, Node status) {
+        return assembleRootPane(toolbar, searchBar, projectBar, relatedProjectBar, tagBar, null, content, status);
     }
 
-    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar, Node tagBar,
-            Node promptPane, Node content, Node status) {
+    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar,
+            Node relatedProjectBar, Node tagBar, Node promptPane, Node content, Node status) {
         BorderPane pane = new BorderPane();
         VBox top = promptPane == null
-                ? new VBox(6, toolbar, searchBar, projectBar, tagBar)
-                : new VBox(6, toolbar, searchBar, projectBar, tagBar, promptPane);
+                ? new VBox(6, toolbar, searchBar, projectBar, relatedProjectBar, tagBar)
+                : new VBox(6, toolbar, searchBar, projectBar, relatedProjectBar, tagBar, promptPane);
         pane.setTop(top);
         pane.setCenter(content);
         pane.setBottom(new VBox(status));
         BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
         BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));
+        BorderPane.setMargin(relatedProjectBar, new Insets(0, 8, 0, 8));
         BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));
         if (promptPane != null) {
             BorderPane.setMargin(promptPane, new Insets(0, 8, 0, 8));

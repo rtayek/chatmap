@@ -26,6 +26,7 @@ class SearchRepositoryTest {
     private MessageRepository messages;
     private ProjectRepository projects;
     private TagRepository tags;
+    private RelatedProjectRepository relatedProjects;
     private SearchRepository search;
 
     @BeforeEach
@@ -35,6 +36,7 @@ class SearchRepositoryTest {
         messages = new MessageRepository(conn);
         projects = new ProjectRepository(conn);
         tags = new TagRepository(conn);
+        relatedProjects = new RelatedProjectRepository(conn);
         search = new SearchRepository(conn);
     }
 
@@ -99,8 +101,8 @@ class SearchRepositoryTest {
         messages.insert(new Message(0, active.id(), MessageRole.user, "shared target", 0, null, null));
         messages.insert(new Message(0, archived.id(), MessageRole.user, "shared target", 0, null, null));
 
-        assertEquals(List.of(active), search.searchChatsByMessageText("target", new SearchOptions(null, null, false)));
-        assertEquals(List.of(archived), search.searchChatsByMessageText("target", new SearchOptions(null, null, true)));
+        assertEquals(List.of(active), search.searchChatsByMessageText("target", new SearchOptions(null, null, null, false)));
+        assertEquals(List.of(archived), search.searchChatsByMessageText("target", new SearchOptions(null, null, null, true)));
     }
 
     @Test
@@ -111,7 +113,7 @@ class SearchRepositoryTest {
         messages.insert(new Message(0, match.id(), MessageRole.user, "project target", 0, null, null));
         messages.insert(new Message(0, miss.id(), MessageRole.user, "project target", 0, null, null));
 
-        assertEquals(List.of(match), search.searchChatsByMessageText("target", new SearchOptions(project.id(), null, null)));
+        assertEquals(List.of(match), search.searchChatsByMessageText("target", new SearchOptions(project.id(), null, null, null)));
     }
 
     @Test
@@ -123,7 +125,21 @@ class SearchRepositoryTest {
         messages.insert(new Message(0, match.id(), MessageRole.user, "tag target", 0, null, null));
         messages.insert(new Message(0, miss.id(), MessageRole.user, "tag target", 0, null, null));
 
-        assertEquals(List.of(match), search.searchChatsByMessageText("target", new SearchOptions(null, tag.id(), null)));
+        assertEquals(List.of(match), search.searchChatsByMessageText("target", new SearchOptions(null, tag.id(), null, null)));
+    }
+
+    @Test
+    void relatedProjectFilterWorksWithoutMainProject() throws Exception {
+        Project project = projects.insert(new Project(0, "Related", null,
+                "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Chat match = insertChat("Related Match", null, false, "2026-07-06T00:00:00Z");
+        Chat miss = insertChat("Outside", null, false, "2026-07-06T00:01:00Z");
+        relatedProjects.assignToChat(match.id(), project.id());
+        messages.insert(new Message(0, match.id(), MessageRole.user, "related target", 0, null, null));
+        messages.insert(new Message(0, miss.id(), MessageRole.user, "related target", 0, null, null));
+
+        assertEquals(List.of(match), search.searchChatsByMessageText(
+                "target", new SearchOptions(null, null, project.id(), null)));
     }
 
     @Test
@@ -140,7 +156,7 @@ class SearchRepositoryTest {
         messages.insert(new Message(0, tagOnly.id(), MessageRole.user, "combined target", 0, null, null));
 
         assertEquals(List.of(match), search.searchChatsByMessageText(
-                "target", new SearchOptions(project.id(), tag.id(), null)));
+                "target", new SearchOptions(project.id(), tag.id(), null, null)));
     }
 
     @Test

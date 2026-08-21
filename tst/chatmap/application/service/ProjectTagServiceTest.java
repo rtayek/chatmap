@@ -28,6 +28,7 @@ import chatmap.domain.Tag;
 import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 import chatmap.infrastructure.persistence.sqlite.Database;
 import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
+import chatmap.infrastructure.persistence.sqlite.RelatedProjectRepository;
 import chatmap.infrastructure.persistence.sqlite.TagRepository;
 
 class ProjectTagServiceTest {
@@ -41,9 +42,10 @@ class ProjectTagServiceTest {
     void setUp() throws Exception {
         conn = new Database("jdbc:sqlite::memory:").openAndInitialize();
         ProjectRepository projectRepository = new ProjectRepository(conn);
+        RelatedProjectRepository relatedProjectRepository = new RelatedProjectRepository(conn);
         TagRepository tagRepository = new TagRepository(conn);
         chatRepository = new ChatRepository(conn);
-        projectService = new ProjectService(projectRepository, chatRepository);
+        projectService = new ProjectService(projectRepository, chatRepository, relatedProjectRepository);
         tagService = new TagService(tagRepository, chatRepository);
     }
 
@@ -100,7 +102,7 @@ class ProjectTagServiceTest {
     }
 
     @Test
-    void findOrCreateUsesRepositoryPathAsStableIdentity() throws Exception {
+    void findOrCreateUsesLocalPathAsStableIdentity() throws Exception {
         Project first = projectService.findOrCreate("Foo", "desc",
                 "2026-08-10T00:00:00Z", "C:/work/foo");
         Project second = projectService.findOrCreate("Renamed Foo", "desc",
@@ -108,7 +110,20 @@ class ProjectTagServiceTest {
 
         assertEquals(first.id(), second.id());
         assertEquals("Foo", second.name());
-        assertEquals("C:/work/foo", second.repositoryPath());
+        assertEquals("C:/work/foo", second.localPath());
+        assertEquals(1, projectService.listAll().size());
+    }
+
+    @Test
+    void findOrCreateCanBackfillMissingRemoteUrlOnExistingProject() throws Exception {
+        Project first = projectService.findOrCreate("Foo", "desc",
+                "2026-08-10T00:00:00Z", "C:/work/foo");
+        Project second = projectService.findOrCreate("Foo", "desc",
+                "2026-08-10T00:01:00Z", "C:/work/foo", "https://github.com/rtayek/foo");
+
+        assertEquals(first.id(), second.id());
+        assertEquals("C:/work/foo", second.localPath());
+        assertEquals("https://github.com/rtayek/foo", second.remoteUrl());
         assertEquals(1, projectService.listAll().size());
     }
 
@@ -121,6 +136,17 @@ class ProjectTagServiceTest {
 
         assertEquals(project.id(), context.projectId());
         assertEquals("Foo", context.workingProjectIdentity());
+        assertEquals(Path.of("C:/work/foo"), context.repositoryPath().orElseThrow());
+    }
+
+    @Test
+    void contextForProjectUsesLocalPathNotRemoteUrl() throws Exception {
+        Project project = projectService.create(new Project(0, "Foo", null, null,
+                "C:/work/foo", "https://github.com/rtayek/foo",
+                "2026-08-10T00:00:00Z", "2026-08-10T00:00:00Z"));
+
+        ProjectContext context = projectService.contextFor(project);
+
         assertEquals(Path.of("C:/work/foo"), context.repositoryPath().orElseThrow());
     }
 
@@ -205,6 +231,51 @@ class ProjectTagServiceTest {
         assertEquals(List.of(secondAssigned), projectService.listChats(project.id()));
         assertEquals(null, chatRepository.findById(first.id()).orElseThrow().projectId());
         assertEquals(null, chatRepository.findById(outside.id()).orElseThrow().projectId());
+    }
+
+    @Test
+    void addsRemovesListsRelatedProjectsAndKeepsMainProjectIndependent() throws Exception {
+        Project main = projectService.create(new Project(0, "Main", null,
+                "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Project related = projectService.create(new Project(0, "Related", null,
+                "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Chat first = insertChat("First Related", "2026-07-06T00:00:00Z");
+        Chat second = insertChat("Second Related", "2026-07-06T00:01:00Z");
+
+        projectService.assignChat(second.id(), main.id());
+        projectService.addRelatedProject(second.id(), related.id());
+        projectService.addRelatedProject(first.id(), related.id());
+        projectService.addRelatedProject(first.id(), related.id());
+
+        assertEquals(List.of(related), projectService.listRelatedProjects(first.id()));
+        assertEquals(List.of(first.id(), second.id()), projectService.listChatsForRelatedProject(related.id())
+                .stream().map(Chat::id).toList());
+        assertEquals(null, chatRepository.findById(first.id()).orElseThrow().projectId());
+        assertEquals(main.id(), chatRepository.findById(second.id()).orElseThrow().projectId());
+
+        projectService.removeRelatedProject(first.id(), related.id());
+
+        assertTrue(projectService.listRelatedProjects(first.id()).isEmpty());
+        assertEquals(List.of(second.id()), projectService.listChatsForRelatedProject(related.id())
+                .stream().map(Chat::id).toList());
+        assertEquals(null, chatRepository.findById(first.id()).orElseThrow().projectId());
+    }
+
+    @Test
+    void deletingProjectCascadesRelatedLinksAndClearsMainProject() throws Exception {
+        Project project = projectService.create(new Project(0, "Project", null,
+                "2026-07-06T00:00:00Z", "2026-07-06T00:00:00Z"));
+        Chat main = insertChat("Main", "2026-07-06T00:00:00Z");
+        Chat related = insertChat("Related", "2026-07-06T00:01:00Z");
+
+        projectService.assignChat(main.id(), project.id());
+        projectService.addRelatedProject(related.id(), project.id());
+
+        projectService.delete(project.id());
+
+        assertEquals(null, chatRepository.findById(main.id()).orElseThrow().projectId());
+        assertTrue(chatRepository.findById(related.id()).isPresent());
+        assertTrue(projectService.listRelatedProjects(related.id()).isEmpty());
     }
 
     @Test

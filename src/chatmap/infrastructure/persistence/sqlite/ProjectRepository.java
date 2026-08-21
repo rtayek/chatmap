@@ -23,18 +23,21 @@ public final class ProjectRepository implements ProjectStore {
 
     public Project insert(Project project) throws SQLException {
         synchronized (conn) {
-            String sql = "INSERT INTO projects (name, description, repositoryPath, createdAt, updatedAt) "
-                    + "VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO projects (name, description, repositoryPath, localPath, remoteUrl, "
+                    + "createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1, project.name());
                 ps.setString(2, project.description());
                 ps.setString(3, project.repositoryPath());
-                ps.setString(4, project.createdAt());
-                ps.setString(5, project.updatedAt());
+                ps.setString(4, project.localPath());
+                ps.setString(5, project.remoteUrl());
+                ps.setString(6, project.createdAt());
+                ps.setString(7, project.updatedAt());
                 ps.executeUpdate();
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     keys.next();
-                    return new Project(keys.getLong(1), project.name(), project.description(), project.repositoryPath(),
+                    return new Project(keys.getLong(1), project.name(), project.description(),
+                            project.repositoryPath(), project.localPath(), project.remoteUrl(),
                             project.createdAt(), project.updatedAt());
                 }
             }
@@ -43,7 +46,7 @@ public final class ProjectRepository implements ProjectStore {
 
     public Optional<Project> findById(long id) throws SQLException {
         synchronized (conn) {
-            String sql = "SELECT id, name, description, repositoryPath, createdAt, updatedAt FROM projects WHERE id = ?";
+            String sql = selectColumns() + "FROM projects WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setLong(1, id);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -77,14 +80,22 @@ public final class ProjectRepository implements ProjectStore {
 
     @Override
     public Optional<Project> findByRepositoryPath(String repositoryPath) throws SQLException {
+        return findByPathColumn("repositoryPath", repositoryPath);
+    }
+
+    @Override
+    public Optional<Project> findByLocalPath(String localPath) throws SQLException {
+        return findByPathColumn("localPath", localPath);
+    }
+
+    private Optional<Project> findByPathColumn(String column, String path) throws SQLException {
         synchronized (conn) {
-            if (repositoryPath == null || repositoryPath.isBlank()) {
+            if (path == null || path.isBlank()) {
                 return Optional.empty();
             }
-            String sql = "SELECT id, name, description, repositoryPath, createdAt, updatedAt "
-                    + "FROM projects WHERE repositoryPath = ?";
+            String sql = selectColumns() + "FROM projects WHERE " + column + " = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, repositoryPath);
+                ps.setString(1, path);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
                         return Optional.empty();
@@ -113,8 +124,7 @@ public final class ProjectRepository implements ProjectStore {
 
     public List<Project> findAll() throws SQLException {
         synchronized (conn) {
-            String sql = "SELECT id, name, description, repositoryPath, createdAt, updatedAt "
-                    + "FROM projects ORDER BY name COLLATE NOCASE, id";
+            String sql = selectColumns() + "FROM projects ORDER BY name COLLATE NOCASE, id";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                     ResultSet rs = ps.executeQuery()) {
                 List<Project> results = new ArrayList<>();
@@ -128,15 +138,17 @@ public final class ProjectRepository implements ProjectStore {
 
     public void update(Project project) throws SQLException {
         synchronized (conn) {
-            String sql = "UPDATE projects SET name = ?, description = ?, repositoryPath = ?, createdAt = ?, "
-                    + "updatedAt = ? WHERE id = ?";
+            String sql = "UPDATE projects SET name = ?, description = ?, repositoryPath = ?, localPath = ?, "
+                    + "remoteUrl = ?, createdAt = ?, updatedAt = ? WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setString(1, project.name());
                 ps.setString(2, project.description());
                 ps.setString(3, project.repositoryPath());
-                ps.setString(4, project.createdAt());
-                ps.setString(5, project.updatedAt());
-                ps.setLong(6, project.id());
+                ps.setString(4, project.localPath());
+                ps.setString(5, project.remoteUrl());
+                ps.setString(6, project.createdAt());
+                ps.setString(7, project.updatedAt());
+                ps.setLong(8, project.id());
                 ps.executeUpdate();
             }
         }
@@ -157,7 +169,13 @@ public final class ProjectRepository implements ProjectStore {
                 rs.getString("name"),
                 rs.getString("description"),
                 rs.getString("repositoryPath"),
+                rs.getString("localPath"),
+                rs.getString("remoteUrl"),
                 rs.getString("createdAt"),
                 rs.getString("updatedAt"));
+    }
+
+    private static String selectColumns() {
+        return "SELECT id, name, description, repositoryPath, localPath, remoteUrl, createdAt, updatedAt ";
     }
 }
