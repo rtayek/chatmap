@@ -15,7 +15,6 @@ import chatmap.application.service.PromptRoutingResult;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
-import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -24,6 +23,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -58,6 +58,18 @@ public final class ChatMapApp extends Application {
     private MenuItem inventoryItem;
     private MenuItem summarizeItem;
     private Consumer<Integer> selectFontSize;
+    private RadioMenuItem promptModeItem;
+    private RadioMenuItem browseModeItem;
+    private CheckMenuItem searchBarToggle;
+    private CheckMenuItem projectBarToggle;
+    private CheckMenuItem relatedProjectBarToggle;
+    private CheckMenuItem tagBarToggle;
+    private Node searchBar;
+    private Node projectBar;
+    private Node relatedProjectBar;
+    private Node tagBar;
+    private Node promptContent;
+    private Node browseContent;
     private FontSizeState fontSizeState;
     private BorderPane root;
     private Label status;
@@ -98,12 +110,20 @@ public final class ChatMapApp extends Application {
                 this::showConversationInventory,
                 this::summarizeSelectedChat,
                 Platform::exit,
+                this::showPromptMode,
+                this::showBrowseMode,
                 size -> applyFontSize(fontSizeState.set(size)),
                 this::reportError);
         getLatestChatItem = toolbarWidgets.getLatestChatItem();
         inventoryItem = toolbarWidgets.inventoryItem();
         summarizeItem = toolbarWidgets.summarizeItem();
         selectFontSize = toolbarWidgets.selectFontSize();
+        promptModeItem = toolbarWidgets.promptModeItem();
+        browseModeItem = toolbarWidgets.browseModeItem();
+        searchBarToggle = toolbarWidgets.searchBarToggle();
+        projectBarToggle = toolbarWidgets.projectBarToggle();
+        relatedProjectBarToggle = toolbarWidgets.relatedProjectBarToggle();
+        tagBarToggle = toolbarWidgets.tagBarToggle();
 
         selection = new ChatMapSelectionCoordinator(controller, backgroundActions, chatList, detail, status,
                 toolbarWidgets.exportChatItem(), summarizeItem);
@@ -111,22 +131,26 @@ public final class ChatMapApp extends Application {
         ChatMapViewBuilder.SearchBarWidgets searchBarWidgets = ChatMapViewBuilder.createSearchBar(
                 this::searchChats, this::clearSearchAndFilters, this::reportError);
         searchField = searchBarWidgets.searchField();
+        searchBar = searchBarWidgets.searchBar();
 
         ChatMapViewBuilder.ProjectBarWidgets projectBarWidgets = ChatMapViewBuilder.createProjectBar(
                 this::createProject, this::assignProject, this::clearProject, this::filterByProject,
                 this::reportError);
         projectChoice = projectBarWidgets.projectChoice();
+        projectBar = projectBarWidgets.projectBar();
 
         ChatMapViewBuilder.RelatedProjectBarWidgets relatedProjectBarWidgets =
                 ChatMapViewBuilder.createRelatedProjectBar(
                         this::addRelatedProject, this::removeRelatedProject, this::filterByRelatedProject,
                         this::clearSearchAndFilters, this::reportError);
         relatedProjectChoice = relatedProjectBarWidgets.relatedProjectChoice();
+        relatedProjectBar = relatedProjectBarWidgets.relatedProjectBar();
 
         ChatMapViewBuilder.TagBarWidgets tagBarWidgets = ChatMapViewBuilder.createTagBar(
                 this::createTag, this::addTag, this::removeTag, this::filterByTag,
                 this::clearSearchAndFilters, this::reportError);
         tagChoice = tagBarWidgets.tagChoice();
+        tagBar = tagBarWidgets.tagBar();
 
         ChatMapViewBuilder.PromptPaneWidgets promptPaneWidgets = ChatMapViewBuilder.createPromptPane(
                 this::sendPrompt, this::reportError);
@@ -144,19 +168,18 @@ public final class ChatMapApp extends Application {
         promptResumeChatChoice.getSelectionModel().selectedItemProperty()
                 .addListener((observable, previous, selectedChat) -> loadPromptHistory(selectedChat));
 
-        bindBarVisibility(searchBarWidgets.searchBar(), toolbarWidgets.searchBarToggle());
-        bindBarVisibility(projectBarWidgets.projectBar(), toolbarWidgets.projectBarToggle());
-        bindBarVisibility(relatedProjectBarWidgets.relatedProjectBar(), toolbarWidgets.relatedProjectBarToggle());
-        bindBarVisibility(tagBarWidgets.tagBar(), toolbarWidgets.tagBarToggle());
+        bindBarVisibility(searchBar, searchBarToggle);
+        bindBarVisibility(projectBar, projectBarToggle);
+        bindBarVisibility(relatedProjectBar, relatedProjectBarToggle);
+        bindBarVisibility(tagBar, tagBarToggle);
 
         SplitPane chatContent = new SplitPane(chatList, detail);
         chatContent.setDividerPositions(0.32);
-        SplitPane content = new SplitPane(promptPaneWidgets.promptPane(), chatContent);
-        content.setOrientation(Orientation.VERTICAL);
-        content.setDividerPositions(0.25);
-        root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.menuBar(), searchBarWidgets.searchBar(),
-                projectBarWidgets.projectBar(), relatedProjectBarWidgets.relatedProjectBar(),
-                tagBarWidgets.tagBar(), content, status);
+        browseContent = chatContent;
+        promptContent = promptPaneWidgets.promptPane();
+        root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.menuBar(), searchBar, projectBar,
+                relatedProjectBar, tagBar, promptContent, status);
+        showPromptMode();
 
         refreshOrganizationChoices();
         runInBackground("Loading chats...", null, () -> controller.loadAllChats());
@@ -530,9 +553,49 @@ public final class ChatMapApp extends Application {
         }
     }
 
-    private static void bindBarVisibility(Node bar, CheckMenuItem toggle) {
-        bar.visibleProperty().bind(toggle.selectedProperty());
-        bar.managedProperty().bind(toggle.selectedProperty());
+    private void showPromptMode() {
+        if (root == null) {
+            return;
+        }
+        root.setCenter(promptContent);
+        setVisibleManaged(searchBar, false);
+        setVisibleManaged(projectBar, false);
+        setVisibleManaged(relatedProjectBar, false);
+        setVisibleManaged(tagBar, false);
+        if (promptModeItem != null) {
+            promptModeItem.setSelected(true);
+        }
+    }
+
+    private void showBrowseMode() {
+        if (root == null) {
+            return;
+        }
+        root.setCenter(browseContent);
+        applyBrowseBarVisibility();
+        if (browseModeItem != null) {
+            browseModeItem.setSelected(true);
+        }
+    }
+
+    private void applyBrowseBarVisibility() {
+        setVisibleManaged(searchBar, searchBarToggle == null || searchBarToggle.isSelected());
+        setVisibleManaged(projectBar, projectBarToggle == null || projectBarToggle.isSelected());
+        setVisibleManaged(relatedProjectBar, relatedProjectBarToggle == null || relatedProjectBarToggle.isSelected());
+        setVisibleManaged(tagBar, tagBarToggle == null || tagBarToggle.isSelected());
+    }
+
+    private void bindBarVisibility(Node bar, CheckMenuItem toggle) {
+        toggle.selectedProperty().addListener((observable, wasSelected, isSelected) -> {
+            if (browseModeItem != null && browseModeItem.isSelected()) {
+                setVisibleManaged(bar, isSelected);
+            }
+        });
+    }
+
+    private static void setVisibleManaged(Node node, boolean visible) {
+        node.setVisible(visible);
+        node.setManaged(visible);
     }
 
     private void registerFontShortcuts(Scene scene) {

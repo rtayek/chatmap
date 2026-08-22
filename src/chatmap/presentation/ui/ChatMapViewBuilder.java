@@ -9,7 +9,6 @@ import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import javafx.beans.value.ChangeListener;
-import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -56,6 +55,8 @@ public final class ChatMapViewBuilder {
             MenuItem inventoryItem,
             MenuItem summarizeItem,
             Consumer<Integer> selectFontSize,
+            RadioMenuItem promptModeItem,
+            RadioMenuItem browseModeItem,
             CheckMenuItem searchBarToggle,
             CheckMenuItem projectBarToggle,
             CheckMenuItem relatedProjectBarToggle,
@@ -135,6 +136,8 @@ public final class ChatMapViewBuilder {
             ThrowingRunnable onShowInventory,
             ThrowingRunnable onSummarize,
             ThrowingRunnable onExit,
+            ThrowingRunnable onPromptMode,
+            ThrowingRunnable onBrowseMode,
             Consumer<Integer> onFontSizeSelected,
             Consumer<Exception> errorHandler) {
         MenuItem exportChatItem = menuItem("Export Chat", onExportChat, errorHandler);
@@ -175,7 +178,18 @@ public final class ChatMapViewBuilder {
         CheckMenuItem projectBarToggle = barVisibilityToggle("Project bar");
         CheckMenuItem relatedProjectBarToggle = barVisibilityToggle("Related-project bar");
         CheckMenuItem tagBarToggle = barVisibilityToggle("Tag bar");
+        ToggleGroup viewModeGroup = new ToggleGroup();
+        RadioMenuItem promptModeItem = new RadioMenuItem("Prompt");
+        promptModeItem.setToggleGroup(viewModeGroup);
+        promptModeItem.setSelected(true);
+        promptModeItem.setOnAction(event -> runWithFeedback(onPromptMode, errorHandler));
+        RadioMenuItem browseModeItem = new RadioMenuItem("Browse Chats");
+        browseModeItem.setToggleGroup(viewModeGroup);
+        browseModeItem.setOnAction(event -> runWithFeedback(onBrowseMode, errorHandler));
         Menu viewMenu = new Menu("View", null,
+                promptModeItem,
+                browseModeItem,
+                new SeparatorMenuItem(),
                 fontSizeMenu,
                 new SeparatorMenuItem(),
                 searchBarToggle,
@@ -193,7 +207,8 @@ public final class ChatMapViewBuilder {
         MenuBar menuBar = new MenuBar(fileMenu, viewMenu, toolsMenu, helpMenu);
 
         return new ToolbarWidgets(menuBar, exportChatItem, getLatestChatItem, inventoryItem, summarizeItem,
-                selectFontSize, searchBarToggle, projectBarToggle, relatedProjectBarToggle, tagBarToggle);
+                selectFontSize, promptModeItem, browseModeItem, searchBarToggle, projectBarToggle,
+                relatedProjectBarToggle, tagBarToggle);
     }
 
     /** The search bar: a text field (Enter triggers search) plus explicit Search/Clear buttons. */
@@ -280,12 +295,12 @@ public final class ChatMapViewBuilder {
 
         TextArea historyArea = createDetailTextArea();
         historyArea.setPromptText("History");
-        historyArea.setPrefRowCount(6);
+        historyArea.setPrefRowCount(1);
 
         TextArea promptArea = new TextArea();
         promptArea.setPromptText("Prompt");
         promptArea.setWrapText(true);
-        promptArea.setPrefRowCount(4);
+        promptArea.setPrefRowCount(3);
         promptArea.setMinWidth(160);
 
         Button sendButton = button("Send", onSend, errorHandler);
@@ -296,7 +311,8 @@ public final class ChatMapViewBuilder {
 
         TextArea responseArea = createDetailTextArea();
         responseArea.setPromptText("Response");
-        responseArea.setPrefRowCount(8);
+        responseArea.setPrefRowCount(20);
+        responseArea.setMaxHeight(Double.MAX_VALUE);
 
         FlowPane controls = new FlowPane(CONTROL_GAP, SECTION_GAP,
                 new Label("Prompt Project"),
@@ -304,19 +320,14 @@ public final class ChatMapViewBuilder {
                 new Label("Conversation"),
                 conversationField,
                 new Label("Resume"),
-                resumeChatChoice,
-                sendButton);
-        VBox resultLabels = new VBox(SECTION_GAP,
-                classificationLabel,
-                routeLabel);
-        HBox promptColumns = new HBox(CONTROL_GAP,
-                new VBox(SECTION_GAP, new Label("History"), historyArea),
-                new VBox(SECTION_GAP, new Label("Prompt"), promptArea),
-                new VBox(SECTION_GAP, new Label("Response"), responseArea));
+                resumeChatChoice);
+        HBox promptInput = new HBox(CONTROL_GAP, promptArea, sendButton);
+        HBox.setHgrow(promptArea, javafx.scene.layout.Priority.ALWAYS);
         VBox pane = new VBox(SECTION_GAP,
                 controls,
-                resultLabels,
-                promptColumns);
+                responseArea,
+                promptInput);
+        VBox.setVgrow(responseArea, javafx.scene.layout.Priority.ALWAYS);
         pane.setPadding(new Insets(4));
         return new PromptPaneWidgets(pane, projectChoice, conversationField, resumeChatChoice, historyArea,
                 promptArea, sendButton, classificationLabel, routeLabel, responseArea);
