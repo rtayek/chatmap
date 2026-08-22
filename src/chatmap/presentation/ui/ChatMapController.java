@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import chatmap.domain.Chat;
@@ -59,93 +60,122 @@ public final class ChatMapController {
 
     private ChatFilterCriteria filterCriteria = ChatFilterCriteria.EMPTY;
 
-    public ChatMapController(
-            ImportService importService,
-            ExportService exportService,
-            SearchService searchService,
-            ProjectService projectService,
-            TagService tagService,
-            SummaryService summaryService,
-            LiveChatFetchService liveChatFetchService) {
-        this(importService, exportService, searchService, projectService, tagService,
-                summaryService, liveChatFetchService, null, null);
-    }
-
-    public ChatMapController(
-            ImportService importService,
-            ExportService exportService,
-            SearchService searchService,
-            ProjectService projectService,
-            TagService tagService,
-            SummaryService summaryService,
-            LiveChatFetchService liveChatFetchService,
-            ChatGptArchiveImportService archiveImportService) {
-        this(importService, exportService, searchService, projectService, tagService,
-                summaryService, liveChatFetchService, archiveImportService, null);
-    }
-
-    public ChatMapController(
-            ImportService importService,
-            ExportService exportService,
-            SearchService searchService,
-            ProjectService projectService,
-            TagService tagService,
-            SummaryService summaryService,
-            LiveChatFetchService liveChatFetchService,
-            ChatGptArchiveImportService archiveImportService,
-            ConversationInventoryService conversationInventoryService) {
-        this(importService, exportService, searchService, projectService, tagService,
-                summaryService, liveChatFetchService, archiveImportService,
-                conversationInventoryService, null);
-    }
-
-    public ChatMapController(
-            ImportService importService,
-            ExportService exportService,
-            SearchService searchService,
-            ProjectService projectService,
-            TagService tagService,
-            SummaryService summaryService,
-            LiveChatFetchService liveChatFetchService,
-            ChatGptArchiveImportService archiveImportService,
-            ConversationInventoryService conversationInventoryService,
-            PromptService promptService) {
-        this(importService, exportService, searchService, projectService, tagService, summaryService,
-                liveChatFetchService, archiveImportService, conversationInventoryService, promptService, null);
-    }
-
-    public ChatMapController(
-            ImportService importService,
-            ExportService exportService,
-            SearchService searchService,
-            ProjectService projectService,
-            TagService tagService,
-            SummaryService summaryService,
-            LiveChatFetchService liveChatFetchService,
-            ChatGptArchiveImportService archiveImportService,
-            ConversationInventoryService conversationInventoryService,
-            PromptService promptService,
-            PromptRouterService promptRouterService) {
-        this.importService = importService;
-        this.exportService = exportService;
-        this.searchService = searchService;
-        this.projectService = projectService;
-        this.tagService = tagService;
-        this.summaryService = summaryService;
-        this.liveChatFetchService = liveChatFetchService;
-        this.archiveImportService = archiveImportService;
-        this.conversationInventoryService = conversationInventoryService;
-        this.promptService = promptService;
-        this.promptRouterService = promptRouterService;
+    private ChatMapController(Builder builder) {
+        importService = builder.importService;
+        exportService = builder.exportService;
+        searchService = builder.searchService;
+        projectService = builder.projectService;
+        tagService = builder.tagService;
+        summaryService = builder.summaryService;
+        liveChatFetchService = builder.liveChatFetchService;
+        archiveImportService = builder.archiveImportService;
+        conversationInventoryService = builder.conversationInventoryService;
+        promptService = builder.promptService;
+        promptRouterService = builder.promptRouterService;
         listState = new ChatListState();
     }
 
     /** Wires the controller from the shared {@link ServiceGraph} — the production path. */
     public ChatMapController(ServiceGraph services) {
-        this(services.importService(), services.exportService(), services.searchService(),
-                services.projectService(), services.tagService(), services.summaryService(),
-                services.liveChatFetchService(), services.archiveImportService(),
-                services.conversationInventoryService(), services.promptService(), services.promptRouterService());
+        this(builder()
+                .importService(services.importService())
+                .exportService(services.exportService())
+                .searchService(services.searchService())
+                .projectService(services.projectService())
+                .tagService(services.tagService())
+                .summaryService(services.summaryService())
+                .liveChatFetchService(services.liveChatFetchService())
+                .archiveImportService(services.archiveImportService())
+                .conversationInventoryService(services.conversationInventoryService())
+                .promptService(services.promptService())
+                .promptRouterService(services.promptRouterService()));
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private ImportService importService;
+        private ExportService exportService;
+        private SearchService searchService;
+        private ProjectService projectService;
+        private TagService tagService;
+        private SummaryService summaryService;
+        private LiveChatFetchService liveChatFetchService;
+        private ChatGptArchiveImportService archiveImportService;
+        private ConversationInventoryService conversationInventoryService;
+        private PromptService promptService;
+        private PromptRouterService promptRouterService;
+
+        private Builder() {
+        }
+
+        public Builder importService(ImportService value) {
+            importService = value;
+            return this;
+        }
+
+        public Builder exportService(ExportService value) {
+            exportService = value;
+            return this;
+        }
+
+        public Builder searchService(SearchService value) {
+            searchService = value;
+            return this;
+        }
+
+        public Builder projectService(ProjectService value) {
+            projectService = value;
+            return this;
+        }
+
+        public Builder tagService(TagService value) {
+            tagService = value;
+            return this;
+        }
+
+        public Builder summaryService(SummaryService value) {
+            summaryService = value;
+            return this;
+        }
+
+        public Builder liveChatFetchService(LiveChatFetchService value) {
+            liveChatFetchService = value;
+            return this;
+        }
+
+        public Builder archiveImportService(ChatGptArchiveImportService value) {
+            archiveImportService = value;
+            return this;
+        }
+
+        public Builder conversationInventoryService(ConversationInventoryService value) {
+            conversationInventoryService = value;
+            return this;
+        }
+
+        public Builder promptService(PromptService value) {
+            promptService = value;
+            return this;
+        }
+
+        public Builder promptRouterService(PromptRouterService value) {
+            promptRouterService = value;
+            return this;
+        }
+
+        public ChatMapController build() {
+            Objects.requireNonNull(importService, "importService");
+            Objects.requireNonNull(exportService, "exportService");
+            Objects.requireNonNull(searchService, "searchService");
+            Objects.requireNonNull(projectService, "projectService");
+            Objects.requireNonNull(tagService, "tagService");
+            Objects.requireNonNull(summaryService, "summaryService");
+            Objects.requireNonNull(liveChatFetchService, "liveChatFetchService");
+            return new ChatMapController(this);
+        }
     }
 
     public ChatFilterCriteria filterCriteria() {

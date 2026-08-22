@@ -56,14 +56,17 @@ class ChatMapMvpWorkflowTest {
                         ModelTarget.claude, null));
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(List.of(), importService, chats);
-        controller = new ChatMapController(
-                importService,
-                new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
-                new SearchService(new SearchRepository(conn)),
-                new ProjectService(projects, chats),
-                new TagService(tags, chats),
-                summaryService,
-                liveChatFetchService);
+        controller = ChatMapController.builder()
+                .importService(importService)
+                .exportService(new ExportService(chats, messages, projects, tags,
+                        new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()))
+                .searchService(new SearchService(new SearchRepository(conn)))
+                .projectService(new ProjectService(projects, chats))
+                .tagService(new TagService(tags, chats))
+                .summaryService(summaryService)
+                .liveChatFetchService(liveChatFetchService)
+                .build();
     }
 
     @AfterEach

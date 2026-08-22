@@ -91,14 +91,17 @@ class ChatMapControllerTest {
                 summaryBackend());
         LiveChatFetchService liveChatFetchService =
                 new LiveChatFetchService(java.util.List.of(), importService, chats);
-        controller = new ChatMapController(
-                importService,
-                new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
-                new SearchService(new SearchRepository(conn)),
-                projectService,
-                tagService,
-                summaryService,
-                liveChatFetchService);
+        controller = ChatMapController.builder()
+                .importService(importService)
+                .exportService(new ExportService(chats, messages, projects, tags,
+                        new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()))
+                .searchService(new SearchService(new SearchRepository(conn)))
+                .projectService(projectService)
+                .tagService(tagService)
+                .summaryService(summaryService)
+                .liveChatFetchService(liveChatFetchService)
+                .build();
     }
 
     @AfterEach
@@ -191,17 +194,21 @@ class ChatMapControllerTest {
                                 "Missing", "source://missing", null));
             }
         };
-        ChatMapController inventoryController = new ChatMapController(
-                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
-                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn), new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
-                new SearchService(new SearchRepository(conn)),
-                projectService,
-                tagService,
-                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
-                        summaryBackend()),
-                new LiveChatFetchService(List.of(provider), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
-                null,
-                new ConversationInventoryService(List.of(provider), chats));
+        ImportService inventoryImportService = new ImportService(chats, messages,
+                new chatmap.infrastructure.importer.DefaultConversationFileReader());
+        ChatMapController inventoryController = ChatMapController.builder()
+                .importService(inventoryImportService)
+                .exportService(new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn),
+                        new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()))
+                .searchService(new SearchService(new SearchRepository(conn)))
+                .projectService(projectService)
+                .tagService(tagService)
+                .summaryService(new SummaryService(chats, messages, new SummaryRepository(conn),
+                        new TagRepository(conn), summaryBackend()))
+                .liveChatFetchService(new LiveChatFetchService(List.of(provider), inventoryImportService, chats))
+                .conversationInventoryService(new ConversationInventoryService(List.of(provider), chats))
+                .build();
 
         ConversationInventory inventory = inventoryController.conversationInventory();
 
@@ -233,18 +240,21 @@ class ChatMapControllerTest {
                 new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
                 Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC),
                 tempDir);
-        ChatMapController promptController = new ChatMapController(
-                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
-                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn), new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
-                new SearchService(new SearchRepository(conn)),
-                projectService,
-                tagService,
-                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn),
-                        summaryBackend()),
-                new LiveChatFetchService(List.of(), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats),
-                null,
-                null,
-                promptService);
+        ImportService promptImportService = new ImportService(chats, messages,
+                new chatmap.infrastructure.importer.DefaultConversationFileReader());
+        ChatMapController promptController = ChatMapController.builder()
+                .importService(promptImportService)
+                .exportService(new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn),
+                        new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()))
+                .searchService(new SearchService(new SearchRepository(conn)))
+                .projectService(projectService)
+                .tagService(tagService)
+                .summaryService(new SummaryService(chats, messages, new SummaryRepository(conn),
+                        new TagRepository(conn), summaryBackend()))
+                .liveChatFetchService(new LiveChatFetchService(List.of(), promptImportService, chats))
+                .promptService(promptService)
+                .build();
 
         PromptResult result = promptController.executePrompt("claude", "ping");
 
@@ -516,14 +526,19 @@ class ChatMapControllerTest {
         };
 
         LiveChatFetchService slowFetchService = new LiveChatFetchService(List.of(slowProvider), new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()), chats);
-        ChatMapController asyncController = new ChatMapController(
-                new ImportService(chats, messages, new chatmap.infrastructure.importer.DefaultConversationFileReader()),
-                new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn), new chatmap.infrastructure.exporter.MarkdownExporter(), new chatmap.infrastructure.exporter.HandoffExporter()),
-                new SearchService(new SearchRepository(conn)),
-                projectService,
-                tagService,
-                new SummaryService(chats, messages, new SummaryRepository(conn), new TagRepository(conn), summaryBackend()),
-                slowFetchService);
+        ChatMapController asyncController = ChatMapController.builder()
+                .importService(new ImportService(chats, messages,
+                        new chatmap.infrastructure.importer.DefaultConversationFileReader()))
+                .exportService(new ExportService(chats, messages, new ProjectRepository(conn), new TagRepository(conn),
+                        new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()))
+                .searchService(new SearchService(new SearchRepository(conn)))
+                .projectService(projectService)
+                .tagService(tagService)
+                .summaryService(new SummaryService(chats, messages, new SummaryRepository(conn),
+                        new TagRepository(conn), summaryBackend()))
+                .liveChatFetchService(slowFetchService)
+                .build();
 
         java.util.concurrent.CompletableFuture<ChatListState.Snapshot> fetchTask =
                 java.util.concurrent.CompletableFuture.supplyAsync(() -> {
@@ -597,19 +612,20 @@ class ChatMapControllerTest {
                 new ProjectService(projects, chats),
                 new PromptRouteRepository(conn),
                 Clock.fixed(Instant.parse("2026-08-12T00:00:00Z"), ZoneOffset.UTC));
-        return new ChatMapController(
-                importService,
-                new ExportService(chats, messages, projects, tags, new chatmap.infrastructure.exporter.MarkdownExporter(),
-                        new chatmap.infrastructure.exporter.HandoffExporter()),
-                new SearchService(new SearchRepository(conn)),
-                new ProjectService(projects, chats),
-                new TagService(tags, chats),
-                new SummaryService(chats, messages, new SummaryRepository(conn), tags, summaryBackend()),
-                new LiveChatFetchService(List.of(), importService, chats),
-                null,
-                null,
-                promptService,
-                router);
+        return ChatMapController.builder()
+                .importService(importService)
+                .exportService(new ExportService(chats, messages, projects, tags,
+                        new chatmap.infrastructure.exporter.MarkdownExporter(),
+                        new chatmap.infrastructure.exporter.HandoffExporter()))
+                .searchService(new SearchService(new SearchRepository(conn)))
+                .projectService(new ProjectService(projects, chats))
+                .tagService(new TagService(tags, chats))
+                .summaryService(new SummaryService(chats, messages, new SummaryRepository(conn), tags,
+                        summaryBackend()))
+                .liveChatFetchService(new LiveChatFetchService(List.of(), importService, chats))
+                .promptService(promptService)
+                .promptRouterService(router)
+                .build();
     }
 
     private static LlmProvider recordingProvider(String responsePrefix) {
