@@ -33,8 +33,8 @@ public final class ChatMapDialogs {
         TextArea text = new TextArea(ConversationInventoryFormatter.format(inventory));
         text.setEditable(false);
         text.setWrapText(false);
-        text.setPrefColumnCount(110);
-        text.setPrefRowCount(28);
+        text.setPrefColumnCount(70);
+        text.setPrefRowCount(12);
         text.setStyle("-fx-font-size: " + fontSize + "pt;");
 
         Alert alert = new Alert(Alert.AlertType.INFORMATION);

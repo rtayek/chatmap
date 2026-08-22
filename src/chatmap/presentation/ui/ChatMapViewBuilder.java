@@ -18,8 +18,8 @@ import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.StringConverter;
@@ -27,7 +27,9 @@ import javafx.util.StringConverter;
 /** Helper methods for constructing JavaFX nodes, formatting search results, and converters. */
 public final class ChatMapViewBuilder {
 
-    public static final String COMPACT_BUTTON_STYLE = "-fx-padding: 3 7 3 7;";
+    private static final int CONTROL_GAP = 1;
+    private static final int SECTION_GAP = 1;
+    public static final String COMPACT_BUTTON_STYLE = "-fx-padding: 0 2 0 2;";
 
     private ChatMapViewBuilder() {
     }
@@ -40,7 +42,7 @@ public final class ChatMapViewBuilder {
 
     /** Widgets from {@link #createToolbar} the caller must keep live references to. */
     public record ToolbarWidgets(
-            ToolBar toolBar,
+            FlowPane toolBar,
             Button exportChatButton,
             Button getLatestChatButton,
             Button inventoryButton,
@@ -118,6 +120,7 @@ public final class ChatMapViewBuilder {
         summarizeButton.setDisable(true);
 
         ComboBox<Integer> fontSizeChoice = new ComboBox<>(FXCollections.observableArrayList(FontSizeState.SIZES));
+        fontSizeChoice.setPrefWidth(54);
         fontSizeChoice.setValue(initialFontSize);
         fontSizeChoice.setOnAction(actionEvent -> {
             Integer selectedSize = fontSizeChoice.getValue();
@@ -126,7 +129,7 @@ public final class ChatMapViewBuilder {
             }
         });
 
-        ToolBar toolBar = new ToolBar(
+        FlowPane toolBar = new FlowPane(CONTROL_GAP, SECTION_GAP,
                 button("Import Text", onImportText, errorHandler),
                 button("Import Markdown", onImportMarkdown, errorHandler),
                 button("Import ChatGPT JSON", onImportChatGptJson, errorHandler),
@@ -151,7 +154,7 @@ public final class ChatMapViewBuilder {
             actionEvent.consume();
             runWithFeedback(onSearch, errorHandler);
         });
-        HBox searchBar = new HBox(8,
+        HBox searchBar = new HBox(CONTROL_GAP,
                 searchField,
                 button("Search", onSearch, errorHandler),
                 button("Clear", onClear, errorHandler));
@@ -164,7 +167,7 @@ public final class ChatMapViewBuilder {
         ComboBox<Project> projectChoice = new ComboBox<>();
         projectChoice.setPromptText("Project");
         projectChoice.setConverter(namedProjectConverter());
-        HBox projectBar = new HBox(8,
+        HBox projectBar = new HBox(CONTROL_GAP,
                 new Label("Project"),
                 projectChoice,
                 button("New", onNew, errorHandler),
@@ -181,7 +184,7 @@ public final class ChatMapViewBuilder {
         ComboBox<Project> relatedProjectChoice = new ComboBox<>();
         relatedProjectChoice.setPromptText("Related project");
         relatedProjectChoice.setConverter(namedProjectConverter());
-        HBox relatedProjectBar = new HBox(8,
+        HBox relatedProjectBar = new HBox(CONTROL_GAP,
                 new Label("Related Project"),
                 relatedProjectChoice,
                 button("Add", onAdd, errorHandler),
@@ -198,7 +201,7 @@ public final class ChatMapViewBuilder {
         ComboBox<Tag> tagChoice = new ComboBox<>();
         tagChoice.setPromptText("Tag");
         tagChoice.setConverter(namedTagConverter());
-        HBox tagBar = new HBox(8,
+        HBox tagBar = new HBox(CONTROL_GAP,
                 new Label("Tag"),
                 tagChoice,
                 button("New", onNew, errorHandler),
@@ -217,22 +220,22 @@ public final class ChatMapViewBuilder {
 
         TextField conversationField = new TextField("current-task");
         conversationField.setPromptText("Conversation");
-        conversationField.setMinWidth(180);
+        conversationField.setMinWidth(70);
 
         ComboBox<Chat> resumeChatChoice = new ComboBox<>();
         resumeChatChoice.setPromptText("Resume chat");
         resumeChatChoice.setConverter(namedChatConverter());
-        resumeChatChoice.setMinWidth(220);
+        resumeChatChoice.setMinWidth(90);
 
         TextArea historyArea = createDetailTextArea();
         historyArea.setPromptText("History");
-        historyArea.setPrefRowCount(6);
+        historyArea.setPrefRowCount(2);
 
         TextArea promptArea = new TextArea();
         promptArea.setPromptText("Prompt");
         promptArea.setWrapText(true);
-        promptArea.setPrefRowCount(4);
-        promptArea.setMinWidth(360);
+        promptArea.setPrefRowCount(2);
+        promptArea.setMinWidth(160);
 
         Button sendButton = button("Send", onSend, errorHandler);
         Label classificationLabel = new Label("Classification: none");
@@ -242,9 +245,9 @@ public final class ChatMapViewBuilder {
 
         TextArea responseArea = createDetailTextArea();
         responseArea.setPromptText("Response");
-        responseArea.setPrefRowCount(8);
+        responseArea.setPrefRowCount(2);
 
-        HBox controls = new HBox(8,
+        FlowPane controls = new FlowPane(CONTROL_GAP, SECTION_GAP,
                 new Label("Prompt Project"),
                 projectChoice,
                 new Label("Conversation"),
@@ -252,26 +255,25 @@ public final class ChatMapViewBuilder {
                 new Label("Resume"),
                 resumeChatChoice,
                 sendButton);
-        VBox resultLabels = new VBox(4,
+        VBox resultLabels = new VBox(SECTION_GAP,
                 classificationLabel,
                 routeLabel);
-        VBox pane = new VBox(6,
+        HBox promptColumns = new HBox(CONTROL_GAP,
+                new VBox(SECTION_GAP, new Label("History"), historyArea),
+                new VBox(SECTION_GAP, new Label("Prompt"), promptArea),
+                new VBox(SECTION_GAP, new Label("Response"), responseArea));
+        VBox pane = new VBox(SECTION_GAP,
                 controls,
                 resultLabels,
-                new Label("History"),
-                historyArea,
-                new Label("Prompt"),
-                promptArea,
-                new Label("Response"),
-                responseArea);
-        pane.setPadding(new Insets(8));
+                promptColumns);
+        pane.setPadding(new Insets(1));
         return new PromptPaneWidgets(pane, projectChoice, conversationField, resumeChatChoice, historyArea,
                 promptArea, sendButton, classificationLabel, routeLabel, responseArea);
     }
 
     public static ListView<SearchResult> createChatListView(ChangeListener<SearchResult> selectionListener) {
         ListView<SearchResult> list = new ListView<>();
-        list.setMinWidth(180);
+        list.setMinWidth(90);
         list.setCellFactory(chatListView -> new ListCell<>() {
             @Override
             protected void updateItem(SearchResult result, boolean empty) {
@@ -287,7 +289,7 @@ public final class ChatMapViewBuilder {
         TextArea textArea = new TextArea();
         textArea.setEditable(false);
         textArea.setWrapText(true);
-        textArea.setMinWidth(300);
+        textArea.setMinWidth(140);
         return textArea;
     }
 
@@ -300,20 +302,20 @@ public final class ChatMapViewBuilder {
             Node relatedProjectBar, Node tagBar, Node promptPane, Node content, Node status) {
         BorderPane pane = new BorderPane();
         VBox top = promptPane == null
-                ? new VBox(6, toolbar, searchBar, projectBar, relatedProjectBar, tagBar)
-                : new VBox(6, toolbar, searchBar, projectBar, relatedProjectBar, tagBar, promptPane);
+                ? new VBox(SECTION_GAP, toolbar, searchBar, projectBar, relatedProjectBar, tagBar)
+                : new VBox(SECTION_GAP, toolbar, searchBar, projectBar, relatedProjectBar, tagBar, promptPane);
         pane.setTop(top);
         pane.setCenter(content);
         pane.setBottom(new VBox(status));
-        BorderPane.setMargin(searchBar, new Insets(8, 8, 0, 8));
-        BorderPane.setMargin(projectBar, new Insets(0, 8, 0, 8));
-        BorderPane.setMargin(relatedProjectBar, new Insets(0, 8, 0, 8));
-        BorderPane.setMargin(tagBar, new Insets(0, 8, 0, 8));
+        BorderPane.setMargin(searchBar, new Insets(1, 1, 0, 1));
+        BorderPane.setMargin(projectBar, new Insets(0, 1, 0, 1));
+        BorderPane.setMargin(relatedProjectBar, new Insets(0, 1, 0, 1));
+        BorderPane.setMargin(tagBar, new Insets(0, 1, 0, 1));
         if (promptPane != null) {
-            BorderPane.setMargin(promptPane, new Insets(0, 8, 0, 8));
+            BorderPane.setMargin(promptPane, new Insets(0, 1, 0, 1));
         }
-        BorderPane.setMargin(content, new Insets(8));
-        BorderPane.setMargin(status, new Insets(4, 8, 8, 8));
+        BorderPane.setMargin(content, new Insets(1));
+        BorderPane.setMargin(status, new Insets(0, 1, 1, 1));
         return pane;
     }
 

@@ -34,7 +34,8 @@ Ollama target when running the Ollama live test directly.
 
 The checked-in plain-Eclipse JavaFX jars currently target Windows. `run.sh` is a Windows Git Bash helper, not a portable Unix launcher.
 
-The Gradle build configures OpenJFX 25.0.1 and runs `chatmap.ui.ChatMapLauncher`, which starts `ChatMapApp`.
+The Gradle build configures OpenJFX 25.0.1 and runs `chatmap.presentation.ui.ChatMapLauncher`,
+which starts `ChatMapApp`.
 
 ## Local Data
 

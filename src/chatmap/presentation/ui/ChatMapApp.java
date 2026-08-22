@@ -13,6 +13,8 @@ import chatmap.domain.Tag;
 import chatmap.application.service.PromptRoutingResult;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
+import javafx.geometry.Orientation;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -137,19 +139,23 @@ public final class ChatMapApp extends Application {
         promptResumeChatChoice.getSelectionModel().selectedItemProperty()
                 .addListener((observable, previous, selectedChat) -> loadPromptHistory(selectedChat));
 
-        SplitPane content = new SplitPane(chatList, detail);
-        content.setDividerPositions(0.32);
+        SplitPane chatContent = new SplitPane(chatList, detail);
+        chatContent.setDividerPositions(0.32);
+        SplitPane content = new SplitPane(promptPaneWidgets.promptPane(), chatContent);
+        content.setOrientation(Orientation.VERTICAL);
+        content.setDividerPositions(0.25);
         root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.toolBar(), searchBarWidgets.searchBar(),
                 projectBarWidgets.projectBar(), relatedProjectBarWidgets.relatedProjectBar(),
-                tagBarWidgets.tagBar(), promptPaneWidgets.promptPane(), content, status);
+                tagBarWidgets.tagBar(), content, status);
 
         refreshOrganizationChoices();
         runInBackground("Loading chats...", null, () -> controller.loadAllChats());
         stage.setTitle("ChatMap");
         applyFontSize(fontSizeState.current());
-        Scene scene = new Scene(root, 900, 600);
+        Scene scene = new Scene(root, 1200, 700);
         registerFontShortcuts(scene);
         stage.setScene(scene);
+        stage.setMaximized(true);
         stage.show();
     }
 
@@ -496,8 +502,17 @@ public final class ChatMapApp extends Application {
     }
 
     private void applyFontSize(int size) {
+        String style = "-fx-font-size: " + size + "px;";
         if (root != null) {
-            root.setStyle("-fx-font-size: " + size + "pt;");
+            root.setStyle(style);
+        }
+        Node[] fontSizedNodes = {chatList, detail, searchField, projectChoice, relatedProjectChoice,
+                promptProjectChoice, tagChoice, promptConversationField, promptResumeChatChoice, promptHistoryArea,
+                promptArea, promptResponseArea, status};
+        for (Node node : fontSizedNodes) {
+            if (node != null) {
+                node.setStyle(style);
+            }
         }
         if (fontSizeChoice != null && !Integer.valueOf(size).equals(fontSizeChoice.getValue())) {
             fontSizeChoice.setValue(size);
