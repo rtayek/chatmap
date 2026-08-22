@@ -62,7 +62,8 @@ public final class ChatMapViewBuilder {
             CheckMenuItem searchBarToggle,
             CheckMenuItem projectBarToggle,
             CheckMenuItem relatedProjectBarToggle,
-            CheckMenuItem tagBarToggle) {
+            CheckMenuItem tagBarToggle,
+            CheckMenuItem historyPanelToggle) {
     }
 
     /** Widgets from {@link #createSearchBar} the caller must keep live references to. */
@@ -181,6 +182,7 @@ public final class ChatMapViewBuilder {
         CheckMenuItem projectBarToggle = barVisibilityToggle("Project bar");
         CheckMenuItem relatedProjectBarToggle = barVisibilityToggle("Related-project bar");
         CheckMenuItem tagBarToggle = barVisibilityToggle("Tag bar");
+        CheckMenuItem historyPanelToggle = new CheckMenuItem("History panel");
         ToggleGroup viewModeGroup = new ToggleGroup();
         RadioMenuItem promptModeItem = new RadioMenuItem("Prompt");
         promptModeItem.setToggleGroup(viewModeGroup);
@@ -198,7 +200,9 @@ public final class ChatMapViewBuilder {
                 searchBarToggle,
                 projectBarToggle,
                 relatedProjectBarToggle,
-                tagBarToggle);
+                tagBarToggle,
+                new SeparatorMenuItem(),
+                historyPanelToggle);
 
         MenuItem inventoryItem = menuItem("Conversation Inventory", onShowInventory, errorHandler);
         MenuItem summarizeItem = menuItem("Summarize & tag", onSummarize, errorHandler);
@@ -211,7 +215,7 @@ public final class ChatMapViewBuilder {
 
         return new ToolbarWidgets(menuBar, exportChatItem, getLatestChatItem, inventoryItem, summarizeItem,
                 selectFontSize, promptModeItem, browseModeItem, searchBarToggle, projectBarToggle,
-                relatedProjectBarToggle, tagBarToggle);
+                relatedProjectBarToggle, tagBarToggle, historyPanelToggle);
     }
 
     /** The search bar: a text field (Enter triggers search) plus explicit Search/Clear buttons. */
@@ -299,6 +303,8 @@ public final class ChatMapViewBuilder {
         TextArea historyArea = createDetailTextArea();
         historyArea.setPromptText("History");
         historyArea.setPrefRowCount(5);
+        historyArea.setVisible(false);
+        historyArea.setManaged(false);
 
         TextArea promptArea = new TextArea();
         promptArea.setPromptText("Prompt");
@@ -337,6 +343,8 @@ public final class ChatMapViewBuilder {
         VBox pane = new VBox(SECTION_GAP,
                 controls,
                 activeChatLabel,
+                classificationLabel,
+                routeLabel,
                 historyArea,
                 responseArea,
                 promptInput);

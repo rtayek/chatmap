@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import chatmap.application.port.llm.ModelTarget;
 import chatmap.app.ChatMapRuntime;
 import chatmap.app.bootstrap.LoggingBootstrap;
 import chatmap.domain.Chat;
@@ -65,6 +66,7 @@ public final class ChatMapApp extends Application {
     private CheckMenuItem projectBarToggle;
     private CheckMenuItem relatedProjectBarToggle;
     private CheckMenuItem tagBarToggle;
+    private CheckMenuItem historyPanelToggle;
     private Node searchBar;
     private Node projectBar;
     private Node relatedProjectBar;
@@ -126,6 +128,7 @@ public final class ChatMapApp extends Application {
         projectBarToggle = toolbarWidgets.projectBarToggle();
         relatedProjectBarToggle = toolbarWidgets.relatedProjectBarToggle();
         tagBarToggle = toolbarWidgets.tagBarToggle();
+        historyPanelToggle = toolbarWidgets.historyPanelToggle();
 
         selection = new ChatMapSelectionCoordinator(controller, backgroundActions, chatList, detail, status,
                 toolbarWidgets.exportChatItem(), summarizeItem);
@@ -175,6 +178,7 @@ public final class ChatMapApp extends Application {
         bindBarVisibility(projectBar, projectBarToggle);
         bindBarVisibility(relatedProjectBar, relatedProjectBarToggle);
         bindBarVisibility(tagBar, tagBarToggle);
+        bindVisibility(promptHistoryArea, historyPanelToggle);
 
         SplitPane chatContent = new SplitPane(chatList, detail);
         chatContent.setDividerPositions(0.32);
@@ -318,6 +322,7 @@ public final class ChatMapApp extends Application {
         promptResumeChatChoice.setItems(FXCollections.observableArrayList());
         promptHistoryArea.clear();
         resetActiveChat();
+        promptRouteLabel.setText("Route: none");
         if (project == null) {
             return;
         }
@@ -330,11 +335,13 @@ public final class ChatMapApp extends Application {
         if (chat == null) {
             promptHistoryArea.clear();
             resetActiveChat();
+            promptRouteLabel.setText("Route: none");
             return;
         }
         loadPromptHistory(chat.id());
         String title = chat.title() == null || chat.title().isBlank() ? "chat-" + chat.id() : chat.title();
         setActiveChat(title, chat.id());
+        promptRouteLabel.setText(routePreviewText(chat));
         promptConversationField.setText(ChatMapViewBuilder.safeFileName(title));
     }
 
@@ -560,6 +567,28 @@ public final class ChatMapApp extends Application {
         return "Active chat: " + title + " [" + chatId + "]";
     }
 
+    static String routePreviewText(Chat chat) {
+        if (chat.modelTargetId() == null || chat.modelTargetId().isBlank()) {
+            return "Route: resumed chat model unknown";
+        }
+        ModelTarget target;
+        try {
+            target = ModelTarget.require(chat.modelTargetId());
+        } catch (IllegalArgumentException exception) {
+            return "Route: " + chat.modelTargetId() + " (resumed)";
+        }
+        StringBuilder text = new StringBuilder("Route: ");
+        text.append(target.channel().name())
+                .append(" -> ")
+                .append(target.displayName())
+                .append(" [")
+                .append(target.id())
+                .append("]");
+        chat.providerModelName().ifPresent(model -> text.append(", model ").append(model));
+        text.append(" (resumed)");
+        return text.toString();
+    }
+
     static String promptTitle(String prompt) {
         return prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
     }
@@ -620,6 +649,12 @@ public final class ChatMapApp extends Application {
                 setVisibleManaged(bar, isSelected);
             }
         });
+    }
+
+    static void bindVisibility(Node node, CheckMenuItem toggle) {
+        setVisibleManaged(node, toggle.isSelected());
+        toggle.selectedProperty()
+                .addListener((observable, wasSelected, isSelected) -> setVisibleManaged(node, isSelected));
     }
 
     private static void setVisibleManaged(Node node, boolean visible) {
