@@ -5,7 +5,6 @@ import java.util.function.Consumer;
 
 import chatmap.app.ChatMapRuntime;
 import javafx.application.Platform;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 
 /**
@@ -27,79 +26,79 @@ final class BackgroundActionRunner {
         this.errorReporter = errorReporter;
     }
 
-    void runSnapshot(String pendingStatus, Button triggerButton, SnapshotCall call,
+    void runSnapshot(String pendingStatus, Consumer<Boolean> setDisabled, SnapshotCall call,
             Consumer<ChatListState.Snapshot> onSuccess, Consumer<Exception> onFailure) {
-        setPending(pendingStatus, triggerButton);
-        runtime.submit(snapshotRunnable(call, triggerButton, onSuccess, onFailure));
+        setPending(pendingStatus, setDisabled);
+        runtime.submit(snapshotRunnable(call, setDisabled, onSuccess, onFailure));
     }
 
-    void runSnapshotOnBackendLane(String pendingStatus, Button triggerButton, SnapshotCall call,
+    void runSnapshotOnBackendLane(String pendingStatus, Consumer<Boolean> setDisabled, SnapshotCall call,
             Consumer<ChatListState.Snapshot> onSuccess, Consumer<Exception> onFailure) {
-        setPending(pendingStatus, triggerButton);
-        runtime.submitBackendWork(snapshotRunnable(call, triggerButton, onSuccess, onFailure));
+        setPending(pendingStatus, setDisabled);
+        runtime.submitBackendWork(snapshotRunnable(call, setDisabled, onSuccess, onFailure));
     }
 
-    private Runnable snapshotRunnable(SnapshotCall call, Button triggerButton,
+    private Runnable snapshotRunnable(SnapshotCall call, Consumer<Boolean> setDisabled,
             Consumer<ChatListState.Snapshot> onSuccess, Consumer<Exception> onFailure) {
         return () -> {
             try {
                 ChatListState.Snapshot snapshot = call.run();
                 Platform.runLater(() -> {
-                    finish(triggerButton);
+                    finish(setDisabled);
                     onSuccess.accept(snapshot);
                 });
             } catch (Exception exception) {
                 LOGGER.log(System.Logger.Level.WARNING, "Background snapshot action failed", exception);
                 Platform.runLater(() -> {
-                    finish(triggerButton);
+                    finish(setDisabled);
                     onFailure.accept(exception);
                 });
             }
         };
     }
 
-    <T> void runValue(String pendingStatus, Button triggerButton,
+    <T> void runValue(String pendingStatus, Consumer<Boolean> setDisabled,
             Callable<T> call, Consumer<T> onSuccess) {
-        setPending(pendingStatus, triggerButton);
-        runtime.submit(valueRunnable(call, triggerButton, onSuccess));
+        setPending(pendingStatus, setDisabled);
+        runtime.submit(valueRunnable(call, setDisabled, onSuccess));
     }
 
-    <T> void runValueOnBackendLane(String pendingStatus, Button triggerButton,
+    <T> void runValueOnBackendLane(String pendingStatus, Consumer<Boolean> setDisabled,
             Callable<T> call, Consumer<T> onSuccess) {
-        setPending(pendingStatus, triggerButton);
-        runtime.submitBackendWork(valueRunnable(call, triggerButton, onSuccess));
+        setPending(pendingStatus, setDisabled);
+        runtime.submitBackendWork(valueRunnable(call, setDisabled, onSuccess));
     }
 
-    private <T> Runnable valueRunnable(Callable<T> call, Button triggerButton, Consumer<T> onSuccess) {
+    private <T> Runnable valueRunnable(Callable<T> call, Consumer<Boolean> setDisabled, Consumer<T> onSuccess) {
         return () -> {
             try {
                 T result = call.call();
                 Platform.runLater(() -> {
-                    finish(triggerButton);
+                    finish(setDisabled);
                     onSuccess.accept(result);
                 });
             } catch (Exception exception) {
                 LOGGER.log(System.Logger.Level.WARNING, "Background value action failed", exception);
                 Platform.runLater(() -> {
-                    finish(triggerButton);
+                    finish(setDisabled);
                     errorReporter.accept(exception);
                 });
             }
         };
     }
 
-    private void setPending(String pendingStatus, Button triggerButton) {
+    private void setPending(String pendingStatus, Consumer<Boolean> setDisabled) {
         if (pendingStatus != null) {
             status.setText(pendingStatus);
         }
-        if (triggerButton != null) {
-            triggerButton.setDisable(true);
+        if (setDisabled != null) {
+            setDisabled.accept(true);
         }
     }
 
-    private static void finish(Button triggerButton) {
-        if (triggerButton != null) {
-            triggerButton.setDisable(false);
+    private static void finish(Consumer<Boolean> setDisabled) {
+        if (setDisabled != null) {
+            setDisabled.accept(false);
         }
     }
 

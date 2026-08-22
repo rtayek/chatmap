@@ -1,6 +1,7 @@
 package chatmap.presentation.ui;
 
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import chatmap.domain.Chat;
@@ -12,12 +13,19 @@ import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -27,9 +35,9 @@ import javafx.util.StringConverter;
 /** Helper methods for constructing JavaFX nodes, formatting search results, and converters. */
 public final class ChatMapViewBuilder {
 
-    private static final int CONTROL_GAP = 1;
-    private static final int SECTION_GAP = 1;
-    public static final String COMPACT_BUTTON_STYLE = "-fx-padding: 0 2 0 2;";
+    private static final int CONTROL_GAP = 8;
+    private static final int SECTION_GAP = 4;
+    public static final String COMPACT_BUTTON_STYLE = "-fx-padding: 3 7 3 7;";
 
     private ChatMapViewBuilder() {
     }
@@ -42,12 +50,16 @@ public final class ChatMapViewBuilder {
 
     /** Widgets from {@link #createToolbar} the caller must keep live references to. */
     public record ToolbarWidgets(
-            FlowPane toolBar,
-            Button exportChatButton,
-            Button getLatestChatButton,
-            Button inventoryButton,
-            Button summarizeButton,
-            ComboBox<Integer> fontSizeChoice) {
+            MenuBar menuBar,
+            MenuItem exportChatItem,
+            MenuItem getLatestChatItem,
+            MenuItem inventoryItem,
+            MenuItem summarizeItem,
+            Consumer<Integer> selectFontSize,
+            CheckMenuItem searchBarToggle,
+            CheckMenuItem projectBarToggle,
+            CheckMenuItem relatedProjectBarToggle,
+            CheckMenuItem tagBarToggle) {
     }
 
     /** Widgets from {@link #createSearchBar} the caller must keep live references to. */
@@ -99,7 +111,19 @@ public final class ChatMapViewBuilder {
         }
     }
 
-    /** The main toolbar: import/export/live-fetch/inventory/summarize actions plus the font-size choice. */
+    private static MenuItem menuItem(String text, ThrowingRunnable action, Consumer<Exception> errorHandler) {
+        MenuItem item = new MenuItem(text);
+        item.setOnAction(event -> runWithFeedback(action, errorHandler));
+        return item;
+    }
+
+    private static CheckMenuItem barVisibilityToggle(String text) {
+        CheckMenuItem item = new CheckMenuItem(text);
+        item.setSelected(true);
+        return item;
+    }
+
+    /** The menu bar: File/View/Tools/Help, replacing the always-visible button toolbar. */
     public static ToolbarWidgets createToolbar(
             int initialFontSize,
             ThrowingRunnable onImportText,
@@ -110,39 +134,66 @@ public final class ChatMapViewBuilder {
             ThrowingRunnable onGetLatestChat,
             ThrowingRunnable onShowInventory,
             ThrowingRunnable onSummarize,
+            ThrowingRunnable onExit,
             Consumer<Integer> onFontSizeSelected,
             Consumer<Exception> errorHandler) {
-        Button exportChatButton = button("Export Chat Markdown", onExportChat, errorHandler);
-        exportChatButton.setDisable(true);
-        Button getLatestChatButton = button("Import available chat", onGetLatestChat, errorHandler);
-        Button inventoryButton = button("Conversation Inventory", onShowInventory, errorHandler);
-        Button summarizeButton = button("Summarize & tag", onSummarize, errorHandler);
-        summarizeButton.setDisable(true);
+        MenuItem exportChatItem = menuItem("Export Chat", onExportChat, errorHandler);
+        exportChatItem.setDisable(true);
+        MenuItem getLatestChatItem = menuItem("Get Latest Chat", onGetLatestChat, errorHandler);
+        MenuItem exitItem = new MenuItem("Exit");
+        exitItem.setOnAction(event -> runWithFeedback(onExit, errorHandler));
 
-        ComboBox<Integer> fontSizeChoice = new ComboBox<>(FXCollections.observableArrayList(FontSizeState.SIZES));
-        fontSizeChoice.setPrefWidth(54);
-        fontSizeChoice.setValue(initialFontSize);
-        fontSizeChoice.setOnAction(actionEvent -> {
-            Integer selectedSize = fontSizeChoice.getValue();
-            if (selectedSize != null) {
-                onFontSizeSelected.accept(selectedSize);
+        Menu fileMenu = new Menu("File",
+                null,
+                menuItem("Import Text", onImportText, errorHandler),
+                menuItem("Import Markdown", onImportMarkdown, errorHandler),
+                menuItem("Import ChatGPT JSON", onImportChatGptJson, errorHandler),
+                menuItem("Import ChatGPT Archive", onImportChatGptArchive, errorHandler),
+                exportChatItem,
+                getLatestChatItem,
+                new SeparatorMenuItem(),
+                exitItem);
+
+        ToggleGroup fontSizeGroup = new ToggleGroup();
+        Map<Integer, RadioMenuItem> fontSizeItems = new java.util.LinkedHashMap<>();
+        for (int size : FontSizeState.SIZES) {
+            RadioMenuItem sizeItem = new RadioMenuItem(String.valueOf(size));
+            sizeItem.setToggleGroup(fontSizeGroup);
+            sizeItem.setSelected(size == initialFontSize);
+            sizeItem.setOnAction(event -> onFontSizeSelected.accept(size));
+            fontSizeItems.put(size, sizeItem);
+        }
+        Menu fontSizeMenu = new Menu("Font Size", null, fontSizeItems.values().toArray(MenuItem[]::new));
+        Consumer<Integer> selectFontSize = size -> {
+            RadioMenuItem item = fontSizeItems.get(size);
+            if (item != null) {
+                item.setSelected(true);
             }
-        });
+        };
 
-        FlowPane toolBar = new FlowPane(CONTROL_GAP, SECTION_GAP,
-                button("Import Text", onImportText, errorHandler),
-                button("Import Markdown", onImportMarkdown, errorHandler),
-                button("Import ChatGPT JSON", onImportChatGptJson, errorHandler),
-                button("Import ChatGPT Archive", onImportChatGptArchive, errorHandler),
-                exportChatButton,
-                getLatestChatButton,
-                inventoryButton,
-                summarizeButton,
-                new Label("Font"),
-                fontSizeChoice);
+        CheckMenuItem searchBarToggle = barVisibilityToggle("Search bar");
+        CheckMenuItem projectBarToggle = barVisibilityToggle("Project bar");
+        CheckMenuItem relatedProjectBarToggle = barVisibilityToggle("Related-project bar");
+        CheckMenuItem tagBarToggle = barVisibilityToggle("Tag bar");
+        Menu viewMenu = new Menu("View", null,
+                fontSizeMenu,
+                new SeparatorMenuItem(),
+                searchBarToggle,
+                projectBarToggle,
+                relatedProjectBarToggle,
+                tagBarToggle);
 
-        return new ToolbarWidgets(toolBar, exportChatButton, getLatestChatButton, inventoryButton,
-                summarizeButton, fontSizeChoice);
+        MenuItem inventoryItem = menuItem("Conversation Inventory", onShowInventory, errorHandler);
+        MenuItem summarizeItem = menuItem("Summarize & tag", onSummarize, errorHandler);
+        summarizeItem.setDisable(true);
+        Menu toolsMenu = new Menu("Tools", null, inventoryItem, summarizeItem);
+
+        Menu helpMenu = new Menu("Help");
+
+        MenuBar menuBar = new MenuBar(fileMenu, viewMenu, toolsMenu, helpMenu);
+
+        return new ToolbarWidgets(menuBar, exportChatItem, getLatestChatItem, inventoryItem, summarizeItem,
+                selectFontSize, searchBarToggle, projectBarToggle, relatedProjectBarToggle, tagBarToggle);
     }
 
     /** The search bar: a text field (Enter triggers search) plus explicit Search/Clear buttons. */
@@ -220,21 +271,21 @@ public final class ChatMapViewBuilder {
 
         TextField conversationField = new TextField("current-task");
         conversationField.setPromptText("Conversation");
-        conversationField.setMinWidth(70);
+        conversationField.setMinWidth(180);
 
         ComboBox<Chat> resumeChatChoice = new ComboBox<>();
         resumeChatChoice.setPromptText("Resume chat");
         resumeChatChoice.setConverter(namedChatConverter());
-        resumeChatChoice.setMinWidth(90);
+        resumeChatChoice.setMinWidth(220);
 
         TextArea historyArea = createDetailTextArea();
         historyArea.setPromptText("History");
-        historyArea.setPrefRowCount(2);
+        historyArea.setPrefRowCount(6);
 
         TextArea promptArea = new TextArea();
         promptArea.setPromptText("Prompt");
         promptArea.setWrapText(true);
-        promptArea.setPrefRowCount(2);
+        promptArea.setPrefRowCount(4);
         promptArea.setMinWidth(160);
 
         Button sendButton = button("Send", onSend, errorHandler);
@@ -245,7 +296,7 @@ public final class ChatMapViewBuilder {
 
         TextArea responseArea = createDetailTextArea();
         responseArea.setPromptText("Response");
-        responseArea.setPrefRowCount(2);
+        responseArea.setPrefRowCount(8);
 
         FlowPane controls = new FlowPane(CONTROL_GAP, SECTION_GAP,
                 new Label("Prompt Project"),
@@ -266,7 +317,7 @@ public final class ChatMapViewBuilder {
                 controls,
                 resultLabels,
                 promptColumns);
-        pane.setPadding(new Insets(1));
+        pane.setPadding(new Insets(4));
         return new PromptPaneWidgets(pane, projectChoice, conversationField, resumeChatChoice, historyArea,
                 promptArea, sendButton, classificationLabel, routeLabel, responseArea);
     }
@@ -293,29 +344,19 @@ public final class ChatMapViewBuilder {
         return textArea;
     }
 
-    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar,
+    public static BorderPane assembleRootPane(MenuBar menuBar, Node searchBar, Node projectBar,
             Node relatedProjectBar, Node tagBar, Node content, Node status) {
-        return assembleRootPane(toolbar, searchBar, projectBar, relatedProjectBar, tagBar, null, content, status);
-    }
-
-    public static BorderPane assembleRootPane(Node toolbar, Node searchBar, Node projectBar,
-            Node relatedProjectBar, Node tagBar, Node promptPane, Node content, Node status) {
         BorderPane pane = new BorderPane();
-        VBox top = promptPane == null
-                ? new VBox(SECTION_GAP, toolbar, searchBar, projectBar, relatedProjectBar, tagBar)
-                : new VBox(SECTION_GAP, toolbar, searchBar, projectBar, relatedProjectBar, tagBar, promptPane);
+        VBox top = new VBox(SECTION_GAP, menuBar, searchBar, projectBar, relatedProjectBar, tagBar);
         pane.setTop(top);
         pane.setCenter(content);
         pane.setBottom(new VBox(status));
-        BorderPane.setMargin(searchBar, new Insets(1, 1, 0, 1));
-        BorderPane.setMargin(projectBar, new Insets(0, 1, 0, 1));
-        BorderPane.setMargin(relatedProjectBar, new Insets(0, 1, 0, 1));
-        BorderPane.setMargin(tagBar, new Insets(0, 1, 0, 1));
-        if (promptPane != null) {
-            BorderPane.setMargin(promptPane, new Insets(0, 1, 0, 1));
-        }
-        BorderPane.setMargin(content, new Insets(1));
-        BorderPane.setMargin(status, new Insets(0, 1, 1, 1));
+        BorderPane.setMargin(searchBar, new Insets(4, 4, 0, 4));
+        BorderPane.setMargin(projectBar, new Insets(0, 4, 0, 4));
+        BorderPane.setMargin(relatedProjectBar, new Insets(0, 4, 0, 4));
+        BorderPane.setMargin(tagBar, new Insets(0, 4, 0, 4));
+        BorderPane.setMargin(content, new Insets(4));
+        BorderPane.setMargin(status, new Insets(0, 4, 4, 4));
         return pane;
     }
 

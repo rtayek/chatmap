@@ -2,6 +2,7 @@ package chatmap.presentation.ui;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import chatmap.app.ChatMapRuntime;
 import chatmap.app.bootstrap.LoggingBootstrap;
@@ -12,14 +13,17 @@ import chatmap.domain.SearchResult;
 import chatmap.domain.Tag;
 import chatmap.application.service.PromptRoutingResult;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.geometry.Orientation;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -50,10 +54,10 @@ public final class ChatMapApp extends Application {
     private Button promptSendButton;
     private Label promptClassificationLabel;
     private Label promptRouteLabel;
-    private Button getLatestChatButton;
-    private Button inventoryButton;
-    private Button summarizeButton;
-    private ComboBox<Integer> fontSizeChoice;
+    private MenuItem getLatestChatItem;
+    private MenuItem inventoryItem;
+    private MenuItem summarizeItem;
+    private Consumer<Integer> selectFontSize;
     private FontSizeState fontSizeState;
     private BorderPane root;
     private Label status;
@@ -93,15 +97,16 @@ public final class ChatMapApp extends Application {
                 this::getLatestChat,
                 this::showConversationInventory,
                 this::summarizeSelectedChat,
+                Platform::exit,
                 size -> applyFontSize(fontSizeState.set(size)),
                 this::reportError);
-        getLatestChatButton = toolbarWidgets.getLatestChatButton();
-        inventoryButton = toolbarWidgets.inventoryButton();
-        summarizeButton = toolbarWidgets.summarizeButton();
-        fontSizeChoice = toolbarWidgets.fontSizeChoice();
+        getLatestChatItem = toolbarWidgets.getLatestChatItem();
+        inventoryItem = toolbarWidgets.inventoryItem();
+        summarizeItem = toolbarWidgets.summarizeItem();
+        selectFontSize = toolbarWidgets.selectFontSize();
 
         selection = new ChatMapSelectionCoordinator(controller, backgroundActions, chatList, detail, status,
-                toolbarWidgets.exportChatButton(), summarizeButton);
+                toolbarWidgets.exportChatItem(), summarizeItem);
 
         ChatMapViewBuilder.SearchBarWidgets searchBarWidgets = ChatMapViewBuilder.createSearchBar(
                 this::searchChats, this::clearSearchAndFilters, this::reportError);
@@ -139,12 +144,17 @@ public final class ChatMapApp extends Application {
         promptResumeChatChoice.getSelectionModel().selectedItemProperty()
                 .addListener((observable, previous, selectedChat) -> loadPromptHistory(selectedChat));
 
+        bindBarVisibility(searchBarWidgets.searchBar(), toolbarWidgets.searchBarToggle());
+        bindBarVisibility(projectBarWidgets.projectBar(), toolbarWidgets.projectBarToggle());
+        bindBarVisibility(relatedProjectBarWidgets.relatedProjectBar(), toolbarWidgets.relatedProjectBarToggle());
+        bindBarVisibility(tagBarWidgets.tagBar(), toolbarWidgets.tagBarToggle());
+
         SplitPane chatContent = new SplitPane(chatList, detail);
         chatContent.setDividerPositions(0.32);
         SplitPane content = new SplitPane(promptPaneWidgets.promptPane(), chatContent);
         content.setOrientation(Orientation.VERTICAL);
         content.setDividerPositions(0.25);
-        root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.toolBar(), searchBarWidgets.searchBar(),
+        root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.menuBar(), searchBarWidgets.searchBar(),
                 projectBarWidgets.projectBar(), relatedProjectBarWidgets.relatedProjectBar(),
                 tagBarWidgets.tagBar(), content, status);
 
@@ -212,12 +222,13 @@ public final class ChatMapApp extends Application {
 
     private void getLatestChat() {
         // Provider reads may block (live web/CDP fetch); run on the backend lane.
-        runOnBackendLane("Importing available chat...", getLatestChatButton, controller::fetchLatestChat);
+        runOnBackendLane("Importing available chat...", getLatestChatItem::setDisable, controller::fetchLatestChat);
     }
 
     private void showConversationInventory() {
         // Queries every provider, including the web ones (live CDP fetch); backend lane.
-        backgroundActions.runValueOnBackendLane("Discovering all discoverable conversations...", inventoryButton,
+        backgroundActions.runValueOnBackendLane("Discovering all discoverable conversations...",
+                inventoryItem::setDisable,
                 controller::conversationInventory, this::showConversationInventoryDialog);
     }
 
@@ -233,7 +244,7 @@ public final class ChatMapApp extends Application {
             return;
         }
         // Blocking claude CLI call; run on the backend lane.
-        runOnBackendLane("Summarizing chat " + chatId + "...", summarizeButton,
+        runOnBackendLane("Summarizing chat " + chatId + "...", summarizeItem::setDisable,
                 () -> controller.summarizeAndTag(chatId));
     }
 
@@ -260,7 +271,7 @@ public final class ChatMapApp extends Application {
         promptResponseArea.clear();
         promptClassificationLabel.setText("Classification: pending");
         promptRouteLabel.setText("Route: pending");
-        backgroundActions.runValueOnBackendLane("Routing prompt...", promptSendButton,
+        backgroundActions.runValueOnBackendLane("Routing prompt...", promptSendButton::setDisable,
                 () -> controller.routePrompt(project, conversationId, prompt, resumeChat),
                 this::showPromptResult);
     }
@@ -316,11 +327,11 @@ public final class ChatMapApp extends Application {
 
     /**
      * Runs a blocking controller call on a background thread, showing feedback: sets
-     * the pending status and disables the triggering button while in flight, then
+     * the pending status and disables the triggering control while in flight, then
      * applies the resulting snapshot (or reports the error) back on the FX thread.
      */
-    private void runInBackground(String pendingStatus, Button triggerButton, BackgroundCall call) {
-        backgroundActions.runSnapshot(pendingStatus, triggerButton, call::run, snapshot -> {
+    private void runInBackground(String pendingStatus, Consumer<Boolean> setDisabled, BackgroundCall call) {
+        backgroundActions.runSnapshot(pendingStatus, setDisabled, call::run, snapshot -> {
             selection.applyListState(snapshot);
             selection.updateSelectionActionStates();
         }, exception -> {
@@ -330,13 +341,13 @@ public final class ChatMapApp extends Application {
     }
 
     /**
-     * Same as {@link #runInBackground(String, Button, BackgroundCall)}, but for calls
+     * Same as {@link #runInBackground(String, Consumer, BackgroundCall)}, but for calls
      * that reach an LLM backend or a live web/CDP provider fetch (can run for minutes)
      * rather than doing DB-only work. Runs on ChatMapRuntime's separate slow lane so
      * it never makes a search or chat-list load wait behind it.
      */
-    private void runOnBackendLane(String pendingStatus, Button triggerButton, BackgroundCall call) {
-        backgroundActions.runSnapshotOnBackendLane(pendingStatus, triggerButton, call::run, snapshot -> {
+    private void runOnBackendLane(String pendingStatus, Consumer<Boolean> setDisabled, BackgroundCall call) {
+        backgroundActions.runSnapshotOnBackendLane(pendingStatus, setDisabled, call::run, snapshot -> {
             selection.applyListState(snapshot);
             selection.updateSelectionActionStates();
         }, exception -> {
@@ -514,9 +525,14 @@ public final class ChatMapApp extends Application {
                 node.setStyle(style);
             }
         }
-        if (fontSizeChoice != null && !Integer.valueOf(size).equals(fontSizeChoice.getValue())) {
-            fontSizeChoice.setValue(size);
+        if (selectFontSize != null) {
+            selectFontSize.accept(size);
         }
+    }
+
+    private static void bindBarVisibility(Node bar, CheckMenuItem toggle) {
+        bar.visibleProperty().bind(toggle.selectedProperty());
+        bar.managedProperty().bind(toggle.selectedProperty());
     }
 
     private void registerFontShortcuts(Scene scene) {

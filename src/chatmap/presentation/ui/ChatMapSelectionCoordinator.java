@@ -5,14 +5,14 @@ import chatmap.domain.Project;
 import chatmap.domain.SearchResult;
 import chatmap.application.model.ChatExportModel;
 import javafx.collections.FXCollections;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 
 /**
  * Keeps the chat list selection, the detail pane, and the export/summarize
- * button enabled-states in sync with each other and with the controller.
+ * menu item enabled-states in sync with each other and with the controller.
  *
  * {@code applyingListState} guards against reentrancy: {@link #applyListState}
  * programmatically changes the list's selection, which fires the same
@@ -26,20 +26,20 @@ final class ChatMapSelectionCoordinator {
     private final ListView<SearchResult> chatList;
     private final TextArea detail;
     private final Label status;
-    private final Button exportChatButton;
-    private final Button summarizeButton;
+    private final MenuItem exportChatItem;
+    private final MenuItem summarizeItem;
     private boolean applyingListState;
 
     ChatMapSelectionCoordinator(ChatMapController controller, BackgroundActionRunner backgroundActions,
             ListView<SearchResult> chatList, TextArea detail, Label status,
-            Button exportChatButton, Button summarizeButton) {
+            MenuItem exportChatItem, MenuItem summarizeItem) {
         this.controller = controller;
         this.backgroundActions = backgroundActions;
         this.chatList = chatList;
         this.detail = detail;
         this.status = status;
-        this.exportChatButton = exportChatButton;
-        this.summarizeButton = summarizeButton;
+        this.exportChatItem = exportChatItem;
+        this.summarizeItem = summarizeItem;
     }
 
     void handleSelectedResult(SearchResult selectedResult) {
@@ -110,11 +110,11 @@ final class ChatMapSelectionCoordinator {
 
     void updateSelectionActionStates() {
         boolean noSelection = chatList.getSelectionModel().getSelectedItem() == null;
-        if (exportChatButton != null) {
-            exportChatButton.setDisable(noSelection);
+        if (exportChatItem != null) {
+            exportChatItem.setDisable(noSelection);
         }
-        if (summarizeButton != null) {
-            summarizeButton.setDisable(noSelection);
+        if (summarizeItem != null) {
+            summarizeItem.setDisable(noSelection);
         }
     }
 

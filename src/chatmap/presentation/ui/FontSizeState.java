@@ -4,8 +4,8 @@ import java.util.List;
 
 final class FontSizeState {
 
-    static final List<Integer> SIZES = List.of(8, 10, 12, 14, 16, 18);
-    static final int DEFAULT_SIZE = 14;
+    static final List<Integer> SIZES = List.of(14, 16, 18, 20, 24, 28);
+    static final int DEFAULT_SIZE = 16;
 
     private int index;
 
