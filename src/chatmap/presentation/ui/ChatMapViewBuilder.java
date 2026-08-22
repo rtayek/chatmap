@@ -25,6 +25,8 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
@@ -85,6 +87,7 @@ public final class ChatMapViewBuilder {
             ComboBox<Project> projectChoice,
             TextField conversationField,
             ComboBox<Chat> resumeChatChoice,
+            Label activeChatLabel,
             TextArea historyArea,
             TextArea promptArea,
             Button sendButton,
@@ -295,17 +298,25 @@ public final class ChatMapViewBuilder {
 
         TextArea historyArea = createDetailTextArea();
         historyArea.setPromptText("History");
-        historyArea.setPrefRowCount(1);
+        historyArea.setPrefRowCount(5);
 
         TextArea promptArea = new TextArea();
         promptArea.setPromptText("Prompt");
         promptArea.setWrapText(true);
         promptArea.setPrefRowCount(3);
         promptArea.setMinWidth(160);
+        promptArea.addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() == KeyCode.ENTER && !event.isShiftDown()) {
+                event.consume();
+                runWithFeedback(onSend, errorHandler);
+            }
+        });
 
         Button sendButton = button("Send", onSend, errorHandler);
+        Label activeChatLabel = new Label("Active chat: New conversation");
         Label classificationLabel = new Label("Classification: none");
         Label routeLabel = new Label("Route: none");
+        activeChatLabel.setWrapText(true);
         classificationLabel.setWrapText(true);
         routeLabel.setWrapText(true);
 
@@ -325,11 +336,14 @@ public final class ChatMapViewBuilder {
         HBox.setHgrow(promptArea, javafx.scene.layout.Priority.ALWAYS);
         VBox pane = new VBox(SECTION_GAP,
                 controls,
+                activeChatLabel,
+                historyArea,
                 responseArea,
                 promptInput);
         VBox.setVgrow(responseArea, javafx.scene.layout.Priority.ALWAYS);
         pane.setPadding(new Insets(4));
-        return new PromptPaneWidgets(pane, projectChoice, conversationField, resumeChatChoice, historyArea,
+        return new PromptPaneWidgets(pane, projectChoice, conversationField, resumeChatChoice, activeChatLabel,
+                historyArea,
                 promptArea, sendButton, classificationLabel, routeLabel, responseArea);
     }
 
@@ -421,9 +435,7 @@ public final class ChatMapViewBuilder {
                     return "";
                 }
                 String title = chat.title() == null || chat.title().isBlank() ? "Untitled chat" : chat.title();
-                String session = chat.providerSessionId() == null || chat.providerSessionId().isBlank()
-                        ? "" : " / " + chat.providerSessionId();
-                return title + " [" + chat.id() + session + "]";
+                return title + " [" + chat.id() + "]";
             }
 
             @Override

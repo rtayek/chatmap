@@ -48,6 +48,7 @@ public final class ChatMapApp extends Application {
     private ComboBox<Tag> tagChoice;
     private TextField promptConversationField;
     private ComboBox<Chat> promptResumeChatChoice;
+    private Label activeChatLabel;
     private TextArea promptHistoryArea;
     private TextArea promptArea;
     private TextArea promptResponseArea;
@@ -75,6 +76,7 @@ public final class ChatMapApp extends Application {
     private Label status;
     private BackgroundActionRunner backgroundActions;
     private ChatMapSelectionCoordinator selection;
+    private String pendingPromptTitle = "New conversation";
 
     public static void main(String[] args) {
         LoggingBootstrap.bootstrap(args, ChatMapApp::validateArguments);
@@ -157,6 +159,7 @@ public final class ChatMapApp extends Application {
         promptProjectChoice = promptPaneWidgets.projectChoice();
         promptConversationField = promptPaneWidgets.conversationField();
         promptResumeChatChoice = promptPaneWidgets.resumeChatChoice();
+        activeChatLabel = promptPaneWidgets.activeChatLabel();
         promptHistoryArea = promptPaneWidgets.historyArea();
         promptArea = promptPaneWidgets.promptArea();
         promptSendButton = promptPaneWidgets.sendButton();
@@ -290,6 +293,7 @@ public final class ChatMapApp extends Application {
             return;
         }
         Chat resumeChat = promptResumeChatChoice.getValue();
+        pendingPromptTitle = promptTitle(prompt);
 
         promptResponseArea.clear();
         promptClassificationLabel.setText("Classification: pending");
@@ -302,7 +306,9 @@ public final class ChatMapApp extends Application {
     private void showPromptResult(PromptRoutingResult result) {
         promptClassificationLabel.setText(PromptResultDisplay.classificationText(result));
         promptRouteLabel.setText(PromptResultDisplay.routeText(result));
+        promptArea.clear();
         promptResponseArea.setText(result.promptResult().response());
+        setActiveChat(pendingPromptTitle, result.promptResult().chatId());
         loadPromptHistory(result.promptResult().chatId());
         refreshChatsAfterPrompt(result);
     }
@@ -311,6 +317,7 @@ public final class ChatMapApp extends Application {
         promptResumeChatChoice.getSelectionModel().clearSelection();
         promptResumeChatChoice.setItems(FXCollections.observableArrayList());
         promptHistoryArea.clear();
+        resetActiveChat();
         if (project == null) {
             return;
         }
@@ -322,10 +329,12 @@ public final class ChatMapApp extends Application {
     private void loadPromptHistory(Chat chat) {
         if (chat == null) {
             promptHistoryArea.clear();
+            resetActiveChat();
             return;
         }
         loadPromptHistory(chat.id());
         String title = chat.title() == null || chat.title().isBlank() ? "chat-" + chat.id() : chat.title();
+        setActiveChat(title, chat.id());
         promptConversationField.setText(ChatMapViewBuilder.safeFileName(title));
     }
 
@@ -535,14 +544,34 @@ public final class ChatMapApp extends Application {
         ChatMapDialogs.showError("Operation failed", e.getMessage());
     }
 
+    private void resetActiveChat() {
+        activeChatLabel.setText(newConversationText());
+    }
+
+    private void setActiveChat(String title, long chatId) {
+        activeChatLabel.setText(activeChatText(title, chatId));
+    }
+
+    static String newConversationText() {
+        return "Active chat: New conversation";
+    }
+
+    static String activeChatText(String title, long chatId) {
+        return "Active chat: " + title + " [" + chatId + "]";
+    }
+
+    static String promptTitle(String prompt) {
+        return prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
+    }
+
     private void applyFontSize(int size) {
         String style = "-fx-font-size: " + size + "px;";
         if (root != null) {
             root.setStyle(style);
         }
         Node[] fontSizedNodes = {chatList, detail, searchField, projectChoice, relatedProjectChoice,
-                promptProjectChoice, tagChoice, promptConversationField, promptResumeChatChoice, promptHistoryArea,
-                promptArea, promptResponseArea, status};
+                promptProjectChoice, tagChoice, promptConversationField, promptResumeChatChoice, activeChatLabel,
+                promptHistoryArea, promptArea, promptResponseArea, status};
         for (Node node : fontSizedNodes) {
             if (node != null) {
                 node.setStyle(style);

@@ -78,6 +78,31 @@ final class ChatDetailRendererTest {
     }
 
     @Test
+    void resumeChatDisplayOmitsProviderSessionId() {
+        Chat chat = Chat.builder()
+                            .id(11)
+                            .projectId(null)
+                            .source(Source.claudeCliPrompt)
+                            .title("Resume Target")
+                            .createdAt(null)
+                            .updatedAt(null)
+                            .importedAt("2026-08-08T00:00:00Z")
+                            .archived(false)
+                            .providerSessionId("long-provider-session-id")
+                            .build();
+
+        assertEquals("Resume Target [11]", ChatMapViewBuilder.namedChatConverter().toString(chat));
+    }
+
+    @Test
+    void formatsActiveChatIndicatorAndPromptTitle() {
+        assertEquals("Active chat: New conversation", ChatMapApp.newConversationText());
+        assertEquals("Active chat: Short task [12]", ChatMapApp.activeChatText("Short task", 12));
+        assertEquals("1234567890123456789012345678901234567890...",
+                ChatMapApp.promptTitle("12345678901234567890123456789012345678901"));
+    }
+
+    @Test
     void promptHistoryRendersMessagesInStoredOrder() {
         Chat chat = Chat.builder()
                             .id(9)
