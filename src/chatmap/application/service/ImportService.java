@@ -89,6 +89,10 @@ public final class ImportService {
         return transactions.inTransaction(() -> appendInTransaction(chatTemplate, newMessages));
     }
 
+    public PersistResult appendToChat(long chatId, List<Message> newMessages) throws SQLException {
+        return transactions.inTransaction(() -> appendToStoredChatInTransaction(chatId, newMessages));
+    }
+
     public List<String> listPromptSessions(ModelTarget target) throws SQLException {
         Objects.requireNonNull(target, "target");
         return chats.findPromptSessions(target.channel().name(), target.id());
@@ -100,7 +104,12 @@ public final class ImportService {
             return persistInTransaction(new ImportedChat(chatTemplate, newMessages));
         }
 
-        Chat stored = existing.get();
+        return appendToStoredChatInTransaction(existing.get().id(), newMessages);
+    }
+
+    private PersistResult appendToStoredChatInTransaction(long chatId, List<Message> newMessages) throws SQLException {
+        Chat stored = chats.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown chat id: " + chatId));
         int nextSequence = messages.findByChat(stored.id()).stream().mapToInt(Message::sequence).max().orElse(-1) + 1;
         List<Message> sequenced = new ArrayList<>();
         for (int i = 0; i < newMessages.size(); i++) {

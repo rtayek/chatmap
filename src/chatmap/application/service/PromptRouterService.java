@@ -55,8 +55,7 @@ public final class PromptRouterService {
         PromptClassification classification = classifier.classify(prompt);
         ModelRoute route = routeFor(classification, resumeChat);
 
-        PromptResult promptResult = promptService.submitForProject(route.target().id(), prompt,
-                projectIdForPrompt(project, resumeChat), sessionId(resumeChat));
+        PromptResult promptResult = promptResult(route, prompt, project, resumeChat);
 
         PromptRouteRecord saved = promptRoutes.insert(new PromptRouteRecord(
                 0,
@@ -101,6 +100,16 @@ public final class PromptRouterService {
             return resumeChat.projectId();
         }
         return project.id();
+    }
+
+    private PromptResult promptResult(ModelRoute route, String prompt, Project project, Chat resumeChat)
+            throws SQLException {
+        String sessionId = sessionId(resumeChat);
+        if (resumeChat != null && sessionId == null) {
+            return promptService.submitForExistingChat(route.target().id(), prompt, resumeChat.id());
+        }
+        return promptService.submitForProject(route.target().id(), prompt, projectIdForPrompt(project, resumeChat),
+                sessionId);
     }
 
     private static String sessionId(Chat resumeChat) {

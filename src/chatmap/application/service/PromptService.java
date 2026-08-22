@@ -105,8 +105,17 @@ public final class PromptService {
         return submit(backendName, prompt, PromptProfile.general, sessionId, projectId);
     }
 
+    public PromptResult submitForExistingChat(String backendName, String prompt, long chatId) throws SQLException {
+        return submit(backendName, prompt, PromptProfile.general, null, null, chatId);
+    }
+
     private PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId,
             Long projectId) throws SQLException {
+        return submit(backendName, prompt, profile, sessionId, projectId, null);
+    }
+
+    private PromptResult submit(String backendName, String prompt, PromptProfile profile, String sessionId,
+            Long projectId, Long appendChatId) throws SQLException {
         ModelTarget target = ModelTarget.require(backendName);
         LlmProvider provider = providerFor(target);
 
@@ -123,7 +132,8 @@ public final class PromptService {
 
         long chatId = 0;
         if (importService != null) {
-            chatId = recordInDatabase(target, prompt, responseText, started, effectiveSessionId, projectId);
+            chatId = recordInDatabase(target, prompt, responseText, started, effectiveSessionId, projectId,
+                    appendChatId);
         }
         Path transcriptPath = writeLocalTranscript(started, backendId, prompt, responseText);
 
@@ -139,7 +149,7 @@ public final class PromptService {
      * chat, since there is no provider session to key on.
      */
     private long recordInDatabase(ModelTarget target, String prompt, String responseText, Instant started,
-            String sessionId, Long projectId) throws SQLException {
+            String sessionId, Long projectId, Long appendChatId) throws SQLException {
         String now = started.toString();
         String title = prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
         Chat chat = Chat.builder()
@@ -161,9 +171,14 @@ public final class PromptService {
         Message assistantMsg = new Message(0L, 0L, chatmap.domain.MessageRole.assistant, responseText, 1, now, null);
         List<Message> messages = List.of(userMsg, assistantMsg);
 
-        ImportService.PersistResult result = (sessionId != null && !sessionId.isBlank())
-                ? importService.appendToConversation(chat, messages)
-                : importService.persist(new ImportedChat(chat, messages));
+        ImportService.PersistResult result;
+        if (appendChatId != null && appendChatId > 0) {
+            result = importService.appendToChat(appendChatId, messages);
+        } else if (sessionId != null && !sessionId.isBlank()) {
+            result = importService.appendToConversation(chat, messages);
+        } else {
+            result = importService.persist(new ImportedChat(chat, messages));
+        }
         return result.chat().id();
     }
 

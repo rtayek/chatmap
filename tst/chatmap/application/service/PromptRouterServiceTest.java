@@ -173,6 +173,37 @@ class PromptRouterServiceTest {
     }
 
     @Test
+    void resumedPromptWithoutProviderSessionStillAppendsToSelectedChat() throws Exception {
+        Project project = projects.insert(new Project(0, "Foo", null,
+                "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z"));
+        Chat existing = chats.insert(Chat.builder()
+                .id(0)
+                .projectId(project.id())
+                .source(Source.claudeCliPrompt)
+                .title("Existing no-session conversation")
+                .createdAt("2026-08-20T00:00:00Z")
+                .updatedAt("2026-08-20T00:00:00Z")
+                .importedAt("2026-08-20T00:00:00Z")
+                .archived(false)
+                .originatedBy(chatmap.domain.ChatOrigin.generated)
+                .channelId(Channel.claudeCli.name())
+                .modelTargetId(ModelTarget.claude.id())
+                .build());
+        messages.insertAll(List.of(
+                new Message(0, existing.id(), MessageRole.user, "first prompt", 0, null, null),
+                new Message(0, existing.id(), MessageRole.assistant, "first response", 1, null, null)));
+
+        PromptRoutingResult result = router.route(ProjectContext.from(project), new ConversationContext("resume"),
+                "second prompt", existing);
+
+        assertEquals(existing.id(), result.promptResult().chatId());
+        assertTrue(provider.requests.getFirst().sessionId().isEmpty());
+        assertEquals(List.of("first prompt", "first response", "second prompt", "response for claude"),
+                messages.findByChat(existing.id()).stream().map(Message::text).toList());
+        assertEquals(1, chats.findAll().size());
+    }
+
+    @Test
     void routeWithoutResumeStillCreatesNewChatForEachPrompt() throws Exception {
         Project project = projects.insert(new Project(0, "Foo", null,
                 "2026-08-20T00:00:00Z", "2026-08-20T00:00:00Z"));
