@@ -315,6 +315,7 @@ public final class ChatMapApp extends Application {
         setActiveChat(pendingPromptTitle, result.promptResult().chatId());
         loadPromptHistory(result.promptResult().chatId());
         refreshChatsAfterPrompt(result);
+        highlightPromptReady();
     }
 
     private void refreshPromptResumeChoices(Project project) {
@@ -551,6 +552,15 @@ public final class ChatMapApp extends Application {
         ChatMapDialogs.showError("Operation failed", e.getMessage());
     }
 
+    private void highlightPromptReady() {
+        promptArea.requestFocus();
+        promptArea.setStyle(fontSizeStyle(fontSizeState.current())
+                + " -fx-border-color: #15803D; -fx-border-width: 2px;");
+        javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(javafx.util.Duration.millis(900));
+        pause.setOnFinished(event -> promptArea.setStyle(fontSizeStyle(fontSizeState.current())));
+        pause.play();
+    }
+
     private void resetActiveChat() {
         activeChatLabel.setText(newConversationText());
     }
@@ -594,7 +604,7 @@ public final class ChatMapApp extends Application {
     }
 
     private void applyFontSize(int size) {
-        String style = "-fx-font-size: " + size + "px;";
+        String style = fontSizeStyle(size);
         if (root != null) {
             root.setStyle(style);
         }
@@ -609,6 +619,10 @@ public final class ChatMapApp extends Application {
         if (selectFontSize != null) {
             selectFontSize.accept(size);
         }
+    }
+
+    private static String fontSizeStyle(int size) {
+        return "-fx-font-size: " + size + "px;";
     }
 
     private void showPromptMode() {

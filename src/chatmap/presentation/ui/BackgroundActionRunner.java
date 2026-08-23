@@ -15,14 +15,14 @@ import javafx.scene.control.Label;
  */
 final class BackgroundActionRunner {
     private final ChatMapRuntime runtime;
-    private final Label status;
+    private final StatusIndicator statusIndicator;
     private final Consumer<Exception> errorReporter;
 
     private static final System.Logger LOGGER = System.getLogger(BackgroundActionRunner.class.getName());
 
     BackgroundActionRunner(ChatMapRuntime runtime, Label status, Consumer<Exception> errorReporter) {
         this.runtime = runtime;
-        this.status = status;
+        this.statusIndicator = new StatusIndicator(status);
         this.errorReporter = errorReporter;
     }
 
@@ -44,13 +44,13 @@ final class BackgroundActionRunner {
             try {
                 ChatListState.Snapshot snapshot = call.run();
                 Platform.runLater(() -> {
-                    finish(setDisabled);
+                    finish(setDisabled, true);
                     onSuccess.accept(snapshot);
                 });
             } catch (Exception exception) {
                 LOGGER.log(System.Logger.Level.WARNING, "Background snapshot action failed", exception);
                 Platform.runLater(() -> {
-                    finish(setDisabled);
+                    finish(setDisabled, false);
                     onFailure.accept(exception);
                 });
             }
@@ -74,13 +74,13 @@ final class BackgroundActionRunner {
             try {
                 T result = call.call();
                 Platform.runLater(() -> {
-                    finish(setDisabled);
+                    finish(setDisabled, true);
                     onSuccess.accept(result);
                 });
             } catch (Exception exception) {
                 LOGGER.log(System.Logger.Level.WARNING, "Background value action failed", exception);
                 Platform.runLater(() -> {
-                    finish(setDisabled);
+                    finish(setDisabled, false);
                     errorReporter.accept(exception);
                 });
             }
@@ -88,17 +88,20 @@ final class BackgroundActionRunner {
     }
 
     private void setPending(String pendingStatus, Consumer<Boolean> setDisabled) {
-        if (pendingStatus != null) {
-            status.setText(pendingStatus);
-        }
+        statusIndicator.busy(pendingStatus);
         if (setDisabled != null) {
             setDisabled.accept(true);
         }
     }
 
-    private static void finish(Consumer<Boolean> setDisabled) {
+    private void finish(Consumer<Boolean> setDisabled, boolean succeeded) {
         if (setDisabled != null) {
             setDisabled.accept(false);
+        }
+        if (succeeded) {
+            statusIndicator.ready();
+        } else {
+            statusIndicator.error();
         }
     }
 
