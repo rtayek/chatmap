@@ -1,0 +1,8 @@
+add promps to a drop down list like:
+    make a handoff
+    give it to some chat
+    store it in a project
+    tell a chat to read it.
+
+generalize sync-handoff so it work on the current folde. how?
+maybe all .md files should have the project id in them?
