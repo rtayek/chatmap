@@ -1,6 +1,7 @@
 package chatmap.presentation.ui;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CountDownLatch;
@@ -9,9 +10,13 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import chatmap.domain.Chat;
+import chatmap.domain.Source;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
 import javafx.scene.Node;
 import javafx.scene.Parent;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.CheckMenuItem;
 import javafx.scene.layout.Pane;
 
@@ -62,6 +67,18 @@ final class ChatMapViewBuilderTest {
         assertFalse(widgets.historyArea().isManaged());
     }
 
+    @Test
+    void canSelectResumeChatByReturnedPromptChatId() {
+        ComboBox<Chat> resumeChoice = new ComboBox<>();
+        Chat first = chat(1, "First");
+        Chat second = chat(2, "Second");
+        resumeChoice.setItems(FXCollections.observableArrayList(first, second));
+
+        assertTrue(ChatMapApp.selectPromptResumeChat(resumeChoice, second.id()));
+
+        assertEquals(second, resumeChoice.getValue());
+    }
+
     private static boolean containsNode(Node root, Node target) {
         if (root == target) {
             return true;
@@ -80,5 +97,15 @@ final class ChatMapViewBuilderTest {
             }
         }
         return false;
+    }
+
+    private static Chat chat(long id, String title) {
+        return Chat.builder()
+                .id(id)
+                .source(Source.claudeCliPrompt)
+                .title(title)
+                .importedAt("2026-08-22T00:00:00Z")
+                .archived(false)
+                .build();
     }
 }

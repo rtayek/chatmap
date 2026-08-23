@@ -314,22 +314,34 @@ public final class ChatMapApp extends Application {
         promptResponseArea.setText(result.promptResult().response());
         setActiveChat(pendingPromptTitle, result.promptResult().chatId());
         loadPromptHistory(result.promptResult().chatId());
+        refreshPromptResumeChoices(promptProjectChoice.getValue(), result.promptResult().chatId());
         refreshChatsAfterPrompt(result);
         highlightPromptReady();
     }
 
     private void refreshPromptResumeChoices(Project project) {
-        promptResumeChatChoice.getSelectionModel().clearSelection();
+        refreshPromptResumeChoices(project, null);
+    }
+
+    private void refreshPromptResumeChoices(Project project, Long selectedChatId) {
+        if (selectedChatId == null) {
+            promptResumeChatChoice.getSelectionModel().clearSelection();
+            promptHistoryArea.clear();
+            resetActiveChat();
+            promptRouteLabel.setText("Route: none");
+        }
         promptResumeChatChoice.setItems(FXCollections.observableArrayList());
-        promptHistoryArea.clear();
-        resetActiveChat();
-        promptRouteLabel.setText("Route: none");
         if (project == null) {
             return;
         }
         backgroundActions.runValue(null, null,
                 () -> controller.listPromptResumeCandidates(project),
-                chats -> promptResumeChatChoice.setItems(FXCollections.observableArrayList(chats)));
+                chats -> {
+                    promptResumeChatChoice.setItems(FXCollections.observableArrayList(chats));
+                    if (selectedChatId != null) {
+                        selectPromptResumeChat(promptResumeChatChoice, selectedChatId);
+                    }
+                });
     }
 
     private void loadPromptHistory(Chat chat) {
@@ -601,6 +613,16 @@ public final class ChatMapApp extends Application {
 
     static String promptTitle(String prompt) {
         return prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
+    }
+
+    static boolean selectPromptResumeChat(ComboBox<Chat> resumeChatChoice, long chatId) {
+        for (Chat chat : resumeChatChoice.getItems()) {
+            if (chat.id() == chatId) {
+                resumeChatChoice.getSelectionModel().select(chat);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void applyFontSize(int size) {
