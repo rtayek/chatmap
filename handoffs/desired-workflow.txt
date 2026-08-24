@@ -1,0 +1,24 @@
+my workflow is as follows.
+    1. chat using voice with 3 web llms (chatgpt, clause, gemini) using one project with many chats in each ai.
+    2. this led me to attempt to make some kind of harnes.
+    3. usually i get a handoff from one and edit or store it.
+    4. give it to a cli llm (codex, clausd, antigravity)) to implement.
+    5. implementation is sometines an iterative process.
+    6. usin the clis involves typing as the voice seems klunkey.
+    7. while implementation is hapening, i chat with another llm or 2.
+
+observayions.
+    1.i was was making a chat manager/persister and some kind of a harness.
+    2 all of the major llms are getting guis and harnesses.
+
+conclusions.
+    1, maybe we should not do a lot of extra work on the harness.
+
+my dseired workflow.
+    1. talk to a handfull of workers and get responses/data back.
+    2. use or save the responses/data we received.
+    3. give some of the responses/data to other chats from other workers.
+    4. see how many workers i can keep busy continuously.
+
+
+
