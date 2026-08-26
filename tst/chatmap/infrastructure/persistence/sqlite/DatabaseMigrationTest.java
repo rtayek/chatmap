@@ -124,6 +124,11 @@ class DatabaseMigrationTest {
             assertEquals(null, gitSsh.localPath());
             assertEquals("git@github.com:rtayek/chatmap.git", gitSsh.remoteUrl());
             assertTrue(tables(conn).contains("chatRelatedProjects"));
+            assertTrue(tables(conn).contains("workerAssignments"));
+            assertTrue(tables(conn).contains("workerSessions"));
+            assertTrue(tables(conn).contains("workerLifecycleEvents"));
+            assertTrue(tables(conn).contains("workerArtifacts"));
+            assertTrue(tables(conn).contains("workerSemanticHandoffs"));
         }
     }
 

@@ -171,6 +171,18 @@ tasks.register<JavaExec>("handoffOrchestrator") {
     }
 }
 
+tasks.register<JavaExec>("workerLifecycleDemo") {
+    group = "application"
+    description = "Runs the deterministic worker-lifecycle continuity demo."
+    mainClass.set("chatmap.presentation.cli.WorkerLifecycleDemoCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString().split(" "))
+    }
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")

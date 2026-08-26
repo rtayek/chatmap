@@ -25,6 +25,7 @@ import chatmap.application.port.persistence.RelatedProjectStore;
 import chatmap.application.port.persistence.SearchStore;
 import chatmap.application.port.persistence.SummaryStore;
 import chatmap.application.port.persistence.TagStore;
+import chatmap.application.port.persistence.WorkerLifecycleStore;
 import chatmap.application.service.ConversationInventoryService;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ImportService;
@@ -37,6 +38,7 @@ import chatmap.application.service.PromptRouteSelector;
 import chatmap.application.service.SearchService;
 import chatmap.application.service.SummaryService;
 import chatmap.application.service.TagService;
+import chatmap.application.service.WorkerLifecycleService;
 import chatmap.app.bootstrap.ChatMapPaths.ResolvedPaths;
 import chatmap.infrastructure.exporter.HandoffExporter;
 import chatmap.infrastructure.exporter.MarkdownExporter;
@@ -51,6 +53,7 @@ import chatmap.infrastructure.persistence.sqlite.SearchRepository;
 import chatmap.infrastructure.persistence.sqlite.SummaryRepository;
 import chatmap.infrastructure.persistence.sqlite.TagRepository;
 import chatmap.infrastructure.persistence.sqlite.TransactionRunner;
+import chatmap.infrastructure.persistence.sqlite.WorkerLifecycleRepository;
 
 /**
  * The single wiring of repositories and services over one SQLite connection.
@@ -64,6 +67,7 @@ public record ServiceGraph(
         ProjectStore projects,
         RelatedProjectStore relatedProjects,
         PromptRouteStore promptRoutes,
+        WorkerLifecycleStore workerLifecycleStore,
         TagStore tags,
         SummaryStore summaries,
         SearchStore search,
@@ -77,7 +81,8 @@ public record ServiceGraph(
         ProjectService projectService,
         TagService tagService,
         PromptService promptService,
-        PromptRouterService promptRouterService) implements AutoCloseable {
+        PromptRouterService promptRouterService,
+        WorkerLifecycleService workerLifecycleService) implements AutoCloseable {
 
     /**
      * Optional outside-world capabilities. Core import/search/export can run with
@@ -116,6 +121,7 @@ public record ServiceGraph(
         ProjectRepository projects = new ProjectRepository(connection);
         RelatedProjectRepository relatedProjects = new RelatedProjectRepository(connection);
         PromptRouteRepository promptRoutes = new PromptRouteRepository(connection);
+        WorkerLifecycleRepository workerLifecycleStore = new WorkerLifecycleRepository(connection);
         TagRepository tags = new TagRepository(connection);
         SummaryRepository summaries = new SummaryRepository(connection);
         SearchRepository search = new SearchRepository(connection);
@@ -147,11 +153,15 @@ public record ServiceGraph(
                 projectService,
                 promptRoutes,
                 java.time.Clock.systemUTC());
+        WorkerLifecycleService workerLifecycleService = new WorkerLifecycleService(
+                workerLifecycleStore, transactionRunner, java.time.Clock.systemUTC());
 
-        return new ServiceGraph(connection, chats, messages, projects, relatedProjects, promptRoutes, tags,
+        return new ServiceGraph(connection, chats, messages, projects, relatedProjects, promptRoutes,
+                workerLifecycleStore, tags,
                 summaries, search, importService, archiveImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
-                exportService, searchService, projectService, tagService, promptService, promptRouterService);
+                exportService, searchService, projectService, tagService, promptService, promptRouterService,
+                workerLifecycleService);
     }
 
     /** Closes the underlying connection. */

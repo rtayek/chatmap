@@ -106,6 +106,7 @@ class ServiceGraphTest {
         try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize();
                 ServiceGraph graph = ServiceGraph.create(connection, paths())) {
             org.junit.jupiter.api.Assertions.assertNotNull(graph.promptService());
+            org.junit.jupiter.api.Assertions.assertNotNull(graph.workerLifecycleService());
         }
     }
 
