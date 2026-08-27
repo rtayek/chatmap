@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
 public class HandoffWatcher {
 
     // Non-greedy project-name capture, fixed date suffix.
+    // Package-private (not private) so tests can exercise it directly.
     static final Pattern HANDOFF_PATTERN =
             Pattern.compile("^handoff-([a-z0-9-]+?)-(\\d{4}-\\d{2}-\\d{2})\\.md$");
 
@@ -80,7 +81,7 @@ public class HandoffWatcher {
                 @SuppressWarnings("unchecked")
                 WatchEvent<Path> pathEvent = (WatchEvent<Path>) event;
                 Path fileName = pathEvent.context();
-                handleNewFile(watchDir, fileName);
+                handleNewFile(watchDir, fileName, PROJECTS);
             }
 
             boolean valid = key.reset();
@@ -91,7 +92,10 @@ public class HandoffWatcher {
         }
     }
 
-    private static void handleNewFile(Path watchDir, Path fileName) {
+    // Package-private (not private) and takes the project map as a
+    // parameter, so tests can pass a temp-directory map instead of the
+    // real PROJECTS map that points at ~/eclipse-workspace/*.
+    static void handleNewFile(Path watchDir, Path fileName, Map<String, Path> projects) {
         String name = fileName.toString();
         Matcher m = HANDOFF_PATTERN.matcher(name);
 
@@ -102,7 +106,7 @@ public class HandoffWatcher {
 
         String project = m.group(1);
         String date = m.group(2);
-        Path destDir = PROJECTS.get(project);
+        Path destDir = projects.get(project);
 
         if (destDir == null) {
             System.out.println("[" + name + "] unknown project '" + project
