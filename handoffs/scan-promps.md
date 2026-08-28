@@ -1,3 +1,8 @@
+> **STATUS: SPECULATIVE / UNREVIEWED IMPORT.** Generated externally, annotated
+> with `[Explicit Memory]`-style tags. Proposes a model-routing strategy that
+> was never reviewed or adopted; model names/tiers may not match what ChatMap
+> actually uses. Do not treat as a settled design or current architecture.
+
 ### AI Handoff: Prompt Complexity Classification & Model Routing Strategy
 
 ### 1. Context Overview
