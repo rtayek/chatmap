@@ -1,3 +1,10 @@
+> **STATUS: SPECULATIVE / UNREVIEWED IMPORT.** Generated externally (Gemini,
+> annotated with `[Explicit Memory Claims]` / `[Query-relevant Context...]`
+> tags). Proposes an "Agent OS Gateway / Mesh Net" architecture that
+> contradicts the current, settled direction in `design.md` and
+> `first-principles.md`. Not adopted, not reviewed against those documents.
+> Do not treat as authoritative or in-progress work.
+
 ### Strategic Vision Handoff: The Evolution of Chat Map
 
 ### 1. Executive Summary & Future State
