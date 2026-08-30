@@ -218,6 +218,7 @@ public final class Database {
                         + "ON promptRoutes(workingProjectIdentity, conversationId, id)");
                 st.execute("CREATE INDEX IF NOT EXISTS promptRoutesProjectConversationIndex "
                         + "ON promptRoutes(workingProjectId, conversationId, id)");
+                createWorkerLifecycleTables(st);
                 st.execute("CREATE UNIQUE INDEX IF NOT EXISTS chatsExternalIdentityIndex "
                         + "ON chats(source, externalConversationId) WHERE externalConversationId IS NOT NULL");
                 st.execute("DROP INDEX IF EXISTS chatsPromptSessionIndex");
@@ -289,6 +290,66 @@ public final class Database {
                 }
             }
         }
+    }
+
+    private static void createWorkerLifecycleTables(Statement st) throws SQLException {
+        st.execute("CREATE TABLE IF NOT EXISTS workerAssignments ("
+                + "id INTEGER PRIMARY KEY, "
+                + "predecessorSessionId INTEGER REFERENCES workerSessions(id) ON DELETE SET NULL, "
+                + "task TEXT NOT NULL, "
+                + "contextAndFiles TEXT NOT NULL, "
+                + "availableTools TEXT NOT NULL, "
+                + "constraintsAndPermissions TEXT NOT NULL, "
+                + "definitionOfDone TEXT NOT NULL, "
+                + "escalationBehavior TEXT NOT NULL, "
+                + "createdAt TEXT NOT NULL)");
+        st.execute("CREATE INDEX IF NOT EXISTS workerAssignmentsPredecessorIndex "
+                + "ON workerAssignments(predecessorSessionId, id)");
+        st.execute("CREATE TABLE IF NOT EXISTS workerSessions ("
+                + "id INTEGER PRIMARY KEY, "
+                + "assignmentId INTEGER NOT NULL REFERENCES workerAssignments(id) ON DELETE CASCADE, "
+                + "workerIdentity TEXT NOT NULL, "
+                + "lifecycleState TEXT NOT NULL, "
+                + "createdAt TEXT NOT NULL, "
+                + "updatedAt TEXT NOT NULL)");
+        st.execute("CREATE INDEX IF NOT EXISTS workerSessionsAssignmentIndex "
+                + "ON workerSessions(assignmentId, id)");
+        st.execute("CREATE TABLE IF NOT EXISTS workerLifecycleEvents ("
+                + "id INTEGER PRIMARY KEY, "
+                + "sessionId INTEGER NOT NULL REFERENCES workerSessions(id) ON DELETE CASCADE, "
+                + "fromState TEXT NOT NULL, "
+                + "toState TEXT NOT NULL, "
+                + "question TEXT, "
+                + "reason TEXT, "
+                + "partialWork TEXT, "
+                + "createdAt TEXT NOT NULL)");
+        st.execute("CREATE INDEX IF NOT EXISTS workerLifecycleEventsSessionIndex "
+                + "ON workerLifecycleEvents(sessionId, id)");
+        st.execute("CREATE TABLE IF NOT EXISTS workerArtifacts ("
+                + "id INTEGER PRIMARY KEY, "
+                + "sessionId INTEGER NOT NULL REFERENCES workerSessions(id) ON DELETE CASCADE, "
+                + "label TEXT NOT NULL, "
+                + "location TEXT NOT NULL, "
+                + "description TEXT, "
+                + "createdAt TEXT NOT NULL)");
+        st.execute("CREATE INDEX IF NOT EXISTS workerArtifactsSessionIndex "
+                + "ON workerArtifacts(sessionId, id)");
+        st.execute("CREATE TABLE IF NOT EXISTS workerSemanticHandoffs ("
+                + "id INTEGER PRIMARY KEY, "
+                + "sessionId INTEGER NOT NULL UNIQUE REFERENCES workerSessions(id) ON DELETE CASCADE, "
+                + "workCompleted TEXT NOT NULL, "
+                + "decisionsAndReasons TEXT NOT NULL, "
+                + "artifactsAndLocations TEXT NOT NULL, "
+                + "unresolvedProblems TEXT NOT NULL, "
+                + "requiredUserDecisions TEXT NOT NULL, "
+                + "recommendedNextAction TEXT NOT NULL, "
+                + "successorTask TEXT, "
+                + "successorContextAndFiles TEXT, "
+                + "successorAvailableTools TEXT, "
+                + "successorConstraintsAndPermissions TEXT, "
+                + "successorDefinitionOfDone TEXT, "
+                + "successorEscalationBehavior TEXT, "
+                + "createdAt TEXT NOT NULL)");
     }
 
     private static void backfillProjectPaths(Connection conn) throws SQLException {

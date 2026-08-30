@@ -113,6 +113,77 @@ CREATE TABLE IF NOT EXISTS promptRoutes (
 CREATE INDEX IF NOT EXISTS promptRoutesConversationIndex
 ON promptRoutes(workingProjectIdentity, conversationId, id);
 
+CREATE TABLE IF NOT EXISTS workerAssignments (
+    id INTEGER PRIMARY KEY,
+    predecessorSessionId INTEGER REFERENCES workerSessions(id) ON DELETE SET NULL,
+    task TEXT NOT NULL,
+    contextAndFiles TEXT NOT NULL,
+    availableTools TEXT NOT NULL,
+    constraintsAndPermissions TEXT NOT NULL,
+    definitionOfDone TEXT NOT NULL,
+    escalationBehavior TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workerAssignmentsPredecessorIndex
+ON workerAssignments(predecessorSessionId, id);
+
+CREATE TABLE IF NOT EXISTS workerSessions (
+    id INTEGER PRIMARY KEY,
+    assignmentId INTEGER NOT NULL REFERENCES workerAssignments(id) ON DELETE CASCADE,
+    workerIdentity TEXT NOT NULL,
+    lifecycleState TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workerSessionsAssignmentIndex
+ON workerSessions(assignmentId, id);
+
+CREATE TABLE IF NOT EXISTS workerLifecycleEvents (
+    id INTEGER PRIMARY KEY,
+    sessionId INTEGER NOT NULL REFERENCES workerSessions(id) ON DELETE CASCADE,
+    fromState TEXT NOT NULL,
+    toState TEXT NOT NULL,
+    question TEXT,
+    reason TEXT,
+    partialWork TEXT,
+    createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workerLifecycleEventsSessionIndex
+ON workerLifecycleEvents(sessionId, id);
+
+CREATE TABLE IF NOT EXISTS workerArtifacts (
+    id INTEGER PRIMARY KEY,
+    sessionId INTEGER NOT NULL REFERENCES workerSessions(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    location TEXT NOT NULL,
+    description TEXT,
+    createdAt TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS workerArtifactsSessionIndex
+ON workerArtifacts(sessionId, id);
+
+CREATE TABLE IF NOT EXISTS workerSemanticHandoffs (
+    id INTEGER PRIMARY KEY,
+    sessionId INTEGER NOT NULL UNIQUE REFERENCES workerSessions(id) ON DELETE CASCADE,
+    workCompleted TEXT NOT NULL,
+    decisionsAndReasons TEXT NOT NULL,
+    artifactsAndLocations TEXT NOT NULL,
+    unresolvedProblems TEXT NOT NULL,
+    requiredUserDecisions TEXT NOT NULL,
+    recommendedNextAction TEXT NOT NULL,
+    successorTask TEXT,
+    successorContextAndFiles TEXT,
+    successorAvailableTools TEXT,
+    successorConstraintsAndPermissions TEXT,
+    successorDefinitionOfDone TEXT,
+    successorEscalationBehavior TEXT,
+    createdAt TEXT NOT NULL
+);
+
 -- ---------------------------------------------------------------------------
 -- Full-text search: external-content FTS5 table over messages.text.
 --
