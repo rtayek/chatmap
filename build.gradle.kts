@@ -183,6 +183,34 @@ tasks.register<JavaExec>("workerLifecycleDemo") {
     }
 }
 
+tasks.register<JavaExec>("workerLifecycleSoakTest") {
+    group = "verification"
+    description = "Executes the 1,000-cycle WorkerLifecycle soak harness."
+    mainClass.set("chatmap.infrastructure.persistence.sqlite.WorkerLifecycleSoakHarness")
+    classpath = sourceSets["test"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xms256m", "-Xmx512m")
+
+    val cycles = project.findProperty("cycles") ?: "1000"
+    val seed = project.findProperty("seed") ?: "42"
+    val checkpoint = project.findProperty("checkpointInterval") ?: "500"
+
+    val cliArgs = mutableListOf(
+        "--cycles", cycles.toString(),
+        "--seed", seed.toString(),
+        "--checkpoint-interval", checkpoint.toString()
+    )
+    if (project.hasProperty("home")) {
+        val homeVal = project.property("home").toString()
+        if (homeVal.isNotBlank()) {
+            cliArgs.add("--home")
+            cliArgs.add(homeVal)
+        }
+    }
+    args = cliArgs
+}
+
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
