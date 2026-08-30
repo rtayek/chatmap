@@ -171,6 +171,18 @@ tasks.register<JavaExec>("handoffOrchestrator") {
     }
 }
 
+tasks.register<JavaExec>("handoffWatcher") {
+    group = "application"
+    description = "Collects handoff Markdown files from local sources into one inbox. " +
+            "Usage: -Pargs='--inbox <dir> --source <dir> [--source <dir> ...] [--once]'"
+    mainClass.set("handoff.HandoffWatcher")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString().split(" "))
+    }
+}
+
 tasks.register<JavaExec>("workerLifecycleDemo") {
     group = "application"
     description = "Runs the deterministic worker-lifecycle continuity demo."
