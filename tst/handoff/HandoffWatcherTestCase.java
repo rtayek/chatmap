@@ -142,4 +142,14 @@ class HandoffWatcherTestCase {
         assertEquals("new content", Files.readString(existingDest),
                 "same-day re-run should overwrite the previous handoff file");
     }
+
+    @Test
+    void handlesMissingSourceFileGracefully(@TempDir Path downloads, @TempDir Path projectRoot) {
+        Path fileName = Path.of("handoff-dotmdfiles-2026-08-26.md");
+        Map<String, Path> projects = Map.of("dotmdfiles", projectRoot);
+
+        HandoffWatcher.handleNewFile(downloads, fileName, projects);
+
+        assertFalse(Files.exists(projectRoot.resolve(fileName)));
+    }
 }
