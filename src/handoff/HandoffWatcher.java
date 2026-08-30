@@ -44,8 +44,8 @@ public class HandoffWatcher {
             Pattern.compile("^handoff-([a-z0-9-]+?)-(\\d{4}-\\d{2}-\\d{2})\\.md$");
 
     private static final Map<String, Path> PROJECTS = Map.ofEntries(
-            Map.entry("cjatmanager", Path.of(System.getProperty("user.home"), "eclipse-workspace",
-                    "cjatmanager")),
+            Map.entry("chatmap", Path.of(System.getProperty("user.home"), "eclipse-workspace",
+                    "chatmap")),
             Map.entry("dotmdfiles", Path.of(System.getProperty("user.home"), "eclipse-workspace",
                     "dotmdfiles")),
             Map.entry("dotskills", Path.of(System.getProperty("user.home"), "eclipse-workspace",

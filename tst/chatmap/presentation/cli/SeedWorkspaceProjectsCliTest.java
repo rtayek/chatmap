@@ -23,7 +23,7 @@ import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
 class SeedWorkspaceProjectsCliTest {
 
     private static final List<String> PROJECT_NAMES = List.of(
-            "cjatmanager",
+            "chatmap",
             "dotfiles",
             "dotmdfiles",
             "dotskills",
@@ -52,7 +52,7 @@ class SeedWorkspaceProjectsCliTest {
         }, clock);
 
         assertEquals(PROJECT_NAMES, projects.stream().map(Project::name).toList());
-        assertEquals(workspace.resolve("cjatmanager").toAbsolutePath().normalize().toString(),
+        assertEquals(workspace.resolve("chatmap").toAbsolutePath().normalize().toString(),
                 projects.getFirst().localPath());
 
         try (Connection conn = new Database("jdbc:sqlite:" + home.resolve("chatmap.db")).openAndInitialize()) {
@@ -95,8 +95,8 @@ class SeedWorkspaceProjectsCliTest {
                         "--workspace", workspace.toString()
                 }, Clock.systemUTC()));
 
-        assertEquals("Project directory does not exist: cjatmanager="
-                + workspace.resolve("cjatmanager").toAbsolutePath().normalize(), thrown.getMessage());
+        assertEquals("Project directory does not exist: chatmap="
+                + workspace.resolve("chatmap").toAbsolutePath().normalize(), thrown.getMessage());
     }
 
     @Test

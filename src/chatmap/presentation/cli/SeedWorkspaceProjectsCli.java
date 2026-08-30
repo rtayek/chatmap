@@ -19,7 +19,7 @@ public final class SeedWorkspaceProjectsCli {
             + "[--workspace <directory>] [--project <name>=<directory>]...";
     private static final String DESCRIPTION = "Seeded from local project list";
     private static final List<String> WORKSPACE_PROJECT_NAMES = List.of(
-            "cjatmanager",
+            "chatmap",
             "dotmdfiles",
             "dotskills",
             "incoming",

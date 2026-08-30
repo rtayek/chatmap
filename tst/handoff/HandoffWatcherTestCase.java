@@ -34,9 +34,9 @@ class HandoffWatcherTestCase {
     void matchesHyphenatedProjectName() {
         // Non-greedy project capture must still grab the whole hyphenated
         // name and stop only at the trailing date, not at the first hyphen.
-        Matcher m = HandoffWatcher.HANDOFF_PATTERN.matcher("handoff-cjat-manager-2026-08-26.md");
+        Matcher m = HandoffWatcher.HANDOFF_PATTERN.matcher("handoff-sample-project-2026-08-26.md");
         assertTrue(m.matches());
-        assertEquals("cjat-manager", m.group(1));
+        assertEquals("sample-project", m.group(1));
         assertEquals("2026-08-26", m.group(2));
     }
 

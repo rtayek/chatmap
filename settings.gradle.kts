@@ -12,4 +12,4 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "cjatmanager"
+rootProject.name = "chatmap"
