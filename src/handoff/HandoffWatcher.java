@@ -40,10 +40,14 @@ public final class HandoffWatcher {
     }
 
     static boolean isHandoff(Path file) {
-        String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        Path fileName = file.getFileName();
+        if (fileName == null) {
+            return false;
+        }
+        String name = fileName.toString().toLowerCase(Locale.ROOT);
         return name.contains("handoff") && name.endsWith(".md");
     }
-
+    
     static int collectExisting(List<Path> sources, Path inbox) {
         int collected = 0;
         for (Path source : sources) {
