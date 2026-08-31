@@ -1,145 +1,193 @@
 package handoff;
+
 import java.io.IOException;
-import java.nio.file.FileSystems;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-/**
- * Watches a Downloads folder for handoff markdown files and moves them
- * into the correct project directory, based on the project name embedded
- * in the filename.
- *
- * Expected filename format (kebab-case):
- *   handoff-<project-name>-YYYY-MM-DD.md
- *
- * Example:
- *   handoff-dotmdfiles-2026-08-26.md
- *
- * Project -> directory mappings live in the static PROJECTS map below.
- * Edit that map directly to add/remove/rename projects.
- *
- * Usage:
- *   java HandoffWatcher <downloads-dir>
- *
- * Notes / design choices:
- *   - No external dependencies. Just java.nio.file.WatchService.
- *   - Deterministic: unmatched files or unknown projects are left alone
- *     and logged, never guessed at or silently dropped.
- *   - Single-threaded polling loop; simple to read, simple to kill.
- */
-public class HandoffWatcher {
+public final class HandoffWatcher {
+    private static final long RESCAN_MILLIS = 2_000;
 
-    // Non-greedy project-name capture, fixed date suffix.
-    // Package-private (not private) so tests can exercise it directly.
-    static final Pattern HANDOFF_PATTERN =
-            Pattern.compile("^handoff-([a-z0-9-]+?)-(\\d{4}-\\d{2}-\\d{2})\\.md$");
-
-    private static final Map<String, Path> PROJECTS = Map.ofEntries(
-            Map.entry("chatmap", Path.of(System.getProperty("user.home"), "eclipse-workspace",
-                    "chatmap")),
-            Map.entry("dotmdfiles", Path.of(System.getProperty("user.home"), "eclipse-workspace",
-                    "dotmdfiles")),
-            Map.entry("dotskills", Path.of(System.getProperty("user.home"), "eclipse-workspace",
-                    "dotskills")),
-            Map.entry("incoming", Path.of(System.getProperty("user.home"), "eclipse-workspace",
-                    "incoming")),
-            Map.entry("myclaw", Path.of(System.getProperty("user.home"), "eclipse-workspace", "myclaw")),
-            Map.entry("speech", Path.of(System.getProperty("user.home"), "eclipse-workspace", "speech")),
-            Map.entry("util", Path.of(System.getProperty("user.home"), "eclipse-workspace", "util")),
-            Map.entry("watchais", Path.of(System.getProperty("user.home"), "eclipse-workspace",
-                    "watchais")),
-            Map.entry("dotfiles", Path.of(System.getProperty("user.home"), "dotfiles"))
-    );
+    private HandoffWatcher() {
+    }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        if (args.length < 1) {
-            System.err.println("Usage: java HandoffWatcher <downloads-dir>");
-            System.exit(1);
+        Configuration configuration;
+        try {
+            configuration = Configuration.parse(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage());
+            printUsage();
+            System.exit(2);
+            return;
         }
 
-        Path watchDir = Paths.get(args[0]);
+        Files.createDirectories(configuration.inbox());
+        validateSources(configuration.sources());
 
-        if (!Files.isDirectory(watchDir)) {
-            System.err.println("Not a directory: " + watchDir);
-            System.exit(1);
+        if (configuration.once()) {
+            int collected = collectExisting(configuration.sources(), configuration.inbox());
+            System.out.println("Collected " + collected + " handoff file(s).");
+            return;
         }
 
-        System.out.println("Loaded " + PROJECTS.size() + " project mapping(s).");
-        System.out.println("Watching " + watchDir + " for handoff-*.md files...");
-
-        WatchService watcher = FileSystems.getDefault().newWatchService();
-        watchDir.register(watcher, StandardWatchEventKinds.ENTRY_CREATE);
-
-        while (true) {
-            WatchKey key = watcher.take(); // blocks until an event arrives
-
-            for (WatchEvent<?> event : key.pollEvents()) {
-                if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-                    continue;
-                }
-                @SuppressWarnings("unchecked")
-                WatchEvent<Path> pathEvent = (WatchEvent<Path>) event;
-                Path fileName = pathEvent.context();
-                handleNewFile(watchDir, fileName, PROJECTS);
-            }
-
-            boolean valid = key.reset();
-            if (!valid) {
-                System.err.println("Watch key no longer valid, exiting.");
-                break;
-            }
-        }
+        watch(configuration.sources(), configuration.inbox());
     }
 
-    // Package-private (not private) and takes the project map as a
-    // parameter, so tests can pass a temp-directory map instead of the
-    // real PROJECTS map that points at ~/eclipse-workspace/*.
-    static void handleNewFile(Path watchDir, Path fileName, Map<String, Path> projects) {
-        String name = fileName.toString();
-        Matcher m = HANDOFF_PATTERN.matcher(name);
+    static boolean isHandoff(Path file) {
+        String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+        return name.contains("handoff") && name.endsWith(".md");
+    }
 
-        if (!m.matches()) {
-            // Not a handoff file we recognize; leave it for the human.
-            return;
+    static int collectExisting(List<Path> sources, Path inbox) {
+        int collected = 0;
+        for (Path source : sources) {
+            try (DirectoryStream<Path> files = Files.newDirectoryStream(source)) {
+                for (Path file : files) {
+                    if (Files.isRegularFile(file) && isHandoff(file) && collect(file, inbox)) {
+                        collected++;
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to scan " + source + ": " + e.getMessage());
+            }
         }
+        return collected;
+    }
 
-        String project = m.group(1);
-        String date = m.group(2);
-        Path destDir = projects.get(project);
-
-        if (destDir == null) {
-            System.out.println("[" + name + "] unknown project '" + project
-                    + "' -- no entry in PROJECTS map, leaving in place.");
-            return;
+    static boolean collect(Path source, Path inbox) {
+        if (!Files.isRegularFile(source) || !isHandoff(source)) {
+            return false;
         }
-
-        Path source = watchDir.resolve(fileName);
-        Path dest = destDir.resolve(fileName);
 
         try {
-            // Downloads can fire ENTRY_CREATE before the browser finishes
-            // writing the file. Small settle delay avoids a partial move.
-            Thread.sleep(300);
-
-            if (!Files.isDirectory(destDir)) {
-                System.out.println("[" + name + "] destination dir does not exist: " + destDir);
-                return;
-            }
-
-            Files.move(source, dest, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("[" + name + "] moved -> " + dest + " (project=" + project + ", date=" + date + ")");
-        } catch (IOException | InterruptedException e) {
-            System.err.println("[" + name + "] failed to move: " + e.getMessage());
+            Files.createDirectories(inbox);
+            Path destination = availableDestination(inbox, source.getFileName());
+            Files.move(source, destination);
+            System.out.println("Collected " + source + " -> " + destination);
+            return true;
+        } catch (IOException e) {
+            System.err.println("Failed to collect " + source + ": " + e.getMessage());
+            return false;
         }
     }
 
+    static Path availableDestination(Path inbox, Path fileName) {
+        Path candidate = inbox.resolve(fileName);
+        if (!Files.exists(candidate)) {
+            return candidate;
+        }
+
+        String name = fileName.toString();
+        int extension = name.toLowerCase(Locale.ROOT).lastIndexOf(".md");
+        String stem = name.substring(0, extension);
+        String suffix = name.substring(extension);
+
+        for (int number = 1; ; number++) {
+            candidate = inbox.resolve(stem + "-" + number + suffix);
+            if (!Files.exists(candidate)) {
+                return candidate;
+            }
+        }
+    }
+
+    static int collectStableExisting(List<Path> sources, Path inbox, Map<Path, FileStamp> observations) {
+        int collected = 0;
+        for (Path source : sources) {
+            try (DirectoryStream<Path> files = Files.newDirectoryStream(source)) {
+                for (Path file : files) {
+                    if (!Files.isRegularFile(file) || !isHandoff(file)) {
+                        continue;
+                    }
+
+                    Path normalized = file.toAbsolutePath().normalize();
+                    FileStamp current = FileStamp.read(file);
+                    FileStamp previous = observations.put(normalized, current);
+                    if (current.equals(previous) && collect(file, inbox)) {
+                        observations.remove(normalized);
+                        collected++;
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to scan " + source + ": " + e.getMessage());
+            }
+        }
+        observations.keySet().removeIf(path -> !Files.exists(path));
+        return collected;
+    }
+
+    private static void watch(List<Path> sources, Path inbox) throws InterruptedException {
+        Map<Path, FileStamp> observations = new HashMap<>();
+        System.out.println("Watching " + sources.size() + " source folder(s).");
+        System.out.println("Collecting handoffs into " + inbox.toAbsolutePath().normalize());
+
+        while (true) {
+            collectStableExisting(sources, inbox, observations);
+            Thread.sleep(RESCAN_MILLIS);
+        }
+    }
+
+    private static void validateSources(List<Path> sources) {
+        for (Path source : sources) {
+            if (!Files.isDirectory(source)) {
+                throw new IllegalArgumentException("Source is not a directory: " + source);
+            }
+        }
+    }
+
+    private static void printUsage() {
+        System.err.println("Usage: HandoffWatcher --inbox <directory> --source <directory> "
+                + "[--source <directory> ...] [--once]");
+    }
+
+    record Configuration(Path inbox, List<Path> sources, boolean once) {
+        Configuration {
+            sources = List.copyOf(sources);
+        }
+
+        static Configuration parse(String[] args) {
+            Path inbox = null;
+            List<Path> sources = new ArrayList<>();
+            boolean once = false;
+
+            for (int index = 0; index < args.length; index++) {
+                switch (args[index]) {
+                    case "--inbox" -> inbox = Path.of(requireValue(args, ++index, "--inbox"));
+                    case "--source" -> sources.add(Path.of(requireValue(args, ++index, "--source")));
+                    case "--once" -> once = true;
+                    default -> throw new IllegalArgumentException("Unknown argument: " + args[index]);
+                }
+            }
+
+            if (inbox == null) {
+                throw new IllegalArgumentException("Missing required --inbox directory.");
+            }
+            if (sources.isEmpty()) {
+                throw new IllegalArgumentException("At least one --source directory is required.");
+            }
+            return new Configuration(inbox.toAbsolutePath().normalize(), normalize(sources), once);
+        }
+
+        private static List<Path> normalize(List<Path> paths) {
+            return paths.stream().map(path -> path.toAbsolutePath().normalize()).toList();
+        }
+
+        private static String requireValue(String[] args, int index, String option) {
+            if (index >= args.length) {
+                throw new IllegalArgumentException("Missing value for " + option + ".");
+            }
+            return args[index];
+        }
+    }
+
+    record FileStamp(long size, long modifiedMillis) {
+        static FileStamp read(Path file) throws IOException {
+            return new FileStamp(Files.size(file), Files.getLastModifiedTime(file).toMillis());
+        }
+    }
 }
