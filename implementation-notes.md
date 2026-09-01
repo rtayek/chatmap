@@ -7,47 +7,34 @@ never need to change because of anything in here.
 ## Architecture
 
 ```text
-Java desktop app
-│
+src/chatmap
 ├── app
-│   └── composition root (ChatMapRuntime, service wiring)
-│
+│   ├── application bootstrap and composition roots
+│   ├── service graph and optional-integration wiring
+│   └── serialized background execution, path resolution, and logging bootstrap
+├── application
+│   ├── model    — import and export transfer models
+│   ├── port     — command, export, handoff, import, LLM, persistence, and provider interfaces
+│   ├── service  — use cases and orchestration
+│   └── support  — shared application logging and locking helpers
 ├── domain
-│   └── model types (Chat, Message, Project, Tag, ChatSummary, Source, ...)
-│
-├── ui
-│   └── JavaFX
-│
-├── service
-│   ├── import orchestration
-│   ├── project/tag management
-│   ├── search
-│   ├── export orchestration
-│   └── optional summary/tag generation
-│
-├── importer
-│   ├── PlainTextImporter
-│   ├── MarkdownImporter
-│   ├── ChatGptJsonImporter
-│   └── ChatGptArchiveImporter
-│
-├── backend
-│   └── optional web, CLI-history, prompt-execution, and Claude-summary adapters
-│
-├── exporter
-│   ├── MarkdownExporter
-│   └── HandoffExporter
-│
-├── storage
-│   ├── repositories
-│   └── SQLite schema
-│
-├── cli
-│   └── consolidate, summarize, and archive-import entry points
-│
-├── config
-│   └── ChatMapPaths (home, database, and transcript directory resolution)
+│   └── chats, projects, tags, prompt routing, and worker-lifecycle model types
+├── infrastructure
+│   ├── command      — subprocess execution
+│   ├── exporter     — Markdown chat and handoff formatters
+│   ├── handoff      — filesystem handoff storage
+│   ├── importer     — plain-text, Markdown, ChatGPT JSON, and archive readers
+│   ├── llm          — Claude, Codex, Antigravity, Ollama, and JShell adapters
+│   ├── persistence  — SQLite repositories, transactions, and schema
+│   └── provider     — CLI-history and live-web/CDP chat providers
+└── presentation
+    ├── cli  — import, inventory, prompt, handoff, and lifecycle entry points
+    └── ui   — JavaFX application, controller, view construction, and UI state
 ```
+
+The standalone `handoff.HandoffWatcher` remains outside the main `chatmap`
+package. It is a transport utility that collects stable handoff files into an
+inbox; it does not interpret or route their contents.
 
 ## Technology Choices
 
@@ -74,6 +61,12 @@ Java desktop app
 5. Single-chat Markdown export
 6. Deterministic project handoff export
 7. JavaFX list/detail, import, search, and export workflow
+8. CLI-history acquisition for Claude Code, Codex, and Gemini, plus live-web/CDP
+   acquisition for Claude, ChatGPT, and Gemini
+9. Optional LLM prompt execution, deterministic routing, summaries, and tags
+10. File-based handoff orchestration and collection utilities
+11. Durable worker assignments, sessions, lifecycle events, artifacts, semantic
+    handoffs, retirement, and successor chains
 ```
 
 ## Supported Live Provider & Automation Capabilities
