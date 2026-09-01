@@ -12,6 +12,12 @@ Core workflow:
 Import → Normalize → Store → Search → Organize → Export
 ```
 
+The deterministic MVP provides the substrate. ChatMap's longer-term purpose is
+to extract durable semantic knowledge from conversations and keep that
+knowledge current as projects evolve, while preserving the provenance and
+history of every accepted knowledge object. See `first-principles.md` for the
+stable principles governing that work.
+
 ## MVP Scope
 
 The MVP supports:
