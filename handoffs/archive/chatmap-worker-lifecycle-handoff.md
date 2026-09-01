@@ -4,6 +4,12 @@
 **Repository:** `rtayek/chatmap`  
 **Branch:** `feature/worker-lifecycle`
 
+> **Status: completed and incorporated.** The vertical slice was merged in
+> commit `51f2b4a`. Assignments, sessions, transitions, artifacts, semantic
+> handoffs, retirement, successor chains, persistence, a CLI demonstration,
+> and focused tests remain in ChatMap. The experiment is closed; expansion into
+> a general agent launcher or orchestration framework requires a new decision.
+
 ## Purpose
 
 Implement the smallest end-to-end experiment showing that ChatMap can preserve continuity between independent worker sessions.

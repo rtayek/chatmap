@@ -1,7 +1,10 @@
 # Feedback for dotmdfiles: ChatMap agent-Markdown pilot
 
-Source: `handoffs/chatmap-agents-markdown-pilot-handoff.md` (canonical
-assignment) and `handoffs/chatmap-markdown-pilot-claude-cli-handoff.md`
+> **Status: completed research result.** Retained as evidence for the
+> `dotmdfiles` project; it does not define ChatMap's current document layout.
+
+Source: `handoffs/archive/chatmap-agents-markdown-pilot-handoff.md` (canonical
+assignment) and `handoffs/archive/chatmap-markdown-pilot-claude-cli-handoff.md`
 (launch handoff), run on `feature/agents-markdown-pilot`. Read-only
 investigation, no reorganization implemented.
 

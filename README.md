@@ -2,6 +2,17 @@
 
 ChatMap requires Java 25. Use the Gradle wrapper for build, test, run, and Eclipse setup.
 
+## Project Documents
+
+- `first-principles.md` — stable purpose and knowledge principles
+- `design.md` — durable design decisions and boundaries
+- `implementation-notes.md` — current implementation and technology details
+- `working-context.md` — current state, closed experiments, and next work
+
+Files under `handoffs/` are task transfers, preliminary work, research, or
+history. They are not current project authority unless `working-context.md`
+explicitly names one as an active assignment.
+
 ## Gradle Commands
 
 From Windows Command Prompt or PowerShell:

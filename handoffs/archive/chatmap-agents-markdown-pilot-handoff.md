@@ -1,5 +1,10 @@
 # Handoff: ChatMap Agent-Facing Markdown Pilot
 
+> **Status: completed.** The pilot found that flat discovery works better for
+> ChatMap than a forced linear chain, while the trust distinction between
+> auto-discovered skills and other agent-facing material remains useful. The
+> assignment and its result are archived together.
+
 ## Project
 
 `ChatMap`

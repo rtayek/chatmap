@@ -9,7 +9,7 @@
 Execute the analysis phase of ChatMap's agent-facing Markdown pilot. The canonical assignment is already stored in the repository:
 
 ```text
-handoffs/chatmap-agents-markdown-pilot-handoff.md
+handoffs/archive/chatmap-agents-markdown-pilot-handoff.md
 ```
 
 This file is only a launch handoff. The repository handoff is authoritative; do not duplicate or reinterpret its full contents.
@@ -26,7 +26,7 @@ This phase is analysis only. Do not implement the proposed reorganization.
 
 Start with:
 
-- `handoffs/chatmap-agents-markdown-pilot-handoff.md`;
+- `handoffs/archive/chatmap-agents-markdown-pilot-handoff.md`;
 - every tracked Markdown file in the repository;
 - relevant Git history needed to distinguish current, working, transient, and historical material;
 - root client-instruction files, human documentation, architecture/design material, handoffs, prompts, plans, and research notes.
