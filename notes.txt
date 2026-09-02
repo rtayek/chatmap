@@ -1,0 +1,9 @@
+salesforce is letting claude in.
+claude will learn and have access to all od that info.
+so will all the ai saas
+the apis are currently web based. will they change?
+so most people will not use saas gui, they will talk to their agent.
+the agent will be a power user psooibly replacing some existing power users.
+
+./gradlew test 2>&1 | tee gradle-output.txt
+clip.exe < gradle-output.txt
