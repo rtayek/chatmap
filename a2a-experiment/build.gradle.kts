@@ -47,3 +47,9 @@ tasks.register<JavaExec>("a2aRequest") {
     mainClass = "chatmap.a2a.experiment.ExperimentClient"
     args(providers.gradleProperty("request").getOrElse("complete:hello"))
 }
+
+tasks.register<JavaExec>("a2aContinue") {
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "chatmap.a2a.experiment.ContinuationClient"
+    args(providers.gradleProperty("answer").getOrElse("continued hello"))
+}
