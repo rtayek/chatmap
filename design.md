@@ -33,6 +33,19 @@ deferred. The bounded implementation is contained in the
 database, UI, or worker-lifecycle implementation, and it is not a general
 orchestrator framework.
 
+A2A is an adapter boundary, not ChatMap's domain model. Explicit translation
+maps A2A messages, tasks, statuses, history, and artifacts to ChatMap
+assignments, lifecycle events, and durable artifacts. The mappings may be
+lossy: QUEUED is not identical to SUBMITTED, WAITING_FOR_DECISION is broader
+than INPUT_REQUIRED, and A2A same-task continuation is not a ChatMap successor
+assignment. A2A SDK types must remain outside the ChatMap domain layer.
+
+Decision escalation follows the caller chain. A worker reports an unresolved
+decision to its caller. Each caller either resolves it within its authority or
+propagates it to its own caller. No fixed manager automatically resolves every
+decision, and human review remains available when no lower caller has
+authority.
+
 The completed Bourne-shell relay experiment is preserved in the `rtayek/bin`
 repository on branch `archive/llm-relay`. It demonstrated deterministic
 delegation, validation, escalation, and artifact preservation without creating
@@ -58,6 +71,7 @@ The MVP supports:
 * Exporters do not query the database directly.
 * Repositories do not manage connection lifecycle; multi-repository transactions use `TransactionRunner`.
 * AI is optional and not required for core MVP behavior.
+* External protocol SDK types do not cross adapter boundaries into the domain model.
 
 These rules are the actual contract. Breaking one is a design regression, not a
 refactor. See `implementation-notes.md` for the package layout, naming
