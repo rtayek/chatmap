@@ -45,5 +45,5 @@ tasks.test {
 tasks.register<JavaExec>("a2aRequest") {
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass = "chatmap.a2a.experiment.ExperimentClient"
-    args(providers.gradleProperty("request").orElse("complete:hello"))
+    args(providers.gradleProperty("request").getOrElse("complete:hello"))
 }
