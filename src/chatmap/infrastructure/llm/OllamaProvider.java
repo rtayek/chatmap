@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
@@ -81,7 +82,14 @@ public final class OllamaProvider implements LlmProvider {
         try {
             JsonObject body = JsonParser.parseString(response.body()).getAsJsonObject();
             JsonObject message = body.getAsJsonObject("message");
-            String text = message == null || !message.has("content") ? "" : message.get("content").getAsString();
+            if (message == null || !message.has("content")) {
+                throw new JsonParseException("response message content was missing");
+            }
+            JsonElement content = message.get("content");
+            if (!content.isJsonPrimitive() || !content.getAsJsonPrimitive().isString()) {
+                throw new JsonParseException("response message content was not a string");
+            }
+            String text = content.getAsString();
             if (text.isBlank()) {
                 throw new JsonParseException("response message content was blank");
             }
