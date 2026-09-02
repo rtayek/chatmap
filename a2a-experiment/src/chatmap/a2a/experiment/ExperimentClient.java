@@ -24,7 +24,7 @@ public final class ExperimentClient {
                 .getAgentCard();
 
         System.out.println("AGENT CARD");
-        System.out.println(JsonUtil.toJson(agentCard));
+        printJson(agentCard);
         System.out.println("REQUEST");
         System.out.println(request);
 
@@ -43,11 +43,19 @@ public final class ExperimentClient {
         System.out.println("EVENT " + event.getClass().getSimpleName());
 
         if (event instanceof TaskEvent taskEvent) {
-            System.out.println(JsonUtil.toJson(taskEvent.getTask()));
+            printJson(taskEvent.getTask());
         } else if (event instanceof TaskUpdateEvent updateEvent) {
-            System.out.println(JsonUtil.toJson(updateEvent.getTask()));
+            printJson(updateEvent.getTask());
         } else if (event instanceof MessageEvent messageEvent) {
-            System.out.println(JsonUtil.toJson(messageEvent.getMessage()));
+            printJson(messageEvent.getMessage());
+        }
+    }
+
+    private static void printJson(Object value) {
+        try {
+            System.out.println(JsonUtil.toJson(value));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to encode A2A event as JSON", exception);
         }
     }
 
