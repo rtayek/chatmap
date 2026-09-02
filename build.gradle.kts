@@ -7,6 +7,7 @@ plugins {
     application
     eclipse
     id("org.openjfx.javafxplugin") version "0.1.0"
+    id("io.quarkus") version "3.39.1"
     checkstyle
     pmd
     id("com.github.spotbugs") version "6.5.10"
@@ -18,6 +19,9 @@ java {
         languageVersion.set(JavaLanguageVersion.of(25))
     }
 }
+
+val a2aVersion = "1.3.0.Final"
+val quarkusVersion = "3.39.1"
 
 sourceSets {
     main {
@@ -45,6 +49,11 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.7")
+
+    implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:$quarkusVersion"))
+    implementation("org.a2aproject.sdk:a2a-java-sdk-client:$a2aVersion")
+    implementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-jsonrpc:$a2aVersion")
+    implementation("org.a2aproject.sdk:a2a-java-sdk-reference-jsonrpc:$a2aVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
@@ -222,6 +231,23 @@ tasks.register<JavaExec>("workerLifecycleSoakTest") {
     args = cliArgs
 }
 
+tasks.register<JavaExec>("a2aRequest") {
+    group = "application"
+    description = "Sends one request to the experimental A2A worker."
+    mainClass.set("chatmap.a2a.experiment.ExperimentClient")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    args(providers.gradleProperty("request").getOrElse("complete:hello"))
+}
+
+tasks.register<JavaExec>("a2aContinue") {
+    group = "application"
+    description = "Runs the same-task A2A input-continuation experiment."
+    mainClass.set("chatmap.a2a.experiment.ContinuationClient")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    args(providers.gradleProperty("answer").getOrElse("continued hello"))
+}
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()

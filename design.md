@@ -28,9 +28,10 @@ the same durable model. Manual operation remains a supported workflow.
 A2A is the selected protocol for the first future standards-based
 agent-to-agent experiment. MCP is complementary for connecting applications to
 tools and data; it is not an alternative agent-to-agent protocol. ACP has been
-absorbed into A2A, and ANP is deferred. This decision authorizes a later,
-bounded experiment—not an A2A implementation in the MVP or a general
-orchestrator framework.
+absorbed into A2A, and ANP is deferred. The bounded implementation is isolated on
+`experiment/a2a` in the `chatmap.a2a.experiment` package. Its dependencies
+and server are not authorized for merger into the MVP without a separate
+decision, and it is not a general orchestrator framework.
 
 The completed Bourne-shell relay experiment is preserved in the `rtayek/bin`
 repository on branch `archive/llm-relay`. It demonstrated deterministic

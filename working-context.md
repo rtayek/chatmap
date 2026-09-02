@@ -28,6 +28,10 @@ history.
   when staging archived handoff artifacts remains a low-severity follow-up.
 - A full Gradle check was reported green during the review cycle. Live provider
   tests remain intentionally opt-in.
+- The bounded A2A experiment proved Agent Card discovery, completed, failed,
+  input-required, and same-task continuation behavior. On `experiment/a2a`,
+  its source now lives in `chatmap.a2a.experiment`; the branch, rather than a
+  nested Gradle project, is the experiment boundary.
 
 ## Closed Work
 
@@ -51,10 +55,10 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Define one bounded Java A2A experiment outside ChatMap: official A2A client,
-   a small server, a fake worker, one task, status, artifact, and failure or
-   `input-required`. Map the observations back to ChatMap's worker lifecycle;
-   do not build a general orchestrator.
+3. Evaluate a bounded A2A recorder that maps externally visible task states,
+   messages, history, and artifacts into ChatMap's existing worker-lifecycle
+   ledger. Do not build a general orchestrator or change the database schema
+   without a separate decision.
 
 ## Deferred
 
@@ -72,6 +76,7 @@ history.
 
 ## Next Action
 
-Perform the small archive-staging failure repair, then prepare the bounded Java
-A2A experiment separately from ChatMap. Do not infer current work from the age
-or filename of a handoff.
+Perform the small archive-staging failure repair. On `experiment/a2a`, verify
+the consolidated A2A package through the full Gradle quality pipeline before
+starting the recorder experiment. Do not infer current work from the age or
+filename of a handoff.

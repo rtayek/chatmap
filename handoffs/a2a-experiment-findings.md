@@ -8,8 +8,12 @@
 
 ## Result
 
-Continue studying A2A, but do not integrate this experimental server into
-ChatMap yet.
+Continue studying A2A, but do not merge the experimental server into
+`master` yet.
+
+After the initial protocol experiments, the nested Gradle project was
+consolidated into the regular `chatmap.a2a.experiment` Java package. The
+`experiment/a2a` branch remains the isolation boundary.
 
 The protocol successfully provides discovery, task identity, context identity,
 status, messages, artifacts, and same-task continuation across an opaque agent
@@ -87,7 +91,8 @@ conformance or semantic preservation.
 
 ## Recommendation
 
-Keep the experiment on its branch and do not merge it wholesale into ChatMap.
+Keep the experiment on its branch and do not merge it wholesale into
+`master`.
 
 The next bounded experiment should evaluate a small recorder that converts
 externally visible A2A messages, statuses, history, and artifacts into ChatMap

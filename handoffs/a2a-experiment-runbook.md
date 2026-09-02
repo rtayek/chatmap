@@ -1,10 +1,10 @@
-# ChatMap A2A Experiment
+# ChatMap A2A Experiment Runbook
 
-This standalone project exercises A2A Protocol 1.0 with the official Java SDK
-1.3.0.Final and the Quarkus JSON-RPC reference server.
+This package exercises A2A Protocol 1.0 with the official Java SDK 1.3.0.Final
+and the Quarkus JSON-RPC reference server.
 
-It is experimental code on branch `experiment/a2a`. It does not use ChatMap
-production code or the ChatMap database.
+It is experimental code on branch `experiment/a2a`, located in the regular
+ChatMap package `chatmap.a2a.experiment`. It does not use the ChatMap database.
 
 ## Layout
 
@@ -14,7 +14,7 @@ production code or the ChatMap database.
 - `src/chatmap/a2a/experiment/ExperimentClient.java`: one-request Java client
 - `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
-- `a2a-findings.md`: observed behavior and ChatMap mapping
+- `handoffs/a2a-experiment-findings.md`: observed behavior and ChatMap mapping
 
 ## Run From the Outer Worktree
 
@@ -27,13 +27,13 @@ C:/Users/ray/eclipse-workspace/chatmap-a2a-experiment
 Test:
 
 ```sh
-./gradlew -p a2a-experiment test
+./gradlew test
 ```
 
 Start the server in one terminal:
 
 ```sh
-./gradlew -p a2a-experiment quarkusDev
+./gradlew quarkusDev
 ```
 
 Wait for:
@@ -51,25 +51,25 @@ curl --fail --show-error http://localhost:9999/.well-known/agent-card.json
 Submit a successful request:
 
 ```sh
-./gradlew -p a2a-experiment a2aRequest -Prequest=complete:hello
+./gradlew a2aRequest -Prequest=complete:hello
 ```
 
 Request more input:
 
 ```sh
-./gradlew -p a2a-experiment a2aRequest -Prequest=input-required
+./gradlew a2aRequest -Prequest=input-required
 ```
 
 Request failure:
 
 ```sh
-./gradlew -p a2a-experiment a2aRequest -Prequest=fail
+./gradlew a2aRequest -Prequest=fail
 ```
 
 Run the same-task continuation experiment:
 
 ```sh
-./gradlew -p a2a-experiment a2aContinue
+./gradlew a2aContinue
 ```
 
 This sends `input-required`, captures the returned task and context IDs, then
