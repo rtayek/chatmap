@@ -29,9 +29,9 @@ history.
 - A full Gradle check was reported green during the review cycle. Live provider
   tests remain intentionally opt-in.
 - The bounded A2A experiment proved Agent Card discovery, completed, failed,
-  input-required, and same-task continuation behavior. On `experiment/a2a`,
-  its source now lives in `chatmap.a2a.experiment`; the branch, rather than a
-  nested Gradle project, is the experiment boundary.
+  input-required, and same-task continuation behavior. Its source now lives in
+  `chatmap.a2a.experiment` on `master`, clearly separated from ChatMap's
+  production packages and without database or UI integration.
 
 ## Closed Work
 
@@ -76,7 +76,7 @@ history.
 
 ## Next Action
 
-Perform the small archive-staging failure repair. On `experiment/a2a`, verify
-the consolidated A2A package through the full Gradle quality pipeline before
-starting the recorder experiment. Do not infer current work from the age or
-filename of a handoff.
+Perform the small archive-staging failure repair. Before starting the A2A
+recorder experiment, make a separate design decision about how externally
+visible A2A events map into the existing worker-lifecycle ledger. Do not infer
+current work from the age or filename of a handoff.

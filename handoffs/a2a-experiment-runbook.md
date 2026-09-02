@@ -3,8 +3,8 @@
 This package exercises A2A Protocol 1.0 with the official Java SDK 1.3.0.Final
 and the Quarkus JSON-RPC reference server.
 
-It is experimental code on branch `experiment/a2a`, located in the regular
-ChatMap package `chatmap.a2a.experiment`. It does not use the ChatMap database.
+It is experimental code in the regular ChatMap package
+`chatmap.a2a.experiment` on `master`. It does not use the ChatMap database.
 
 ## Layout
 
@@ -16,12 +16,12 @@ ChatMap package `chatmap.a2a.experiment`. It does not use the ChatMap database.
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
 - `handoffs/a2a-experiment-findings.md`: observed behavior and ChatMap mapping
 
-## Run From the Outer Worktree
+## Run From ChatMap
 
 Use:
 
 ```text
-C:/Users/ray/eclipse-workspace/chatmap-a2a-experiment
+C:/Users/ray/eclipse-workspace/chatmap
 ```
 
 Test:

@@ -25,13 +25,13 @@ facilities may select workers, submit assignments, validate responses, route
 results, and pause for human decisions, but they must record their work through
 the same durable model. Manual operation remains a supported workflow.
 
-A2A is the selected protocol for the first future standards-based
-agent-to-agent experiment. MCP is complementary for connecting applications to
-tools and data; it is not an alternative agent-to-agent protocol. ACP has been
-absorbed into A2A, and ANP is deferred. The bounded implementation is isolated on
-`experiment/a2a` in the `chatmap.a2a.experiment` package. Its dependencies
-and server are not authorized for merger into the MVP without a separate
-decision, and it is not a general orchestrator framework.
+A2A is the selected protocol for standards-based agent-to-agent work. MCP is
+complementary for connecting applications to tools and data; it is not an
+alternative agent-to-agent protocol. ACP has been absorbed into A2A, and ANP is
+deferred. The bounded implementation is contained in the
+`chatmap.a2a.experiment` package on `master`. It does not use ChatMap's
+database, UI, or worker-lifecycle implementation, and it is not a general
+orchestrator framework.
 
 The completed Bourne-shell relay experiment is preserved in the `rtayek/bin`
 repository on branch `archive/llm-relay`. It demonstrated deterministic
