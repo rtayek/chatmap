@@ -22,6 +22,9 @@ dependencies {
     implementation("org.a2aproject.sdk:a2a-java-sdk-client:$a2aVersion")
     implementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-jsonrpc:$a2aVersion")
     implementation("org.a2aproject.sdk:a2a-java-sdk-reference-jsonrpc:$a2aVersion")
+
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 sourceSets {
@@ -33,4 +36,8 @@ sourceSets {
         java.setSrcDirs(listOf("tst"))
         resources.setSrcDirs(listOf("test-resources"))
     }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
