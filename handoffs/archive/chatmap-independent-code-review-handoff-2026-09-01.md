@@ -1,5 +1,10 @@
 # ChatMap Independent Code-Review Handoff
 
+> **Status: completed.** The review found malformed Ollama response handling
+> and an ignored archive-staging Git result. Ollama validation was repaired in
+> `031aba9`; the staging result remains a low-severity follow-up recorded in
+> `working-context.md`.
+
 **Prepared:** 2026-09-01  
 **Repository:** `rtayek/chatmap`  
 **Intended reviewer:** Claude Code  

@@ -1,5 +1,9 @@
 # ChatMap Project Handoff — 2026-09-01
 
+> **Status: superseded.** Completed work and remaining items were reconciled
+> into the root `working-context.md` on 2026-09-02. This document is retained
+> as historical evidence and no longer defines the active agenda.
+
 ## Executive summary
 
 ChatMap is in a stable state: the watcher-intake work and ChatGPT identity regression fix have been merged, the full Gradle check has passed locally, and obsolete remote branches were largely removed. The most useful next work is to update the high-level documentation in small, verifiable steps and then continue hardening automatic handoff intake and worker coordination.

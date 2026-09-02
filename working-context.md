@@ -1,6 +1,6 @@
 # ChatMap Working Context
 
-**Updated:** 2026-09-01
+**Updated:** 2026-09-02
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -23,6 +23,11 @@ history.
   not interpret, route, commit, or update the database.
 - The shell LLM relay is a completed external experiment in `rtayek/bin`, branch
   `archive/llm-relay`.
+- An independent review of commit `f786093` found two remaining defects. Strict
+  Ollama response validation was repaired in `031aba9`. The ignored Git outcome
+  when staging archived handoff artifacts remains a low-severity follow-up.
+- A full Gradle check was reported green during the review cycle. Live provider
+  tests remain intentionally opt-in.
 
 ## Closed Work
 
@@ -33,29 +38,40 @@ history.
   distinguish auto-discovered skills from ordinary operational Markdown.
 - Agent-protocol survey: completed. A2A is the first protocol to test later;
   MCP is complementary; ACP is absorbed into A2A; ANP is deferred.
+- Independent code review: completed. Previously reported transaction,
+  worktree-preservation, structured-output, process-reader, and platform-Codex
+  defects no longer reproduced.
 
 ## Active Agenda
 
-1. Re-verify current `master`, CI, and the last code-review findings before
-   treating any old handoff as a current defect report.
-2. Continue the smallest trustworthy-acquisition and persistence hardening
-   work that still reproduces: identity/idempotency, provider provenance,
-   latest-chat selection, transaction safety, and explicit failure handling.
-3. Keep optional coordination subordinate to ChatMap's durable ledger. Do not
-   start a general orchestrator framework.
-4. When priority permits, design one small test that checks preservation of
-   important meaning across a semantic handoff. Existing lifecycle and soak
-   tests check durable structure, not meaning.
+1. Check and propagate failure from the inbox-repository `git add` that stages
+   archived tasks, result files, and agent logs. A staging failure must not be
+   reported as success.
+2. Compare the unique commits on
+   `fix/chatgpt-json-import-identity` and
+   `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
+   whether either remote branch can be deleted.
+3. Define one bounded Java A2A experiment outside ChatMap: official A2A client,
+   a small server, a fake worker, one task, status, artifact, and failure or
+   `input-required`. Map the observations back to ChatMap's worker lifecycle;
+   do not build a general orchestrator.
 
 ## Deferred
 
-- A2A implementation beyond a bounded experiment
+- Handoff-watcher provenance, content-hash duplicate detection, explicit queue
+  states, Git-checkout move-versus-copy behavior, and fetch/acknowledgement
+  policy
+- Semantic-preservation tests; existing lifecycle and soak tests validate
+  durable structure rather than preservation of meaning
+- Worker-lifecycle expansion such as mandatory handoffs before retirement,
+  multiple sessions per assignment, and cross-worker queries
+- A2A implementation beyond the bounded experiment
 - a general scheduler, router, permissions framework, or agent harness
 - full semantic-extraction implementation
 - embeddings, semantic search, and broad UI redesign
 
 ## Next Action
 
-Inspect current `master` and CI against the most recent review findings, report
-only defects that still reproduce, and select one bounded repair. Do not infer
-current work from the age or filename of a handoff.
+Perform the small archive-staging failure repair, then prepare the bounded Java
+A2A experiment separately from ChatMap. Do not infer current work from the age
+or filename of a handoff.

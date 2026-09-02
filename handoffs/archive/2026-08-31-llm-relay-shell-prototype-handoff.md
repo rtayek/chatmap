@@ -1,8 +1,9 @@
 # Handoff: Two-LLM Shell Relay Prototype
 
 **Date:** 2026-08-31  
-**Status:** Proposed small experiment  
-**Implementation:** Bourne shell in the `bin` repository
+**Status:** Completed and archived 2026-09-01
+**Implementation:** Bourne shell in `rtayek/bin`, branch `archive/llm-relay`
+**Verification:** 23 offline fixture and flow tests passed
 
 ## Executive Summary
 
