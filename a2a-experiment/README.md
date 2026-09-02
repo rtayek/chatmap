@@ -11,7 +11,8 @@ production code or the ChatMap database.
 - `src/chatmap/a2a/experiment/AgentCardProducer.java`: public Agent Card
 - `src/chatmap/a2a/experiment/AgentExecutorProducer.java`: A2A server adapter
 - `src/chatmap/a2a/experiment/FakeWorker.java`: deterministic worker
-- `src/chatmap/a2a/experiment/ExperimentClient.java`: official Java client
+- `src/chatmap/a2a/experiment/ExperimentClient.java`: one-request Java client
+- `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
 - `a2a-findings.md`: observed behavior and ChatMap mapping
 
@@ -65,6 +66,16 @@ Request failure:
 ./gradlew -p a2a-experiment a2aRequest -Prequest=fail
 ```
 
+Run the same-task continuation experiment:
+
+```sh
+./gradlew -p a2a-experiment a2aContinue
+```
+
+This sends `input-required`, captures the returned task and context IDs, then
+sends `complete:continued hello` with those same IDs. It validates the completed
+state and unchanged identity before printing `CONTINUATION PROVEN`.
+
 Stop the server with `Ctrl+C`.
 
 ## Expected States
@@ -72,6 +83,8 @@ Stop the server with `Ctrl+C`.
 - `complete:hello`: `TASK_STATE_COMPLETED` with artifact text `hello`
 - `input-required`: `TASK_STATE_INPUT_REQUIRED` with a request message
 - `fail`: `TASK_STATE_FAILED` with an explicit reason
+- `a2aContinue`: the same task moves from `TASK_STATE_INPUT_REQUIRED` to
+  `TASK_STATE_COMPLETED`, with the continuation preserved in task history
 
 ## Known Dependency Messages
 

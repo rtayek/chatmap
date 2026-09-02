@@ -12,9 +12,9 @@ Continue studying A2A, but do not integrate this experimental server into
 ChatMap yet.
 
 The protocol successfully provides discovery, task identity, context identity,
-status, messages, and artifacts across an opaque agent boundary. It does not
-provide ChatMap's durable ledger, semantic-preservation guarantees, worker
-sessions, or predecessor and successor assignment model.
+status, messages, artifacts, and same-task continuation across an opaque agent
+boundary. It does not provide ChatMap's durable ledger, semantic-preservation
+guarantees, worker sessions, or predecessor and successor assignment model.
 
 ## Demonstrated Behavior
 
@@ -23,6 +23,11 @@ sessions, or predecessor and successor assignment model.
 | `complete:hello` | `TASK_STATE_COMPLETED` | Artifact `fake-worker-result` containing `hello` |
 | `input-required` | `TASK_STATE_INPUT_REQUIRED` | Agent message requesting additional text |
 | `fail` | `TASK_STATE_FAILED` | Agent message explaining the requested failure |
+| Same-task continuation | `INPUT_REQUIRED` to `COMPLETED` | Same task and context IDs; artifact containing `continued hello` |
+
+The continuation response retained both the agent's request for input and the
+user's follow-up in task history. It completed the original task rather than
+creating a successor task.
 
 The Agent Card was retrieved from
 `/.well-known/agent-card.json`. It advertised one text skill and one JSON-RPC
@@ -39,10 +44,10 @@ released official Java client was used.
 | Assignment | Message plus Task | A2A creates a task from a message; ChatMap records the assignment separately from execution. |
 | Work session | Task plus context ID | A2A context groups interaction, but does not model ChatMap's session and retirement semantics. |
 | Lifecycle event | Task status | States map well, including failed and input-required. A blocking client receives the resulting task rather than every intermediate transition. |
-| Waiting for decision | `TASK_STATE_INPUT_REQUIRED` | The mapping is direct, but continuation of the same task was not exercised. |
+| Waiting for decision | `TASK_STATE_INPUT_REQUIRED` | Continuation reuses the same task and context; ChatMap separately models the decision and its durable provenance. |
 | Worker artifact | Artifact | The structural mapping is direct. A2A does not make the artifact durable by itself. |
 | Semantic handoff | Message or artifact content | A2A transports content but does not guarantee that important meaning was preserved. |
-| Successor assignment | No direct equivalent observed | Context IDs, task references, or metadata may relate work, but they are not ChatMap successor chains. |
+| Successor assignment | No direct equivalent observed | Context IDs, task references, or metadata may relate work, but same-task continuation is not a ChatMap successor chain. |
 | Durable ledger | No protocol guarantee | Durability depends on the server implementation. ChatMap can record the externally visible A2A exchange. |
 
 ## What ChatMap Can Record Without Agent Internals
@@ -69,7 +74,6 @@ ChatMap does not need, and A2A does not expose:
 
 This experiment did not test:
 
-- continuation of an input-required task;
 - streaming status updates;
 - task persistence across server restart;
 - authentication or authorization;
@@ -85,7 +89,6 @@ conformance or semantic preservation.
 
 Keep the experiment on its branch and do not merge it wholesale into ChatMap.
 
-If another bounded experiment is approved, test continuation after
-`TASK_STATE_INPUT_REQUIRED` using the same task and context. Then evaluate a
-small recorder that converts externally visible A2A messages, statuses, and
-artifacts into ChatMap ledger entries without making ChatMap the orchestrator.
+The next bounded experiment should evaluate a small recorder that converts
+externally visible A2A messages, statuses, history, and artifacts into ChatMap
+ledger entries without making ChatMap the orchestrator.
