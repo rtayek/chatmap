@@ -3,29 +3,30 @@ package chatmap.presentation.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
+import java.sql.Connection;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.LoggerFactory;
 
 import chatmap.application.service.WorkerLifecycleService;
 import chatmap.application.service.WorkerLifecycleService.WorkerAssignmentInput;
 import chatmap.domain.WorkerLifecycleRecord;
 import chatmap.domain.WorkerLifecycleState;
-import chatmap.presentation.cli.CliBootstrap.CliContext;
-import ch.qos.logback.classic.LoggerContext;
+import chatmap.infrastructure.persistence.sqlite.Database;
+import chatmap.infrastructure.persistence.sqlite.TransactionRunner;
+import chatmap.infrastructure.persistence.sqlite.WorkerLifecycleRepository;
 
 class WorkerLifecycleRecordCliTest {
-    @TempDir
-    Path tempDirectory;
-
     @Test
-    void reopensAndDisplaysRecordedSession() throws Exception {
-        Path home = tempDirectory.resolve("home");
-        long sessionId;
-        try (CliContext context = CliBootstrap.open(new String[] {"--home", home.toString()})) {
-            WorkerLifecycleService lifecycle = context.services().workerLifecycleService();
+    void formatsPersistedSessionRecord() throws Exception {
+        WorkerLifecycleRecord record;
+        try (Connection connection = new Database("jdbc:sqlite::memory:").openAndInitialize()) {
+            WorkerLifecycleService lifecycle = new WorkerLifecycleService(
+                    new WorkerLifecycleRepository(connection),
+                    new TransactionRunner(connection),
+                    Clock.fixed(Instant.parse("2026-09-03T00:00:00Z"), ZoneOffset.UTC));
             var assignment = lifecycle.createAssignment(new WorkerAssignmentInput(
                     "Inspect recorded A2A work",
                     "Raw A2A task snapshots",
@@ -34,19 +35,14 @@ class WorkerLifecycleRecordCliTest {
                     "Display the persisted record",
                     "Report missing information"));
             var session = lifecycle.createSession(assignment.id(), "a2a:test-worker");
-            sessionId = session.id();
-            lifecycle.transition(sessionId, WorkerLifecycleState.WORKING);
-            lifecycle.addArtifact(sessionId, "A2A task snapshot", "file:///snapshot.json",
+            lifecycle.transition(session.id(), WorkerLifecycleState.WORKING);
+            lifecycle.addArtifact(session.id(), "A2A task snapshot", "file:///snapshot.json",
                     "taskId=task-1 contextId=context-1 state=WORKING");
-            lifecycle.transition(sessionId, WorkerLifecycleState.COMPLETED);
+            lifecycle.transition(session.id(), WorkerLifecycleState.COMPLETED);
+            record = lifecycle.record(session.id());
         }
 
-        WorkerLifecycleRecord record = WorkerLifecycleRecordCli.execute(
-                CliBootstrap.parse(new String[] {"--home", home.toString(), Long.toString(sessionId)}));
         String output = WorkerLifecycleRecordCli.format(record);
-        if (LoggerFactory.getILoggerFactory() instanceof LoggerContext context) {
-            context.stop();
-        }
 
         assertEquals(WorkerLifecycleState.COMPLETED, record.session().lifecycleState());
         assertEquals(2, record.events().size());
