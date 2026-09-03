@@ -61,9 +61,9 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. The real A2A continuation recorder is verified: one isolated temporary
-   ChatMap session reached COMPLETED through four lifecycle events and preserved
-   two raw task snapshots plus the returned text artifact.
+3. Expose a persisted worker-lifecycle record through a small read-only CLI
+   backed by the existing `WorkerLifecycleService.record(sessionId)` query. Use
+   it to reopen and inspect the isolated A2A continuation database.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -85,7 +85,6 @@ history.
 
 ## Next Action
 
-Evaluate what the verified A2A projection teaches us before expanding it. Decide
-whether the next bounded step should expose recorded A2A work in an existing
-ChatMap query or UI path. Do not build a general orchestrator or change the
-schema merely to mirror A2A types.
+Compile and run the read-only worker-lifecycle record CLI against the isolated
+A2A continuation database. Verify that the persisted transitions and artifact
+locations remain readable after the recording process exits.

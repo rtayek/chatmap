@@ -16,6 +16,7 @@ It is experimental code in the regular ChatMap package
 - `src/chatmap/a2a/experiment/A2aTaskRecorder.java`: A2A-to-worker-lifecycle adapter
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
 - `tst/chatmap/a2a/experiment/A2aTaskRecorderTest.java`: recorder projection tests
+- `src/chatmap/presentation/cli/WorkerLifecycleRecordCli.java`: read-only persisted-record display
 - `handoffs/a2a-experiment-findings.md`: observed behavior and ChatMap mapping
 
 ## Run From ChatMap
@@ -77,6 +78,16 @@ Run the same-task continuation experiment:
 This sends `input-required`, captures the returned task and context IDs, then
 sends `complete:continued hello` with those same IDs. It validates the completed
 state and unchanged identity before printing `CONTINUATION PROVEN`. Every returned task snapshot is also projected into one ChatMap worker session. The command prints the temporary database and artifact paths plus the final ChatMap state and counts. The verified deterministic run reports `state=COMPLETED`, `events=4`, and `artifacts=3`.
+
+Inspect the resulting record after the continuation process exits:
+
+```sh
+./gradlew workerLifecycleRecord -Phome='<printed-home>' -Psession=1
+```
+
+The command reopens the printed temporary database and displays the assignment,
+session, lifecycle transitions, decision details, artifact locations, handoff
+presence, and successor count.
 
 Stop the server with `Ctrl+C`.
 

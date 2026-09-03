@@ -204,6 +204,23 @@ tasks.register<JavaExec>("workerLifecycleDemo") {
     }
 }
 
+tasks.register<JavaExec>("workerLifecycleRecord") {
+    group = "application"
+    description = "Displays one persisted worker-lifecycle record. Usage: -Phome=<dir> -Psession=<id>"
+    mainClass.set("chatmap.presentation.cli.WorkerLifecycleRecordCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+
+    val cliArgs = mutableListOf<String>()
+    if (project.hasProperty("home")) {
+        cliArgs.add("--home")
+        cliArgs.add(project.property("home").toString())
+    }
+    cliArgs.add(providers.gradleProperty("session").getOrElse("1"))
+    args = cliArgs
+}
+
 tasks.register<JavaExec>("workerLifecycleSoakTest") {
     group = "verification"
     description = "Executes the 1,000-cycle WorkerLifecycle soak harness."
