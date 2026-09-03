@@ -11,10 +11,12 @@ It is experimental code in the regular ChatMap package
 - `src/chatmap/a2a/experiment/AgentCardProducer.java`: public Agent Card
 - `src/chatmap/a2a/experiment/AgentExecutorProducer.java`: A2A server adapter
 - `src/chatmap/a2a/experiment/FakeWorker.java`: deterministic worker
+- `src/chatmap/a2a/experiment/ModelWorker.java`: bounded model-backed worker
 - `src/chatmap/a2a/experiment/ExperimentClient.java`: one-request Java client
 - `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client and ledger demonstration
 - `src/chatmap/a2a/experiment/A2aTaskRecorder.java`: A2A-to-worker-lifecycle adapter
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
+- `tst/chatmap/a2a/experiment/ModelWorkerTest.java`: model-worker adapter tests
 - `tst/chatmap/a2a/experiment/A2aTaskRecorderTest.java`: recorder projection tests
 - `src/chatmap/presentation/cli/WorkerLifecycleRecordCli.java`: read-only persisted-record display
 - `handoffs/a2a-experiment-findings.md`: observed behavior and ChatMap mapping
@@ -33,7 +35,7 @@ Test:
 ./gradlew test
 ```
 
-Start the server in one terminal:
+Start the deterministic server in one terminal:
 
 ```sh
 ./gradlew quarkusDev
@@ -89,9 +91,37 @@ The command reopens the printed temporary database and displays the assignment,
 session, lifecycle transitions, decision details, artifact locations, handoff
 presence, and successor count.
 
+## Run the Ollama-backed Worker
+
+Confirm that Ollama is running and that the selected model is installed:
+
+```sh
+ollama list
+```
+
+Start the A2A server with the model worker:
+
+```sh
+CHATMAP_A2A_WORKER=ollama \
+CHATMAP_A2A_OLLAMA_TARGET=ollama-glm4 \
+./gradlew quarkusDev
+```
+
+The target may be changed to another curated Ollama target listed by ChatMap.
+In a second terminal, retrieve the Agent Card and submit one prompt:
+
+```sh
+curl --fail --show-error http://localhost:9999/.well-known/agent-card.json
+./gradlew a2aRequest -Prequest='Explain durable task history in two sentences.'
+```
+
+A successful response is `TASK_STATE_COMPLETED` with a `worker-result` text
+artifact containing the local model response. An unavailable Ollama server or
+model becomes `TASK_STATE_FAILED` with an explicit provider message.
+
 Stop the server with `Ctrl+C`.
 
-## Expected States
+## Expected Deterministic States
 
 - `complete:hello`: `TASK_STATE_COMPLETED` with artifact text `hello`
 - `input-required`: `TASK_STATE_INPUT_REQUIRED` with a request message
