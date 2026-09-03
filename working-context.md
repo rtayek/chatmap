@@ -1,6 +1,6 @@
 # ChatMap Working Context
 
-**Updated:** 2026-09-02
+**Updated:** 2026-09-03
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -34,7 +34,10 @@ history.
   `chatmap.a2a.experiment` on `master`. A bounded recorder projects visible
   task snapshots, states, messages, history, and text artifacts into the existing
   worker-lifecycle ledger. The continuation client uses an isolated temporary
-  ChatMap home; production data and the UI remain untouched. The temporary
+  ChatMap home; production data and the UI remain untouched. The read-only
+  `workerLifecycleRecord` command successfully reopened that database and
+  displayed the persisted assignment, session, four transitions, decision
+  details, and three artifacts after the A2A client exited. The temporary
   A2A and worker-lifecycle worktrees and branches have been removed; the primary
   ChatMap worktree is the only active worktree.
 
@@ -61,9 +64,9 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Expose a persisted worker-lifecycle record through a small read-only CLI
-   backed by the existing `WorkerLifecycleService.record(sessionId)` query. Use
-   it to reopen and inspect the isolated A2A continuation database.
+3. Decide whether the next bounded A2A experiment should replace the
+   deterministic fake worker with one inexpensive model-backed worker while
+   keeping the proven recorder and ChatMap domain model unchanged.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -85,6 +88,7 @@ history.
 
 ## Next Action
 
-Compile and run the read-only worker-lifecycle record CLI against the isolated
-A2A continuation database. Verify that the persisted transitions and artifact
-locations remain readable after the recording process exits.
+Evaluate a real model-backed A2A worker as the next bounded experiment. Keep
+the proven recorder unchanged, continue using isolated data, and do not add a
+general orchestrator, schema expansion, or UI integration without a separate
+decision.

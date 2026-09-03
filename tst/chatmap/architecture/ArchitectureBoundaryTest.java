@@ -57,6 +57,18 @@ class ArchitectureBoundaryTest {
     }
 
     @Test
+    void productionPackagesDoNotDependOnA2aExperiment() throws IOException {
+        for (SourceFile source : allSources()) {
+            if (source.packageName().equals("chatmap.a2a.experiment")
+                    || source.packageName().startsWith("chatmap.a2a.experiment.")) {
+                continue;
+            }
+            assertFalse(source.text().contains("import chatmap.a2a.experiment."),
+                    () -> source.path() + " makes production code depend on the A2A experiment");
+        }
+    }
+
+    @Test
     void javafxIsConfinedToUiAndCompositionPackages() throws IOException {
         for (SourceFile source : allSources()) {
             if (!source.text().contains("import javafx.")) {

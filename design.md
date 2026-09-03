@@ -29,9 +29,11 @@ A2A is the selected protocol for standards-based agent-to-agent work. MCP is
 complementary for connecting applications to tools and data; it is not an
 alternative agent-to-agent protocol. ACP has been absorbed into A2A, and ANP is
 deferred. The bounded implementation is contained in the
-`chatmap.a2a.experiment` package on `master`. It does not use ChatMap's
-database, UI, or worker-lifecycle implementation, and it is not a general
-orchestrator framework.
+`chatmap.a2a.experiment` package on `master`. It uses ChatMap's application
+services and an isolated temporary ChatMap home to record externally visible
+A2A work in the worker-lifecycle ledger. It does not touch normal ChatMap data
+or the UI, and it is not a general orchestrator framework. Production packages
+must not depend on the experimental package.
 
 A2A is an adapter boundary, not ChatMap's domain model. Explicit translation
 maps A2A messages, tasks, statuses, history, and artifacts to ChatMap
