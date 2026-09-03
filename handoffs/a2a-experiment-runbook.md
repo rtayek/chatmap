@@ -76,7 +76,7 @@ Run the same-task continuation experiment:
 
 This sends `input-required`, captures the returned task and context IDs, then
 sends `complete:continued hello` with those same IDs. It validates the completed
-state and unchanged identity before printing `CONTINUATION PROVEN`. Every returned task snapshot is also projected into one ChatMap worker session. The command prints the temporary database and artifact paths plus the final ChatMap state and counts.
+state and unchanged identity before printing `CONTINUATION PROVEN`. Every returned task snapshot is also projected into one ChatMap worker session. The command prints the temporary database and artifact paths plus the final ChatMap state and counts. The verified deterministic run reports `state=COMPLETED`, `events=4`, and `artifacts=3`.
 
 Stop the server with `Ctrl+C`.
 
