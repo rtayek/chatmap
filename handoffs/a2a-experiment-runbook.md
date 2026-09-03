@@ -4,7 +4,7 @@ This package exercises A2A Protocol 1.0 with the official Java SDK 1.3.0.Final
 and the Quarkus JSON-RPC reference server.
 
 It is experimental code in the regular ChatMap package
-`chatmap.a2a.experiment` on `master`. It does not use the ChatMap database.
+`chatmap.a2a.experiment` on `master`. The continuation demonstration creates an isolated temporary ChatMap database; it does not touch the normal ChatMap home.
 
 ## Layout
 
@@ -12,8 +12,10 @@ It is experimental code in the regular ChatMap package
 - `src/chatmap/a2a/experiment/AgentExecutorProducer.java`: A2A server adapter
 - `src/chatmap/a2a/experiment/FakeWorker.java`: deterministic worker
 - `src/chatmap/a2a/experiment/ExperimentClient.java`: one-request Java client
-- `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client
+- `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client and ledger demonstration
+- `src/chatmap/a2a/experiment/A2aTaskRecorder.java`: A2A-to-worker-lifecycle adapter
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
+- `tst/chatmap/a2a/experiment/A2aTaskRecorderTest.java`: recorder projection tests
 - `handoffs/a2a-experiment-findings.md`: observed behavior and ChatMap mapping
 
 ## Run From ChatMap
@@ -74,7 +76,7 @@ Run the same-task continuation experiment:
 
 This sends `input-required`, captures the returned task and context IDs, then
 sends `complete:continued hello` with those same IDs. It validates the completed
-state and unchanged identity before printing `CONTINUATION PROVEN`.
+state and unchanged identity before printing `CONTINUATION PROVEN`. Every returned task snapshot is also projected into one ChatMap worker session. The command prints the temporary database and artifact paths plus the final ChatMap state and counts.
 
 Stop the server with `Ctrl+C`.
 

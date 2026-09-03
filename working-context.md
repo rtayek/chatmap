@@ -31,8 +31,10 @@ history.
   Live provider tests remain intentionally opt-in.
 - The bounded A2A experiment proved Agent Card discovery, completed, failed,
   input-required, and same-task continuation behavior. Its source now lives in
-  `chatmap.a2a.experiment` on `master`, clearly separated from ChatMap's
-  production packages and without database or UI integration. The temporary
+  `chatmap.a2a.experiment` on `master`. A bounded recorder projects visible
+  task snapshots, states, messages, history, and text artifacts into the existing
+  worker-lifecycle ledger. The continuation client uses an isolated temporary
+  ChatMap home; production data and the UI remain untouched. The temporary
   A2A and worker-lifecycle worktrees and branches have been removed; the primary
   ChatMap worktree is the only active worktree.
 
@@ -59,11 +61,9 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Design a bounded A2A recorder adapter that explicitly translates externally
-   visible task states, messages, history, and artifacts into ChatMap's existing
-   worker-lifecycle ledger. A2A SDK types must not replace ChatMap domain types.
-   Treat QUEUED versus SUBMITTED and WAITING_FOR_DECISION versus INPUT_REQUIRED
-   as deliberate, potentially lossy mappings.
+3. Verify the real A2A continuation client records one temporary ChatMap session
+   moving through WORKING, WAITING_FOR_DECISION, WORKING, and COMPLETED while
+   preserving both raw task snapshots and the returned text artifact.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -85,8 +85,7 @@ history.
 
 ## Next Action
 
-Define the smallest A2A recorder adapter and verify whether the existing
-worker-lifecycle ledger can represent task identity, context identity, caller
-relationships, decision provenance, status messages, history, and artifacts
-without a schema change. Do not build a general orchestrator, and do not infer
-current work from the age or filename of a handoff.
+Run the recorded same-task continuation against the local A2A server and verify
+the printed ChatMap session state, lifecycle-event count, artifact count, and
+temporary output paths. Do not build a general orchestrator or change the schema
+until this bounded runtime projection is understood.
