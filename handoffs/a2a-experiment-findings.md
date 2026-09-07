@@ -112,6 +112,12 @@ sentences with a semicolon and reversed the supplied retry-policy fact. A
 dedicated structured probe now requires exact factual fields and lets Java,
 rather than the model, decide acceptance.
 
+The live structured probe subsequently passed. The model returned exactly
+`state=FAILED`, `reportedReason=worker timeout`,
+`retryPolicy=PROHIBITED`, and `causalConclusion=NOT_ESTABLISHED` in the
+required order with no additional prose. Java performed the comparison. This is
+one successful instruction-following case, not a general truthfulness result.
+
 ## Recommendation
 
 Keep the A2A implementation bounded inside `chatmap.a2a.experiment`. Its

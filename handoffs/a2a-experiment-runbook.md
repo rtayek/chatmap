@@ -150,8 +150,9 @@ Run the bounded structured semantic probe:
 The probe supplies four facts and requires exactly four `key=value` lines.
 Java compares the response with the complete expected contract. Missing,
 additional, malformed, reordered, or incorrect output fails the Gradle task.
-This verifies instruction-following for one factual case; it does not establish
-general model truthfulness or semantic quality.
+The verified local `qwen2.5:7b` run returned all four exact lines and printed
+`SEMANTIC CHECK PASSED`. This verifies instruction-following for one factual
+case; it does not establish general model truthfulness or semantic quality.
 
 Stop the server with `Ctrl+C`.
 

@@ -47,9 +47,9 @@ history.
   two lifecycle events plus the raw task snapshot and model-result artifacts.
 - Manual semantic probes showed that the 7B model can obey a well-scoped
   request, but can also overstate causality, violate sentence structure, and
-  reverse a supplied fact. The `a2aSemanticProbe` command now checks one fixed
-  four-field factual contract deterministically; its live result remains to be
-  observed.
+  reverse a supplied fact. The `a2aSemanticProbe` command then required one
+  fixed four-field factual contract. Local `qwen2.5:7b` returned the exact
+  ordered values with no extra prose, and Java accepted the response.
 
 ## Closed Work
 
@@ -74,8 +74,9 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Run `a2aSemanticProbe` against local `qwen2.5:7b` and record whether the
-   exact structured factual contract passes or fails.
+3. Decide whether semantic evaluation should stop at the successful bounded
+   structured probe or proceed to a small corpus of independently specified
+   factual contracts.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -97,6 +98,7 @@ history.
 
 ## Next Action
 
-Run `a2aSemanticProbe` against the local Ollama A2A worker. Record the exact
-response and deterministic acceptance result. Treat this as one bounded
-instruction-following observation, not proof of general semantic correctness.
+Review the successful structured semantic probe before expanding its scope.
+If further evaluation is authorized, use a small corpus whose facts and
+acceptance contracts are specified independently of model output. Do not treat
+one passing case as proof of general semantic correctness.
