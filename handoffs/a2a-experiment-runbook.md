@@ -14,6 +14,7 @@ It is experimental code in the regular ChatMap package
 - `src/chatmap/a2a/experiment/ModelWorker.java`: bounded model-backed worker
 - `src/chatmap/a2a/experiment/ExperimentClient.java`: one-request Java client
 - `src/chatmap/a2a/experiment/ModelRecordingClient.java`: model request plus isolated ledger recording
+- `src/chatmap/a2a/experiment/SemanticProbeClient.java`: deterministic acceptance check for model output
 - `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client and ledger demonstration
 - `src/chatmap/a2a/experiment/A2aTaskRecorder.java`: A2A-to-worker-lifecycle adapter
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
@@ -135,6 +136,18 @@ database after the client exits:
 ```sh
 ./gradlew workerLifecycleRecord -Phome='<printed-home>' -Psession=1
 ```
+
+Run the bounded structured semantic probe:
+
+```sh
+./gradlew a2aSemanticProbe --console=plain
+```
+
+The probe supplies four facts and requires exactly four `key=value` lines.
+Java compares the response with the complete expected contract. Missing,
+additional, malformed, reordered, or incorrect output fails the Gradle task.
+This verifies instruction-following for one factual case; it does not establish
+general model truthfulness or semantic quality.
 
 Stop the server with `Ctrl+C`.
 

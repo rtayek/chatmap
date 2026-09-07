@@ -45,6 +45,11 @@ history.
   artifact. The `a2aModelRecord` client then stored a real model task in an
   isolated lifecycle ledger. A separate process reopened session 1 and verified
   two lifecycle events plus the raw task snapshot and model-result artifacts.
+- Manual semantic probes showed that the 7B model can obey a well-scoped
+  request, but can also overstate causality, violate sentence structure, and
+  reverse a supplied fact. The `a2aSemanticProbe` command now checks one fixed
+  four-field factual contract deterministically; its live result remains to be
+  observed.
 
 ## Closed Work
 
@@ -69,9 +74,8 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Decide whether the next A2A study should address semantic answer quality,
-   caller identity and decision provenance, or stop after the completed bounded
-   vertical slice.
+3. Run `a2aSemanticProbe` against local `qwen2.5:7b` and record whether the
+   exact structured factual contract passes or fails.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -93,7 +97,6 @@ history.
 
 ## Next Action
 
-Review the completed model-backed A2A vertical slice before expanding scope.
-The next experiment, if authorized, should test semantic relevance explicitly;
-do not add a general orchestrator, schema expansion, or UI integration merely
-because transport and persistence now work.
+Run `a2aSemanticProbe` against the local Ollama A2A worker. Record the exact
+response and deterministic acceptance result. Treat this as one bounded
+instruction-following observation, not proof of general semantic correctness.

@@ -105,6 +105,13 @@ otherwise general phrase "durable task history" as Azure Functions. That answer
 was structurally preserved but contextually over-specific, demonstrating that
 durability does not establish relevance or semantic quality.
 
+Two manual calibration prompts exposed additional limits. The model first
+upgraded a recorded timeout reason into a causal claim. Under a stricter
+contract, it avoided the prohibited causal phrases but joined two required
+sentences with a semicolon and reversed the supplied retry-policy fact. A
+dedicated structured probe now requires exact factual fields and lets Java,
+rather than the model, decide acceptance.
+
 ## Recommendation
 
 Keep the A2A implementation bounded inside `chatmap.a2a.experiment`. Its

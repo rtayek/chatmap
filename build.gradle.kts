@@ -277,6 +277,14 @@ tasks.register<JavaExec>("a2aModelRecord") {
         .getOrElse("Explain durable task history in two short sentences."))
 }
 
+tasks.register<JavaExec>("a2aSemanticProbe") {
+    group = "verification"
+    description = "Checks one model-backed A2A response against an exact factual contract."
+    mainClass.set("chatmap.a2a.experiment.SemanticProbeClient")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
