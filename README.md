@@ -31,6 +31,27 @@ From Windows Git Bash, Linux, or WSL:
 ./gradlew eclipse
 ```
 
+## Bounded A2A Experiment
+
+Start the local Ollama-backed A2A worker in one terminal:
+
+```sh
+./start-a2a-ollama.sh
+```
+
+Keep that terminal running. From another terminal, record one model-backed task
+in an isolated temporary ChatMap home or run the fixed structured semantic
+probe:
+
+```sh
+./gradlew a2aModelRecord
+./gradlew a2aSemanticProbe --console=plain
+```
+
+Stop the A2A server with `Ctrl+C`. These commands do not use the normal
+ChatMap database or UI. See `handoffs/a2a-experiment-runbook.md` for the
+complete deterministic, continuation, recording, and inspection commands.
+
 The CLI LLM provider tests are mocked during normal builds. To run the opt-in
 live smoke tests against the locally installed and authenticated providers:
 

@@ -8,6 +8,8 @@ never need to change because of anything in here.
 
 ```text
 src/chatmap
+├── a2a
+│   └── experiment — bounded A2A server, clients, recorder, and semantic probe
 ├── app
 │   ├── application bootstrap and composition roots
 │   ├── service graph and optional-integration wiring
@@ -43,6 +45,8 @@ inbox; it does not interpret or route their contents.
 * Storage: SQLite (sqlite-jdbc 3.53.2.0)
 * Search: SQLite FTS5
 * Browser Automation: Chrome DevTools Protocol
+* Agent Protocol: A2A 1.0 using Java SDK 1.3.0.Final and JSON-RPC
+* A2A Server Runtime: Quarkus 3.39.1 reference JSON-RPC server
 * Quality Assurance: JUnit 5, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
 
 ## Storage Details
@@ -67,6 +71,9 @@ inbox; it does not interpret or route their contents.
 10. File-based handoff orchestration and collection utilities
 11. Durable worker assignments, sessions, lifecycle events, artifacts, semantic
     handoffs, retirement, and successor chains
+12. Bounded A2A Agent Card and JSON-RPC server, deterministic and local Ollama
+    workers, same-task continuation, isolated lifecycle recording, persisted
+    task and text artifacts, and deterministic structured-response acceptance
 ```
 
 ## Supported Live Provider & Automation Capabilities
@@ -79,3 +86,5 @@ These provider integrations and browser automation tools are supported in the co
 * CLI-history readers (Claude Code, Codex, Gemini)
 * prompt execution against local CLIs, with automatic chat recording
 * Claude-generated chat summaries (`chatSummaries`)
+* experimental A2A requests through a deterministic worker or local Ollama,
+  with opt-in lifecycle recording and one fixed structured semantic probe

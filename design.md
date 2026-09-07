@@ -42,6 +42,13 @@ lossy: QUEUED is not identical to SUBMITTED, WAITING_FOR_DECISION is broader
 than INPUT_REQUIRED, and A2A same-task continuation is not a ChatMap successor
 assignment. A2A SDK types must remain outside the ChatMap domain layer.
 
+Successful transport, task completion, and durable storage do not establish
+semantic correctness. External agent responses remain evidence until evaluated
+against an explicit acceptance contract. Prefer deterministic schema and value
+checks when the required meaning can be stated structurally; otherwise preserve
+the response and its provenance for human review. A model must not certify its
+own output as trusted knowledge merely because it followed the protocol.
+
 Decision escalation follows the caller chain. A worker reports an unresolved
 decision to its caller. Each caller either resolves it within its authority or
 propagates it to its own caller. No fixed manager automatically resolves every
