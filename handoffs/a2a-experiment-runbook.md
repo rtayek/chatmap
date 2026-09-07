@@ -128,7 +128,8 @@ Record a real model task in an isolated ChatMap ledger:
 ```
 
 The command prints `MODEL RECORDING PROVEN`, the temporary ChatMap home,
-session ID, final state, and event and artifact counts. Reopen the printed
+session ID, final state, and event and artifact counts. The verified run reached
+`COMPLETED` with two lifecycle events and two artifacts. Reopen the printed
 database after the client exits:
 
 ```sh

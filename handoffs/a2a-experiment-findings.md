@@ -37,8 +37,14 @@ creating a successor task.
 On 2026-09-04, the bounded server advertised the
 `ollama-text-generation` skill and completed a real request through the local
 `qwen2.5:7b` model. The 48-second client run returned a two-sentence
-`worker-result` artifact. This proved model-backed A2A execution but did not
-yet prove durable recording of that particular model task.
+`worker-result` artifact.
+
+On 2026-09-06 local time, `a2aModelRecord` repeated that path and stored the
+real task in an isolated ChatMap home. Session 1 reached `COMPLETED` with two
+lifecycle events and two artifacts: the raw A2A task snapshot and the model
+text. A separate `workerLifecycleRecord` process reopened the database and
+displayed the same task ID, context ID, state, transitions, and artifact
+locations. This proves durable structural recording across process exit.
 
 The Agent Card was retrieved from
 `/.well-known/agent-card.json`. It advertised one text skill and one JSON-RPC
@@ -94,7 +100,10 @@ This experiment did not test:
 - semantic preservation.
 
 The worker tests prove deterministic branching. They do not prove A2A transport
-conformance or semantic preservation.
+conformance or semantic preservation. The real Qwen response interpreted the
+otherwise general phrase "durable task history" as Azure Functions. That answer
+was structurally preserved but contextually over-specific, demonstrating that
+durability does not establish relevance or semantic quality.
 
 ## Recommendation
 
@@ -102,6 +111,7 @@ Keep the A2A implementation bounded inside `chatmap.a2a.experiment`. Its
 presence on `master` does not authorize database, UI, or general-orchestrator
 integration.
 
-The next bounded experiment should evaluate a small recorder that converts
-externally visible A2A messages, statuses, history, and artifacts into ChatMap
-ledger entries without making ChatMap the orchestrator.
+The bounded recorder and model-backed vertical slice are complete. Before any
+broader integration, choose a separate question: semantic-quality evaluation,
+caller and decision provenance, or no further A2A expansion. Transport and
+durable storage alone do not justify turning ChatMap into an orchestrator.

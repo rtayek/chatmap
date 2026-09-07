@@ -42,8 +42,9 @@ history.
   ChatMap worktree is the only active worktree.
 - The model-backed A2A path was proven with local `qwen2.5:7b`. The server
   advertised an Ollama Agent Card and returned a completed `worker-result`
-  artifact. A dedicated `a2aModelRecord` client now joins that path to the
-  existing isolated lifecycle recorder; its runtime persistence check remains.
+  artifact. The `a2aModelRecord` client then stored a real model task in an
+  isolated lifecycle ledger. A separate process reopened session 1 and verified
+  two lifecycle events plus the raw task snapshot and model-result artifacts.
 
 ## Closed Work
 
@@ -68,8 +69,9 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Run the new `a2aModelRecord` command against the local Ollama worker,
-   then reopen its temporary database with `workerLifecycleRecord`.
+3. Decide whether the next A2A study should address semantic answer quality,
+   caller identity and decision provenance, or stop after the completed bounded
+   vertical slice.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -91,6 +93,7 @@ history.
 
 ## Next Action
 
-Run `a2aModelRecord` against the proven local Ollama A2A worker, then reopen
-the printed temporary database with `workerLifecycleRecord`. Confirm the
-completed lifecycle and model artifact persist after the recording client exits.
+Review the completed model-backed A2A vertical slice before expanding scope.
+The next experiment, if authorized, should test semantic relevance explicitly;
+do not add a general orchestrator, schema expansion, or UI integration merely
+because transport and persistence now work.
