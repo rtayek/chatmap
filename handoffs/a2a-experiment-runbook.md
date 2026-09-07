@@ -104,12 +104,16 @@ ollama list
 Start the A2A server with the model worker:
 
 ```sh
-CHATMAP_A2A_WORKER=ollama \
-CHATMAP_A2A_OLLAMA_TARGET=ollama-qwen2.5-7b \
-./gradlew quarkusDev
+./start-a2a-ollama.sh
 ```
 
-The target may be changed to another curated Ollama target listed by ChatMap.
+Stop it with `Ctrl+C`, then run the same script whenever a restart is needed.
+The default target is `ollama-qwen2.5-7b`. Override it with an environment
+variable when another curated ChatMap Ollama target is installed:
+
+```sh
+CHATMAP_A2A_OLLAMA_TARGET=ollama-glm4 ./start-a2a-ollama.sh
+```
 In a second terminal, retrieve the Agent Card and submit one prompt:
 
 ```sh
