@@ -13,6 +13,7 @@ It is experimental code in the regular ChatMap package
 - `src/chatmap/a2a/experiment/FakeWorker.java`: deterministic worker
 - `src/chatmap/a2a/experiment/ModelWorker.java`: bounded model-backed worker
 - `src/chatmap/a2a/experiment/ExperimentClient.java`: one-request Java client
+- `src/chatmap/a2a/experiment/ModelRecordingClient.java`: model request plus isolated ledger recording
 - `src/chatmap/a2a/experiment/ContinuationClient.java`: same-task continuation client and ledger demonstration
 - `src/chatmap/a2a/experiment/A2aTaskRecorder.java`: A2A-to-worker-lifecycle adapter
 - `tst/chatmap/a2a/experiment/FakeWorkerTest.java`: worker tests
@@ -103,7 +104,7 @@ Start the A2A server with the model worker:
 
 ```sh
 CHATMAP_A2A_WORKER=ollama \
-CHATMAP_A2A_OLLAMA_TARGET=ollama-glm4 \
+CHATMAP_A2A_OLLAMA_TARGET=ollama-qwen2.5-7b \
 ./gradlew quarkusDev
 ```
 
@@ -118,6 +119,21 @@ curl --fail --show-error http://localhost:9999/.well-known/agent-card.json
 A successful response is `TASK_STATE_COMPLETED` with a `worker-result` text
 artifact containing the local model response. An unavailable Ollama server or
 model becomes `TASK_STATE_FAILED` with an explicit provider message.
+
+Record a real model task in an isolated ChatMap ledger:
+
+```sh
+./gradlew a2aModelRecord \
+  -Prequest='Explain durable task history in two short sentences.'
+```
+
+The command prints `MODEL RECORDING PROVEN`, the temporary ChatMap home,
+session ID, final state, and event and artifact counts. Reopen the printed
+database after the client exits:
+
+```sh
+./gradlew workerLifecycleRecord -Phome='<printed-home>' -Psession=1
+```
 
 Stop the server with `Ctrl+C`.
 

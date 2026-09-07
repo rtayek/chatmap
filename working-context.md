@@ -1,6 +1,6 @@
 # ChatMap Working Context
 
-**Updated:** 2026-09-03
+**Updated:** 2026-09-07
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -40,6 +40,10 @@ history.
   details, and three artifacts after the A2A client exited. The temporary
   A2A and worker-lifecycle worktrees and branches have been removed; the primary
   ChatMap worktree is the only active worktree.
+- The model-backed A2A path was proven with local `qwen2.5:7b`. The server
+  advertised an Ollama Agent Card and returned a completed `worker-result`
+  artifact. A dedicated `a2aModelRecord` client now joins that path to the
+  existing isolated lifecycle recorder; its runtime persistence check remains.
 
 ## Closed Work
 
@@ -64,9 +68,8 @@ history.
    `fix/chatgpt-json-import-identity` and
    `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
    whether either remote branch can be deleted.
-3. Decide whether the next bounded A2A experiment should replace the
-   deterministic fake worker with one inexpensive model-backed worker while
-   keeping the proven recorder and ChatMap domain model unchanged.
+3. Run the new `a2aModelRecord` command against the local Ollama worker,
+   then reopen its temporary database with `workerLifecycleRecord`.
 4. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
@@ -88,7 +91,6 @@ history.
 
 ## Next Action
 
-Evaluate a real model-backed A2A worker as the next bounded experiment. Keep
-the proven recorder unchanged, continue using isolated data, and do not add a
-general orchestrator, schema expansion, or UI integration without a separate
-decision.
+Run `a2aModelRecord` against the proven local Ollama A2A worker, then reopen
+the printed temporary database with `workerLifecycleRecord`. Confirm the
+completed lifecycle and model artifact persist after the recording client exits.

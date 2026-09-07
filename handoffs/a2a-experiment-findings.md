@@ -1,6 +1,6 @@
 # A2A Experiment Findings
 
-**Observed:** 2026-09-02
+**Observed:** 2026-09-02 through 2026-09-04
 **Protocol:** A2A 1.0 over JSON-RPC
 **Java SDK:** 1.3.0.Final
 **Server:** Quarkus reference JSON-RPC server 3.39.1
@@ -28,10 +28,17 @@ guarantees, worker sessions, or predecessor and successor assignment model.
 | `input-required` | `TASK_STATE_INPUT_REQUIRED` | Agent message requesting additional text |
 | `fail` | `TASK_STATE_FAILED` | Agent message explaining the requested failure |
 | Same-task continuation | `INPUT_REQUIRED` to `COMPLETED` | Same task and context IDs; artifact containing `continued hello` |
+| Ollama model request | `TASK_STATE_COMPLETED` | Artifact `worker-result` containing the local Qwen response |
 
 The continuation response retained both the agent's request for input and the
 user's follow-up in task history. It completed the original task rather than
 creating a successor task.
+
+On 2026-09-04, the bounded server advertised the
+`ollama-text-generation` skill and completed a real request through the local
+`qwen2.5:7b` model. The 48-second client run returned a two-sentence
+`worker-result` artifact. This proved model-backed A2A execution but did not
+yet prove durable recording of that particular model task.
 
 The Agent Card was retrieved from
 `/.well-known/agent-card.json`. It advertised one text skill and one JSON-RPC

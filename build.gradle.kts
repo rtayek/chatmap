@@ -266,6 +266,17 @@ tasks.register<JavaExec>("a2aContinue") {
     args(providers.gradleProperty("answer").getOrElse("continued hello"))
 }
 
+tasks.register<JavaExec>("a2aModelRecord") {
+    group = "application"
+    description = "Records one real model-backed A2A task in an isolated ChatMap ledger."
+    mainClass.set("chatmap.a2a.experiment.ModelRecordingClient")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    args(providers.gradleProperty("request")
+        .getOrElse("Explain durable task history in two short sentences."))
+}
+
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     jvmArgs("--enable-native-access=ALL-UNNAMED")
