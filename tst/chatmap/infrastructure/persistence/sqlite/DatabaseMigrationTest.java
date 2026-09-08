@@ -2,6 +2,7 @@ package chatmap.infrastructure.persistence.sqlite;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -278,6 +279,38 @@ class DatabaseMigrationTest {
     }
 
     @Test
+    void failedMigrationRollsBackOnlyItsWorkInsideCallerTransaction() throws Exception {
+        try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+            createOldSchema(conn);
+            conn.setAutoCommit(false);
+            long callerProjectId = insertOldProject(conn, "Caller work", "2026-08-10T00:00:00Z");
+            long duplicateProjectId = insertOldProject(conn, "CALLER WORK", "2026-08-10T00:01:00Z");
+            try (Statement st = conn.createStatement()) {
+                st.execute("CREATE TRIGGER failProjectDelete BEFORE DELETE ON projects "
+                        + "WHEN OLD.id = " + duplicateProjectId + " BEGIN "
+                        + "SELECT RAISE(ABORT, 'injected migration failure'); END");
+            }
+
+            SQLException failure = assertThrows(SQLException.class, () -> Database.applyMigrations(conn));
+
+            assertTrue(failure.getMessage().contains("injected migration failure"), failure.getMessage());
+            assertFalse(conn.getAutoCommit());
+            assertEquals(2, countRows(conn, "projects"), "caller data must survive migration rollback");
+            assertTrue(projectExists(conn, callerProjectId));
+            assertTrue(projectExists(conn, duplicateProjectId));
+            assertFalse(columns(conn, "chats").contains("externalConversationId"));
+            assertEquals(0, countRows(conn, "sqlite_master", "type = 'table' AND name = 'promptRoutes'"));
+
+            try (Statement st = conn.createStatement()) {
+                st.execute("DROP TRIGGER failProjectDelete");
+            }
+            insertOldProject(conn, "After failure", "2026-08-10T00:02:00Z");
+            conn.rollback();
+            assertEquals(0, countRows(conn, "projects"), "caller controls the final transaction rollback");
+        }
+    }
+
+    @Test
     void applyMigrationsRestoresAutocommitOnSuccess() throws Exception {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite::memory:")) {
             createOldSchema(conn);
@@ -418,5 +451,26 @@ class DatabaseMigrationTest {
             }
         }
         return names;
+    }
+
+    private static int countRows(Connection conn, String table) throws SQLException {
+        return countRows(conn, table, "1 = 1");
+    }
+
+    private static int countRows(Connection conn, String table, String predicate) throws SQLException {
+        try (Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM " + table + " WHERE " + predicate)) {
+            rs.next();
+            return rs.getInt(1);
+        }
+    }
+
+    private static boolean projectExists(Connection conn, long id) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM projects WHERE id = ?")) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
     }
 }

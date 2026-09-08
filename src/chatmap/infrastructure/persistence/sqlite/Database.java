@@ -8,6 +8,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -167,11 +168,57 @@ public final class Database {
     /** Applies additive migrations that CREATE TABLE IF NOT EXISTS cannot perform on old databases. */
     public static void applyMigrations(Connection conn) throws SQLException {
         boolean previousAutoCommit = conn.getAutoCommit();
-        if (previousAutoCommit) {
-            conn.setAutoCommit(false);
+        if (!previousAutoCommit) {
+            applyMigrationsInCallerTransaction(conn);
+            return;
         }
+        conn.setAutoCommit(false);
         Throwable thrown = null;
         try {
+            applyMigrationsBody(conn);
+            conn.commit();
+        } catch (SQLException | RuntimeException | Error e) {
+            thrown = e;
+            try {
+                conn.rollback();
+            } catch (SQLException rollbackFailure) {
+                e.addSuppressed(rollbackFailure);
+            }
+            throw e;
+        } finally {
+            try {
+                conn.setAutoCommit(true);
+            } catch (SQLException autoCommitFailure) {
+                if (thrown != null) {
+                    thrown.addSuppressed(autoCommitFailure);
+                } else {
+                    throw autoCommitFailure;
+                }
+            }
+        }
+    }
+
+    private static void applyMigrationsInCallerTransaction(Connection conn) throws SQLException {
+        Savepoint savepoint = conn.setSavepoint();
+        try {
+            applyMigrationsBody(conn);
+            conn.releaseSavepoint(savepoint);
+        } catch (SQLException | RuntimeException | Error failure) {
+            try {
+                conn.rollback(savepoint);
+            } catch (SQLException rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            try {
+                conn.releaseSavepoint(savepoint);
+            } catch (SQLException releaseFailure) {
+                failure.addSuppressed(releaseFailure);
+            }
+            throw failure;
+        }
+    }
+
+    private static void applyMigrationsBody(Connection conn) throws SQLException {
             addColumnIfMissing(conn, "chats", "externalConversationId", "TEXT");
             addColumnIfMissing(conn, "chats", "sourceUri", "TEXT");
             addColumnIfMissing(conn, "chats", "contentHash", "TEXT");
@@ -264,32 +311,6 @@ public final class Database {
                         + "ON projects(localPath) WHERE localPath IS NOT NULL");
             }
 
-            if (previousAutoCommit) {
-                conn.commit();
-            }
-        } catch (SQLException | RuntimeException | Error e) {
-            thrown = e;
-            if (previousAutoCommit) {
-                try {
-                    conn.rollback();
-                } catch (SQLException rollbackFailure) {
-                    e.addSuppressed(rollbackFailure);
-                }
-            }
-            throw e;
-        } finally {
-            if (previousAutoCommit) {
-                try {
-                    conn.setAutoCommit(true);
-                } catch (SQLException autoCommitFailure) {
-                    if (thrown != null) {
-                        thrown.addSuppressed(autoCommitFailure);
-                    } else {
-                        throw autoCommitFailure;
-                    }
-                }
-            }
-        }
     }
 
     private static void createWorkerLifecycleTables(Statement st) throws SQLException {
