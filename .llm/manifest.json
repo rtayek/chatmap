@@ -4,6 +4,8 @@
   "entrypoint": ".llm/index.md",
   "required_documents": [
     ".llm/index.md",
+    ".llm/human.md",
+    ".llm/persona.md",
     ".llm/first-principles.md",
     ".llm/design.md",
     ".llm/evo.md",

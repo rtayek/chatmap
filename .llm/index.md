@@ -8,6 +8,10 @@ provenance: git-history
 
 This is the authoritative discovery registry for the Chat Map workspace. Agents MUST review these files to establish baseline constraints before executing compilation or code tasks.
 
+## Working Relationship
+- **Human:** Read `human.md` for the user's engineering preferences, accessibility needs, and collaboration style.
+- **Persona:** Read `persona.md` for communication style.
+
 ## 🧱 Codebase Invariants
 - **Philosophy:** Refer to `first-principles.md` for foundational architectural assumptions and core mathematical/semantic constraints.
 - **Intent:** Refer to `design.md` for functional policies, JavaFX prompt screen handling rules, and menu bar interaction defaults.
