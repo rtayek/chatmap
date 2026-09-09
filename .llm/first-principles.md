@@ -1,3 +1,9 @@
+---
+id: CM-FP-01
+lifecycle: durable
+status: active
+provenance: git-history
+---
 # FIRST_PRINCIPLES.md
 
 # First Principles
