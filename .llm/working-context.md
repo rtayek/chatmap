@@ -1,6 +1,12 @@
+---
+id: CM-CTX-01
+lifecycle: working
+status: active
+provenance: git-history
+---
 # ChatMap Working Context
 
-**Updated:** 2026-09-07
+**Updated:** 2026-09-09
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -26,6 +32,15 @@ history.
 - An independent review of commit `f786093` found two remaining defects. Strict
   Ollama response validation was repaired in `031aba9`. The ignored Git outcome
   when staging archived handoff artifacts remains a low-severity follow-up.
+- Caller-owned migration transactions are now protected by a JDBC savepoint.
+  Commit `63a7ad6` rolls back only migration work on failure while leaving the
+  caller's surrounding transaction under caller control.
+- Project guidance and handoffs now live under `.llm/`, with `index.md` as the
+  repository-controlled discovery registry. A destructive context-layout trial
+  was reversed without changing Java code, tests, database schema, or handoffs.
+  Fresh read-only sessions in Codex, Claude Code, and Anti-Gravity all recovered
+  the purpose, coordination boundary, A2A result, semantic-probe limit, active
+  agenda, and local-data exclusion from the restored documents.
 - The full Gradle quality pipeline passed after the A2A merge. The consolidated
   A2A server and same-task continuation client also passed their runtime check.
   Live provider tests remain intentionally opt-in.
@@ -70,10 +85,9 @@ history.
 1. Check and propagate failure from the inbox-repository `git add` that stages
    archived tasks, result files, and agent logs. A staging failure must not be
    reported as success.
-2. Compare the unique commits on
-   `fix/chatgpt-json-import-identity` and
-   `fix/chatgpt-json-import-identity-v2` with current `master` before deciding
-   whether either remote branch can be deleted.
+2. Evaluate the bounded `.llm` metadata pilot. YAML describes individual
+   documents; `manifest.json` describes repository-wide discovery and validation
+   rules. Do not compress semantic bodies or change client entry points.
 3. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
@@ -98,7 +112,8 @@ history.
 
 ## Next Action
 
-Review the successful structured semantic probe before expanding its scope.
-If further evaluation is authorized, use a small corpus whose facts and
-acceptance contracts are specified independently of model output. Do not treat
-one passing case as proof of general semantic correctness.
+Review the bounded `.llm` metadata pilot before adding automation. Confirm that
+the diff changes metadata and current-state reporting without removing semantic
+content. If the contract remains useful, the next step may be a small validator
+for unique IDs, allowed values, canonical paths, UTF-8 without BOM, and LF line
+endings.
