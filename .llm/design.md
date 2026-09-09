@@ -24,6 +24,24 @@ knowledge current as projects evolve, while preserving the provenance and
 history of every accepted knowledge object. See `first-principles.md` for the
 stable principles governing that work.
 
+## Project Memory Ownership
+
+ChatMap owns and tests its project-memory model inside this repository. That
+includes the distinction between durable knowledge and working state,
+document-local YAML metadata, the repository-wide JSON manifest, discovery
+through `.llm/index.md`, and the validation experiments used to determine
+whether those facilities work.
+
+The higher-level System project may later generalize practices that ChatMap has
+demonstrated to be useful across multiple projects. System does not dictate
+unproven ChatMap organization or become the authority for ChatMap's internal
+design.
+
+Agent discovery follows this repository-controlled chain: `CLAUDE.md` directs
+Claude to `AGENTS.md`; `AGENTS.md` directs agents to `.llm/index.md`; and the
+index routes them to human, persona, durable knowledge, working state, and
+selected handoffs.
+
 ## Coordination Boundary
 
 ChatMap's core is the durable ledger and status system. Optional coordination
