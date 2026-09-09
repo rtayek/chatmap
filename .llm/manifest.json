@@ -1,13 +1,49 @@
 {
-  "$schema": "https://chatmap.org",
+  "format_version": 1,
   "project_id": "CHATMAP",
-  "git_branch_head": "master",
-  "invariants": {
-    "index": ".llm/index.md",
-    "first-principles": ".llm/first-principles.md",
-    "design": ".llm/design.md",
-    "evolution": ".llm/evo.md",
-    "working-context": ".llm/working-context.md"
+  "entrypoint": ".llm/index.md",
+  "required_documents": [
+    ".llm/index.md",
+    ".llm/first-principles.md",
+    ".llm/design.md",
+    ".llm/evo.md",
+    ".llm/implementation-notes.md",
+    ".llm/working-context.md"
+  ],
+  "handoff_directory": ".llm/handoffs",
+  "excluded_paths": [
+    ".chatmap-local/"
+  ],
+  "metadata_pilot": {
+    "documents": [
+      ".llm/index.md",
+      ".llm/first-principles.md",
+      ".llm/design.md",
+      ".llm/implementation-notes.md",
+      ".llm/working-context.md"
+    ],
+    "required_fields": [
+      "id",
+      "lifecycle",
+      "status",
+      "provenance"
+    ],
+    "allowed_lifecycle": [
+      "durable",
+      "working"
+    ],
+    "allowed_status": [
+      "active",
+      "retired",
+      "superseded",
+      "uncertain"
+    ]
   },
-  "active_sessions": []
+  "validation": {
+    "encoding": "UTF-8",
+    "bom": false,
+    "line_endings": "LF",
+    "require_unique_ids": true,
+    "require_paths_exist": true
+  }
 }
