@@ -1,3 +1,9 @@
+---
+id: CM-DESIGN-01
+lifecycle: durable
+status: active
+provenance: git-history
+---
 # ChatMap Design
 
 ## Purpose
