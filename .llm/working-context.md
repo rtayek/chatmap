@@ -36,15 +36,25 @@ history.
   Commit `63a7ad6` rolls back only migration work on failure while leaving the
   caller's surrounding transaction under caller control.
 - Project guidance and handoffs now live under `.llm/`, with `index.md` as the
-  repository-controlled discovery registry. A destructive context-layout trial
-  was reversed without changing Java code, tests, database schema, or handoffs.
-  Fresh read-only sessions in Codex, Claude Code, and Anti-Gravity all recovered
-  the purpose, coordination boundary, A2A result, semantic-probe limit, active
-  agenda, and local-data exclusion from the restored documents.
+  repository-controlled discovery registry. `CLAUDE.md` routes Claude through
+  `AGENTS.md`; `AGENTS.md` routes agents through `.llm/index.md`; and the
+  index routes them to human, persona, durable, working, and selected handoff
+  documents. A fresh read-only discovery test in Codex, Claude Code, and
+  Anti-Gravity produced substantive agreement on purpose, ownership,
+  architectural boundaries, current work, undecided questions, and the
+  `.chatmap-local/` exclusion. Anti-Gravity reported `AGENTS.md` first;
+  Codex reported `.llm/index.md` before `AGENTS.md`; Claude did not report
+  actual read order. Semantic discovery is validated, while exact automatic
+  startup order is not fully proven for every client.
 - The bounded metadata pilot now separates Markdown bodies, document-local YAML,
-  and repository-wide JSON rules. The earlier speculative Agent OS proposal is
-  preserved under `.llm/handoffs/archive/`; `evo.md` now records only adopted
-  ChatMap evolution. A green Gradle check followed the initial metadata changes.
+  and repository-wide JSON rules. The read-only audit passed all required
+  document, front-matter, unique-ID, allowed-value, UTF-8/no-BOM/LF, and
+  manifest-consistency checks without changing the worktree. Three low-level
+  design questions remain: duplicated document-path lists, unspecified scope
+  for path and ID validation, and an unspecified front-matter format and
+  enforcement procedure. The earlier speculative Agent OS proposal is preserved
+  under `.llm/handoffs/archive/`; `evo.md` records only adopted ChatMap
+  evolution.
 - The full Gradle quality pipeline passed after the A2A merge. The consolidated
   A2A server and same-task continuation client also passed their runtime check.
   Live provider tests remain intentionally opt-in.
@@ -80,6 +90,10 @@ history.
 - Agent-protocol survey and bounded A2A experiment: completed. A2A is the
   selected agent-to-agent wire protocol; MCP is complementary; ACP is absorbed
   into A2A; ANP is deferred.
+- Project-memory discovery test: completed with substantive agreement across
+  Codex, Claude Code, and Anti-Gravity.
+- Metadata pilot audit: completed read-only with all checks passing and three
+  low-level specification questions retained for later judgment.
 - Independent code review: completed. Previously reported transaction,
   worktree-preservation, structured-output, process-reader, and platform-Codex
   defects no longer reproduced.
@@ -89,10 +103,9 @@ history.
 1. Check and propagate failure from the inbox-repository `git add` that stages
    archived tasks, result files, and agent logs. A staging failure must not be
    reported as success.
-2. Run a read-only metadata audit comparing the six pilot documents with
-   `manifest.json`. Verify unique IDs, allowed lifecycle and status values,
-   required paths, UTF-8 without BOM, and LF line endings. Do not change client
-   entry points.
+2. Decide whether the metadata audit's three low-level findings justify a small
+   deterministic validator. Do not expand the YAML or JSON schema without a
+   concrete need.
 3. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
@@ -117,7 +130,6 @@ history.
 
 ## Next Action
 
-Run one read-only metadata audit against `manifest.json`. If the six pilot
-documents satisfy the contract and the distinctions remain useful, decide
-whether a small deterministic validator is warranted. Do not expand the schema
-or add `role` until the audit identifies a concrete need.
+Repair and test failure propagation for the inbox-repository `git add` that
+stages archived handoff artifacts. Keep the repair narrow; do not combine it
+with metadata-schema changes or additional coordination facilities.
