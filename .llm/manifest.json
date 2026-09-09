@@ -19,6 +19,7 @@
       ".llm/index.md",
       ".llm/first-principles.md",
       ".llm/design.md",
+      ".llm/evo.md",
       ".llm/implementation-notes.md",
       ".llm/working-context.md"
     ],
