@@ -1,3 +1,9 @@
+---
+id: CM-IMPL-01
+lifecycle: working
+status: active
+provenance: git-history
+---
 # ChatMap Implementation Notes
 
 This file tracks the current implementation of `design.md`. It changes
