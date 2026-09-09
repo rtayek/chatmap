@@ -1,21 +1,21 @@
 ---
 id: CM-IDX-01
-type: context-dispatcher
-project_id: CHATMAP
+lifecycle: durable
 status: active
+provenance: manually-authored
 ---
 # Chat Map Context Index
 
-This is the authoritative discovery registry for the Chat Map workspace. Agents MUST review these files to establish baseline constraints before executing compilation or code tasks.
+This is the canonical entry point for the Chat Map repository. Agents MUST read all documents listed below to establish a reliable baseline context before executing code verification or task loops.
 
-## 🧱 Codebase Invariants
-- **Philosophy:** Refer to `first-principles.md` for foundational architectural assumptions and core mathematical/semantic constraints.
-- **Intent:** Refer to `design.md` for functional policies, JavaFX prompt screen handling rules, and menu bar interaction defaults.
-- **Evolution:** Refer to `evo.md` for historical design context and past system evolution arcs.
+## 🧱 Durable Knowledge
+- **Philosophy:** See `first-principles.md` for core token-density and context-handling equations.
+- **Intent:** See `design.md` for multi-LLM routing, JavaFX prompt screens, and object responsibilities.
+- **Trajectory:** See `evo.md` for past structural design pivots and architectural reasoning.
 
-## 📈 Active Context Window
-- **Current State:** Read `working-context.md` for rolling project milestones, recent saving checkpoints, and next development hooks.
-- **Session Lineage:** Consult the `handoffs/` directory to pull specific semantic logs from recent agent-to-agent (a2a) communication runs.
+## 📈 Working State
+- **Current Action:** See `working-context.md` for active milestones and open operational timelines.
+- **Lineage:** Consult the `handoffs/` folder for transient state transfers between active session runs.
 
-## 🚫 Excluded Directories
-- **Transient Data:** `../.chatmap-local/` is strictly out of scope for agent reading or analysis. It contains raw, non-distilled conversation logs and execution data.
+## 🚫 Operational Boundaries
+- **Walled Off:** Agents MUST NOT open, parse, or index any contents inside the `../.chatmap-local/` directory unless the immediate task contains an explicit human authorization referencing a specific file ID.
