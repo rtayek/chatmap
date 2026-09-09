@@ -1,7 +1,7 @@
 ---
 id: CM-HANDOFF-PROJECT-MEMORY-OWNERSHIP-2026-09-09
 lifecycle: working
-status: active
+status: retired
 provenance: chat-session-2026-09-09
 ---
 
@@ -36,29 +36,31 @@ ChatMap's internal organization.
 `.llm/index.md` routes agents to `.llm/human.md`, `.llm/persona.md`, and the
 authoritative ChatMap project documents.
 
-## Next Validation
+## Validation Result
 
-Test the current arrangement independently with:
+The read-only discovery test was completed with Claude Code, Codex, and
+Anti-Gravity. All three produced substantive agreement on ChatMap's purpose,
+project-memory ownership, the System boundary, current work, undecided
+questions, and the `.chatmap-local/` exclusion.
 
-- Claude Code
-- Codex
-- Anti-Gravity
+Anti-Gravity reported `AGENTS.md` as its first project-guidance file and then
+followed `.llm/index.md`. Codex recovered the correct material but reported
+reading `.llm/index.md` before `AGENTS.md`. Claude described the intended
+chain but omitted the requested actual reading order. The experiment therefore
+validates semantic discovery across all three clients, but does not fully prove
+the exact automatic startup order for every client.
 
-Each should identify the same project purpose, architectural boundaries,
-current work, and material that must not be read automatically.
+The test also exposed stale operational documentation: the completed metadata
+audit was still listed as active in `.llm/working-context.md`.
 
-Compare their answers for substantive agreement. Minor wording differences are
-acceptable; missed boundaries or contradictory conclusions are not.
+## Follow-up Completed
 
-## Follow-up
-
-If the discovery test succeeds:
-
-1. Record the settled ownership boundary in `.llm/design.md`.
-2. Keep the implementation and validation machinery in ChatMap.
-3. Report the proven general pattern to the System project.
-4. Avoid turning the System project into the authority for unproven ChatMap
-   design choices.
+- The ownership boundary is recorded in `.llm/design.md`.
+- The discovery-test result and completed metadata audit are recorded in
+  `.llm/working-context.md`.
+- Project-memory implementation and validation remain in ChatMap.
+- System may generalize the proven pattern later, without becoming the authority
+  for unproven ChatMap design choices.
 
 ## Not Yet Decided
 
