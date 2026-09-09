@@ -7,8 +7,8 @@ out="$HOME/outgoing/$base.tar"
 tar -cf "$out" \
     src \
     tst \
-    handoffs \
-    build.* \
+    .llm \
+    *.sh  \
     *.md
 
 echo "Wrote $out"
