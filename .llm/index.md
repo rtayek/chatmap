@@ -1,8 +1,8 @@
 ---
 id: CM-IDX-01
-type: context-dispatcher
-project_id: CHATMAP
+lifecycle: durable
 status: active
+provenance: git-history
 ---
 # Chat Map Context Index
 
