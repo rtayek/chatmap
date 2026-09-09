@@ -1,0 +1,13 @@
+{
+  "$schema": "https://chatmap.org",
+  "project_id": "CHATMAP",
+  "git_branch_head": "master",
+  "invariants": {
+    "index": ".llm/index.md",
+    "first-principles": ".llm/first-principles.md",
+    "design": ".llm/design.md",
+    "evolution": ".llm/evo.md",
+    "working-context": ".llm/working-context.md"
+  },
+  "active_sessions": []
+}
