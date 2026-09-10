@@ -135,6 +135,9 @@ history.
 - a general scheduler, router, permissions framework, or agent harness
 - full semantic-extraction implementation
 - embeddings, semantic search, and broad UI redesign
+- layer-boundary enforcement (e.g. domain cannot import infrastructure) via
+  an ArchUnit test or Checkstyle ImportControl, in preference to a Gradle
+  multi-project split, which Ray does not want
 
 ## Next Action
 
