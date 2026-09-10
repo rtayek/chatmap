@@ -47,6 +47,13 @@ history.
   Codex reported `.llm/index.md` before `AGENTS.md`; Claude did not report
   actual read order. Semantic discovery is validated, while exact automatic
   startup order is not fully proven for every client.
+- Confirmed on a 2026-09-10 Claude Code cold start: the harness auto-injects
+  `CLAUDE.md` and its `@AGENTS.md` reference, but does NOT automatically read
+  `.llm/index.md` or the files it routes to. The AGENTS.md "MUST read
+  `.llm/index.md` before doing anything" step is therefore not self-executing in
+  Claude Code; the index was only read after a prompt. Candidate fix: a
+  client-side startup hook (e.g. `.claude/settings.json` SessionStart) that reads
+  the index, since repo Markdown alone cannot force the order.
 - The bounded metadata pilot now separates Markdown bodies, document-local YAML,
   and repository-wide JSON rules. The read-only audit passed all required
   document, front-matter, unique-ID, allowed-value, UTF-8/no-BOM/LF, and
@@ -121,6 +128,11 @@ history.
    that experiment client. Decide whether to wire the existing recorder into
    the production path, or keep A2A recording bounded to the experiment for
    now.
+5. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
+   `.llm/index.md` (and the files it routes to) at cold start, so the AGENTS.md
+   "read the index before doing anything" step becomes self-executing instead of
+   depending on a prompt. Config change: get Ray's go-ahead before editing
+   settings.
 
 ## Deferred
 
