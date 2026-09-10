@@ -5,6 +5,7 @@
 > importer work. Do not use this document as current instructions. See
 > `handoff-chatmap-gemini-takeout-implementation-2026-09-10.md` and
 > `.llm/working-context.md` for the implemented state.
+
 From: chatmap (planning session)
 Date: 2026-09-10 (revises
 handoff-chatmap-gemini-takeout-importer-2026-09-10-2030.md -- Claude Code
