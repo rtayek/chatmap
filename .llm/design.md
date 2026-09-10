@@ -200,6 +200,12 @@ ChatSummary
 
 All importers produce normalized chat data.
 
+This section covers format-based importers only. Live/local acquisition via
+the six-source ChatProvider system (CLI-history readers for Claude Code,
+Codex, and Gemini; live web-CDP readers for Claude, ChatGPT, and Gemini) is
+documented in `implementation-notes.md` under "Supported Live Provider &
+Automation Capabilities."
+
 Current import behavior:
 
 ```text
