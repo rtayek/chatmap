@@ -1,0 +1,17 @@
+Perform a read-only project-discovery test.
+
+Use the repository's normal discovery mechanism. Do not rely on prior conversation context, and do not modify any files.
+
+Answer these questions:
+
+1. What is ChatMap's long-term purpose?
+2. Which project owns and tests ChatMap's project-memory model, YAML metadata, JSON manifest, and discovery mechanism?
+3. What role may the System project play later?
+4. What is the repository's document-discovery chain?
+5. What work is currently active or deferred?
+6. What files or directories must not be read automatically?
+7. What project-memory questions remain undecided?
+
+For every answer, cite the repository file that supports it.
+
+Finally, list the project-guidance files you read, in the order you read them.
