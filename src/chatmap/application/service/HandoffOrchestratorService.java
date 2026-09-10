@@ -271,9 +271,19 @@ public final class HandoffOrchestratorService {
 
         Path archived = inboxManager.archiveTask(file);
         Path resultFile = inboxManager.writeResultFile(archived, task, agentResult);
-        gitManager.gitAddPaths(inboxRepo, file, archived, resultFile,
+        GitOutcome archiveAddResult = gitManager.gitAddPaths(inboxRepo, file, archived, resultFile,
                 agentResult.standardOutputPath(), agentResult.standardErrorPath());
-        
+        if (archiveAddResult.success() == false) {
+            pushPending = true;
+            String detail = "Agent completed and task archived to "
+                    + GitWorkspaceManager.relativeName(inboxRepo, archived)
+                    + ", but staging the archive in the inbox failed: "
+                    + archiveAddResult.errorDetail();
+            LOG.warn("Handoff task {} partially succeeded ({})", file, detail);
+            return new HandoffRunResult(file, task.projectKey(),
+                    HandoffRunResult.Outcome.partialFailure, detail, pushPending);
+        }
+
         GitOutcome archiveCommitResult = gitManager.commit(inboxRepo, "Archive completed handoff: " + GitWorkspaceManager.relativeName(inboxRepo, archived));
         boolean archiveCommitFailed = archiveCommitResult.success() == false;
         if (archiveCommitFailed) {
