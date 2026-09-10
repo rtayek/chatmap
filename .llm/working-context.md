@@ -114,6 +114,13 @@ history.
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
+4. `A2aTaskRecorder` exists and is tested, but is only exercised by
+   `ModelRecordingClient`, which records into an isolated temporary ChatMap
+   home. No wiring exists from a real A2A exchange into the production
+   home/database path, and nothing triggers recording automatically outside
+   that experiment client. Decide whether to wire the existing recorder into
+   the production path, or keep A2A recording bounded to the experiment for
+   now.
 
 ## Deferred
 
