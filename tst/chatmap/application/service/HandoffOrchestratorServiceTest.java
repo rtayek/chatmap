@@ -345,6 +345,29 @@ class HandoffOrchestratorServiceTest {
     }
 
     @Test
+    void archiveStagingFailureIsReportedAsPartialFailure() throws IOException {
+        Path chatmapDir = projectDir("chatmap");
+        writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
+        FakeCommandExecutor executor = new FakeCommandExecutor();
+        executor.respond("git status --porcelain", ok(""));
+        executor.respond("git add --",
+                new CommandResult(1, "", "permission denied", Duration.ofMillis(10), false));
+        HandoffOrchestratorService service = newService(
+                executor, Map.of("chatmap", Path.of("fake-target-repo")), false);
+
+        HandoffRunResult result = service.processInboxOnce(inbox).get(0);
+
+        assertEquals(HandoffRunResult.Outcome.partialFailure, result.outcome());
+        assertTrue(result.pushPending());
+        assertTrue(result.detail().contains("staging the archive in the inbox failed"), result.detail());
+        assertTrue(result.detail().contains("permission denied"), result.detail());
+        assertFalse(executor.calledWithPrefix("git commit -m Archive completed handoff"),
+                "the inbox archive must not be committed after staging failed");
+        assertTrue(Files.exists(chatmapDir.resolve(".archive").resolve("task1.md")),
+                "the completed task remains archived for manual recovery");
+    }
+
+    @Test
     void archiveFailureIsReportedAsFailureInsteadOfCrashingTheRun() throws IOException {
         Path chatmapDir = projectDir("chatmap");
         Path task = writeTask(chatmapDir, "task1.md", "claude", "feature-x", "do the thing");
