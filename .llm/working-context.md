@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-09-09
+**Updated:** 2026-09-10
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -30,8 +30,9 @@ history.
 - The shell LLM relay is a completed external experiment in `rtayek/bin`, branch
   `archive/llm-relay`.
 - An independent review of commit `f786093` found two remaining defects. Strict
-  Ollama response validation was repaired in `031aba9`. The ignored Git outcome
-  when staging archived handoff artifacts remains a low-severity follow-up.
+  Ollama response validation was repaired in `031aba9`. Archive-staging failure
+  propagation was repaired and regression-tested in `7832eec` and `a56d463`;
+  a local full Gradle check passed after the repair.
 - Caller-owned migration transactions are now protected by a JDBC savepoint.
   Commit `63a7ad6` rolls back only migration work on failure while leaving the
   caller's surrounding transaction under caller control.
@@ -97,19 +98,19 @@ history.
 - Independent code review: completed. Previously reported transaction,
   worktree-preservation, structured-output, process-reader, and platform-Codex
   defects no longer reproduced.
+- Archive-staging failure propagation: repaired and regression-tested. A failed
+  inbox `git add` now returns partial failure, preserves the archived artifacts
+  for recovery, and does not attempt the archive commit.
 
 ## Active Agenda
 
-1. Check and propagate failure from the inbox-repository `git add` that stages
-   archived tasks, result files, and agent logs. A staging failure must not be
-   reported as success.
-2. Decide whether the metadata audit's three low-level findings justify a small
+1. Decide whether the metadata audit's three low-level findings justify a small
    deterministic validator. Do not expand the YAML or JSON schema without a
    concrete need.
-3. Decide whether semantic evaluation should stop at the successful bounded
+2. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
-4. Preserve the caller-chain escalation model: a worker returns an unresolved
+3. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
@@ -130,6 +131,6 @@ history.
 
 ## Next Action
 
-Repair and test failure propagation for the inbox-repository `git add` that
-stages archived handoff artifacts. Keep the repair narrow; do not combine it
-with metadata-schema changes or additional coordination facilities.
+Review the metadata audit's three low-level findings and decide whether they
+justify a small deterministic validator. Keep the decision evidence-based; do
+not expand the YAML or JSON schema without a concrete need.
