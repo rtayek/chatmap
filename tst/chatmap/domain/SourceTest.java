@@ -38,6 +38,7 @@ class SourceTest {
         assertEquals("plainText", Source.plainText.dbValue());
         assertEquals("markdown", Source.markdown.dbValue());
         assertEquals("chatgptJson", Source.chatgptJson.dbValue());
+        assertEquals("geminiTakeoutJson", Source.geminiTakeoutJson.dbValue());
         assertEquals("claudeWeb", Source.claudeWeb.dbValue());
         assertEquals("chatGptWeb", Source.chatGptWeb.dbValue());
         assertEquals("geminiWeb", Source.geminiWeb.dbValue());

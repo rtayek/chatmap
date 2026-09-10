@@ -107,6 +107,21 @@ tasks.register<JavaExec>("importChatGptArchive") {
     }
 }
 
+tasks.register<JavaExec>("importGeminiTakeout") {
+    group = "application"
+    description = "Imports extracted Gemini Takeout. Usage: -Pargs=<Takeout-directory> [-Phome=<ChatMap-home>]"
+    mainClass.set("chatmap.presentation.cli.ImportGeminiTakeoutCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+    if (project.hasProperty("home")) {
+        args("--home", project.property("home").toString())
+    }
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString())
+    }
+}
+
 tasks.register<JavaExec>("conversationInventory") {
     group = "application"
     description = "Lists all discoverable conversations from configured ChatMap sources."

@@ -1,0 +1,28 @@
+{
+  "conversation_turns": [
+    {
+      "user_turn": {
+        "prompt": "A different question.",
+        "turn_index": 0,
+        "turn_last_modified": "2026-08-15T23:41:12.049807+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "text": [
+          {
+            "data": "First paragraph."
+          },
+          {
+            "data": "Second paragraph."
+          }
+        ],
+        "turn_index": 1,
+        "turn_last_modified": "2026-08-15T23:41:12.049807+00:00"
+      }
+    }
+  ],
+  "creation_time": "2026-08-15T23:41:12.049807+00:00",
+  "last_modification_time": "2026-08-15T23:51:44.213743+00:00",
+  "title": "Synthetic second conversation"
+}

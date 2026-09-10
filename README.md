@@ -31,6 +31,39 @@ From Windows Git Bash, Linux, or WSL:
 ./gradlew eclipse
 ```
 
+## Gemini Takeout Import
+
+Extract the Takeout archive first, then pass the directory containing
+`Gemini in Workspace/Conversation History/`:
+
+```sh
+./gradlew importGeminiTakeout -Pargs=tmp/Takeout
+```
+
+Use `gradlew.bat` in PowerShell or Command Prompt. Add
+`-Phome=tmp/gemini-import-test` to use an isolated ChatMap database.
+Without `-Phome`, the command uses the normal ChatMap home.
+Quote the entire `-Pargs=...` or `-Phome=...` argument if its path contains spaces.
+
+This command supports the Workspace JSON conversation format in extracted
+`conversation_<numeric-id>.txt` files. Direct ZIP/TGZ input and other Takeout
+formats are not supported. All conversation files are validated before any
+are persisted; malformed files and duplicate turn indices produce an error.
+Database writes are transactional per conversation, and persistence failures
+are reported with a nonzero command exit status.
+
+Repeated imports match the filename ID within the `geminiTakeoutJson` source.
+Unchanged transcripts are retained; changed transcripts replace the messages
+in the same chat. Empty conversations are skipped. Matching does not deduplicate
+against Gemini web or CLI sources. Filename stability across separate exports
+or accounts has not been established; validation used one real conversation
+with 16 turns. Use separate ChatMap homes for exports from different accounts.
+
+Titles, source timestamps, and raw turn JSON (including citations) are retained.
+Response text parts are joined with blank lines. Existing import behavior
+compares message roles and text: citation-only or message-timestamp-only changes
+do not replace stored message payloads.
+
 ## Bounded A2A Experiment
 
 Start the local Ollama-backed A2A worker in one terminal:

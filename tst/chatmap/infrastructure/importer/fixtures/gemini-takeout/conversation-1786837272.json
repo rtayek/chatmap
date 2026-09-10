@@ -1,0 +1,241 @@
+{
+  "conversation_turns": [
+    {
+      "user_turn": {
+        "prompt": "Sample question 0.",
+        "turn_index": 0,
+        "turn_last_modified": "2026-08-15T23:41:12.049807+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "text": [
+          {
+            "data": "Sample answer 1."
+          }
+        ],
+        "turn_index": 1,
+        "turn_last_modified": "2026-08-15T23:41:12.049807+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 2.",
+        "turn_index": 2,
+        "turn_last_modified": "2026-08-15T23:42:37.750911+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "citations": [
+          {
+            "display_text": "Sample reference 1",
+            "url": "https://example.com/reference/1"
+          },
+          {
+            "display_text": "Sample reference 2",
+            "url": "https://example.com/reference/2"
+          },
+          {
+            "display_text": "Sample reference 3",
+            "url": "https://example.com/reference/3"
+          },
+          {
+            "display_text": "Sample reference 4",
+            "url": "https://example.com/reference/4"
+          },
+          {
+            "display_text": "Sample reference 5",
+            "url": "https://example.com/reference/5"
+          },
+          {
+            "display_text": "Sample reference 6",
+            "url": "https://example.com/reference/6"
+          },
+          {
+            "display_text": "Sample reference 7",
+            "url": "https://example.com/reference/7"
+          },
+          {
+            "display_text": "Sample reference 8",
+            "url": "https://example.com/reference/8"
+          },
+          {
+            "display_text": "Sample reference 9",
+            "url": "https://example.com/reference/9"
+          },
+          {
+            "display_text": "Sample reference 10",
+            "url": "https://example.com/reference/10"
+          }
+        ],
+        "text": [
+          {
+            "data": "Sample answer 3."
+          }
+        ],
+        "turn_index": 3,
+        "turn_last_modified": "2026-08-15T23:42:37.750911+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 4.",
+        "turn_index": 4,
+        "turn_last_modified": "2026-08-15T23:44:04.573487+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "citations": [
+          {
+            "display_text": "Sample reference 1",
+            "url": "https://example.com/reference/1"
+          },
+          {
+            "display_text": "Sample reference 2",
+            "url": "https://example.com/reference/2"
+          }
+        ],
+        "text": [
+          {
+            "data": "Sample answer 5."
+          }
+        ],
+        "turn_index": 5,
+        "turn_last_modified": "2026-08-15T23:44:04.573487+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 6.",
+        "turn_index": 6,
+        "turn_last_modified": "2026-08-15T23:46:21.096287+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "text": [
+          {
+            "data": "Sample answer 7."
+          }
+        ],
+        "turn_index": 7,
+        "turn_last_modified": "2026-08-15T23:46:21.096287+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 8.",
+        "turn_index": 8,
+        "turn_last_modified": "2026-08-15T23:47:32.856783+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "text": [
+          {
+            "data": "Sample answer 9."
+          }
+        ],
+        "turn_index": 9,
+        "turn_last_modified": "2026-08-15T23:47:32.856783+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 10.",
+        "turn_index": 10,
+        "turn_last_modified": "2026-08-15T23:48:44.528591+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "text": [
+          {
+            "data": "Sample answer 11."
+          }
+        ],
+        "turn_index": 11,
+        "turn_last_modified": "2026-08-15T23:48:44.528591+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 12.",
+        "turn_index": 12,
+        "turn_last_modified": "2026-08-15T23:50:04.794415+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "text": [
+          {
+            "data": "Sample answer 13."
+          }
+        ],
+        "turn_index": 13,
+        "turn_last_modified": "2026-08-15T23:50:04.794415+00:00"
+      }
+    },
+    {
+      "user_turn": {
+        "prompt": "Sample question 14.",
+        "turn_index": 14,
+        "turn_last_modified": "2026-08-15T23:51:44.213743+00:00"
+      }
+    },
+    {
+      "system_turn": {
+        "citations": [
+          {
+            "display_text": "Sample reference 1",
+            "url": "https://example.com/reference/1"
+          },
+          {
+            "display_text": "Sample reference 2",
+            "url": "https://example.com/reference/2"
+          },
+          {
+            "display_text": "Sample reference 3",
+            "url": "https://example.com/reference/3"
+          },
+          {
+            "display_text": "Sample reference 4",
+            "url": "https://example.com/reference/4"
+          },
+          {
+            "display_text": "Sample reference 5",
+            "url": "https://example.com/reference/5"
+          },
+          {
+            "display_text": "Sample reference 6",
+            "url": "https://example.com/reference/6"
+          },
+          {
+            "display_text": "Sample reference 7",
+            "url": "https://example.com/reference/7"
+          },
+          {
+            "display_text": "Sample reference 8",
+            "url": "https://example.com/reference/8"
+          },
+          {
+            "display_text": "Sample reference 9",
+            "url": "https://example.com/reference/9"
+          }
+        ],
+        "text": [
+          {
+            "data": "Sample answer 15."
+          }
+        ],
+        "turn_index": 15,
+        "turn_last_modified": "2026-08-15T23:51:44.213743+00:00"
+      }
+    }
+  ],
+  "creation_time": "2026-08-15T23:41:12.049807+00:00",
+  "last_modification_time": "2026-08-15T23:51:44.213743+00:00",
+  "title": "Sanitized Gemini sample"
+}

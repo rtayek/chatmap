@@ -66,7 +66,8 @@ inbox; it does not interpret or route their contents.
 ```text
 1. Domain model and SQLite storage
 2. FTS5 message search with synchronization triggers
-3. Plain text, Markdown, ChatGPT JSON, and ChatGPT archive (ZIP) import
+3. Plain text, Markdown, ChatGPT JSON, ChatGPT archive (ZIP), and extracted
+   Gemini Workspace Takeout directory import (see README.md)
 4. Project and tag organization
 5. Single-chat Markdown export
 6. Deterministic project handoff export

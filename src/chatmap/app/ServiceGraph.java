@@ -29,6 +29,7 @@ import chatmap.application.port.persistence.WorkerLifecycleStore;
 import chatmap.application.service.ConversationInventoryService;
 import chatmap.application.service.ExportService;
 import chatmap.application.service.ImportService;
+import chatmap.application.service.GeminiTakeoutImportService;
 import chatmap.application.service.LiveChatFetchService;
 import chatmap.application.service.ProjectService;
 import chatmap.application.service.PromptService;
@@ -44,6 +45,7 @@ import chatmap.infrastructure.exporter.HandoffExporter;
 import chatmap.infrastructure.exporter.MarkdownExporter;
 import chatmap.application.service.ChatGptArchiveImportService;
 import chatmap.infrastructure.importer.DefaultConversationFileReader;
+import chatmap.infrastructure.importer.GeminiTakeoutImporter;
 import chatmap.infrastructure.persistence.sqlite.ChatRepository;
 import chatmap.infrastructure.persistence.sqlite.MessageRepository;
 import chatmap.infrastructure.persistence.sqlite.ProjectRepository;
@@ -73,6 +75,7 @@ public record ServiceGraph(
         SearchStore search,
         ImportService importService,
         ChatGptArchiveImportService archiveImportService,
+        GeminiTakeoutImportService geminiTakeoutImportService,
         ConversationInventoryService conversationInventoryService,
         SummaryService summaryService,
         LiveChatFetchService liveChatFetchService,
@@ -130,6 +133,8 @@ public record ServiceGraph(
                 chats, messages, transactionRunner, new DefaultConversationFileReader());
         ChatGptArchiveImportService archiveImportService =
                 new ChatGptArchiveImportService(new chatmap.infrastructure.importer.ChatGptArchiveImporter(), importService);
+        GeminiTakeoutImportService geminiTakeoutImportService =
+                new GeminiTakeoutImportService(new GeminiTakeoutImporter(), importService);
         ConversationInventoryService conversationInventoryService =
                 new ConversationInventoryService(integrations.chatProviders(), chats);
         SummaryService summaryService = new SummaryService(chats, messages, summaries, tags,
@@ -158,7 +163,7 @@ public record ServiceGraph(
 
         return new ServiceGraph(connection, chats, messages, projects, relatedProjects, promptRoutes,
                 workerLifecycleStore, tags,
-                summaries, search, importService, archiveImportService, conversationInventoryService,
+                summaries, search, importService, archiveImportService, geminiTakeoutImportService, conversationInventoryService,
                 summaryService, liveChatFetchService,
                 exportService, searchService, projectService, tagService, promptService, promptRouterService,
                 workerLifecycleService);

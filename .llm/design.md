@@ -213,6 +213,7 @@ Plain text → one Chat → one Message
 Markdown   → one Chat → one Message
 ChatGPT JSON → flattened Messages with rawJson preserved
 ChatGPT archive (ZIP) → many Chats from an exported conversations file
+Gemini Workspace Takeout (extracted directory) → one Chat per conversation JSON text file
 ```
 
 Importers do not persist data directly. Services pass imported data to repositories.

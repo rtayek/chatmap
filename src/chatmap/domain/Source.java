@@ -22,6 +22,7 @@ public enum Source {
     plainText("plainText", "Plain text"),
     markdown("markdown", "Markdown"),
     chatgptJson("chatgptJson", "ChatGPT JSON"),
+    geminiTakeoutJson("geminiTakeoutJson", "Gemini Takeout JSON"),
     claudeWeb("claudeWeb", "Claude web"),
     chatGptWeb("chatGptWeb", "ChatGPT web"),
     geminiWeb("geminiWeb", "Gemini web"),

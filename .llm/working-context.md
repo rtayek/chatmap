@@ -18,6 +18,13 @@ history.
 
 ## Current State
 
+- Gemini Workspace Takeout directory import is implemented through
+  `importGeminiTakeout`, using the existing transactional import service and
+  a separate `geminiTakeoutJson` source. One real 16-turn conversation passed
+  isolated import/reimport and raw-turn preservation checks; the full Gradle
+  quality gate passed (618 tests, 4 skipped). Direct archive input and filename
+  identity stability across separate exports remain unverified or unsupported.
+  See `handoffs/handoff-chatmap-gemini-takeout-implementation-2026-09-10.md`.
 - The deterministic Java/SQLite application supports multi-source acquisition,
   import, search, project/tag organization, Markdown export, optional LLM
   prompting, and handoff collection.
