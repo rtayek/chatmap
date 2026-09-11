@@ -4,14 +4,15 @@ ChatMap requires Java 25. Use the Gradle wrapper for build, test, run, and Eclip
 
 ## Project Documents
 
-- `first-principles.md` — stable purpose and knowledge principles
+- `.llm/first-principles.md` — stable purpose and knowledge principles
 - `.llm/design.md` — durable design decisions and boundaries
-- `implementation-notes.md` — current implementation and technology details
+- `.llm/implementation-notes.md` — current implementation and technology details
 - `.llm/working-context.md` — current state, closed experiments, and next work
 
 Files under `.llm/handoffs/` are task transfers, preliminary work, research, or
 history. They are not current project authority unless `working-context.md`
-explicitly names one as an active assignment.
+explicitly names one as an active assignment. See
+`.llm/handoffs/README.md` for handoff delivery and lifecycle conventions.
 
 ## Gradle Commands
 
@@ -82,7 +83,7 @@ probe:
 ```
 
 Stop the A2A server with `Ctrl+C`. These commands do not use the normal
-ChatMap database or UI. See `handoffs/a2a-experiment-runbook.md` for the
+ChatMap database or UI. See `.llm/handoffs/a2a-experiment-runbook.md` for the
 complete deterministic, continuation, recording, and inspection commands.
 
 The CLI LLM provider tests are mocked during normal builds. To run the opt-in
