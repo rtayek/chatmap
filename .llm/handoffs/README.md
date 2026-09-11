@@ -19,6 +19,7 @@ handoff-<from-project>-to-<to-project>-<subject>-<date>.md
 A watcher, shared inbox repository, or automatic router is not required for
 ordinary interactive handoffs. Those remain optional facilities for unattended
 intake.
+
 Use the root documents in this order:
 
 1. `first-principles.md`
