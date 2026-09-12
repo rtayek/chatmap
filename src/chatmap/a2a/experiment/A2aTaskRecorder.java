@@ -17,6 +17,7 @@ import com.google.gson.JsonParser;
 
 import chatmap.application.service.WorkerLifecycleService;
 import chatmap.application.service.WorkerLifecycleService.DecisionRequest;
+import chatmap.application.service.WorkerLifecycleService.FailureReport;
 import chatmap.application.service.WorkerLifecycleService.WorkerAssignmentInput;
 import chatmap.domain.WorkerAssignment;
 import chatmap.domain.WorkerLifecycleRecord;
@@ -53,8 +54,8 @@ final class A2aTaskRecorder {
             case WORKING -> moveToWorking(sessionId, current);
             case INPUT_REQUIRED -> moveToInputRequired(sessionId, current, task);
             case COMPLETED -> moveToTerminal(sessionId, current, WorkerLifecycleState.COMPLETED);
-            case FAILED, REJECTED -> moveToTerminal(sessionId, current, WorkerLifecycleState.FAILED);
-            case CANCELLED -> moveToCancelled(sessionId, current);
+            case FAILED, REJECTED -> moveToFailure(sessionId, current, task, WorkerLifecycleState.FAILED);
+            case CANCELLED -> moveToCancelled(sessionId, current, task);
         }
     }
 
@@ -79,7 +80,17 @@ final class A2aTaskRecorder {
         lifecycle.transition(sessionId, terminal);
     }
 
-    private void moveToCancelled(long sessionId, WorkerLifecycleState current) throws SQLException {
+    private void moveToFailure(long sessionId, WorkerLifecycleState current, ObservedTask task,
+            WorkerLifecycleState terminal) throws SQLException {
+        if (current == terminal) {
+            return;
+        }
+        moveToWorking(sessionId, current);
+        lifecycle.transitionWithFailure(sessionId, terminal, failureReport(task));
+    }
+
+    private void moveToCancelled(long sessionId, WorkerLifecycleState current, ObservedTask task)
+            throws SQLException {
         if (current == WorkerLifecycleState.CANCELLED) {
             return;
         }
@@ -88,7 +99,7 @@ final class A2aTaskRecorder {
                 && current != WorkerLifecycleState.WAITING_FOR_DECISION) {
             throw unexpectedState(current, ObservedState.CANCELLED);
         }
-        lifecycle.transition(sessionId, WorkerLifecycleState.CANCELLED);
+        lifecycle.transitionWithFailure(sessionId, WorkerLifecycleState.CANCELLED, failureReport(task));
     }
 
     private void moveToWorking(long sessionId, WorkerLifecycleState current) throws SQLException {
@@ -143,6 +154,13 @@ final class A2aTaskRecorder {
     private static IllegalStateException unexpectedState(WorkerLifecycleState current, ObservedState observed) {
         return new IllegalStateException("Cannot record A2A state " + observed
                 + " from ChatMap state " + current);
+    }
+
+    private static FailureReport failureReport(ObservedTask task) {
+        String reason = task.statusMessage().isBlank()
+                ? "Remote A2A task ended in state " + task.state()
+                : task.statusMessage();
+        return new FailureReport(reason, "See the preserved A2A task snapshot and inline artifacts.");
     }
 
     record Recording(long assignmentId, long sessionId) {

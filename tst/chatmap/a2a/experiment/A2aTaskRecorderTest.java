@@ -130,6 +130,9 @@ class A2aTaskRecorderTest {
 
         assertEquals(WorkerLifecycleState.FAILED, record.session().lifecycleState());
         assertEquals(2, record.events().size());
+        assertEquals("The fake worker failed as requested", record.events().get(1).reason());
+        assertEquals("See the preserved A2A task snapshot and inline artifacts.",
+                record.events().get(1).partialWork());
         assertEquals(1, record.artifacts().size());
         assertTrue(readArtifact(record, 0).contains("The fake worker failed as requested"));
     }

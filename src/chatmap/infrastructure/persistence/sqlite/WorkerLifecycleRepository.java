@@ -314,7 +314,8 @@ public final class WorkerLifecycleRepository implements WorkerLifecycleStore {
 
     private static WorkerAssignment readAssignment(ResultSet rs) throws SQLException {
         long predecessor = rs.getLong("predecessorSessionId");
-        return new WorkerAssignment(rs.getLong("id"), rs.wasNull() ? null : predecessor,
+        boolean predecessorWasNull = rs.wasNull();
+        return new WorkerAssignment(rs.getLong("id"), predecessorWasNull ? null : predecessor,
                 rs.getString("task"), rs.getString("contextAndFiles"), rs.getString("availableTools"),
                 rs.getString("constraintsAndPermissions"), rs.getString("definitionOfDone"),
                 rs.getString("escalationBehavior"), rs.getString("createdAt"));

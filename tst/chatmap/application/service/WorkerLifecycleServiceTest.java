@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import chatmap.application.service.WorkerLifecycleService.DecisionRequest;
+import chatmap.application.service.WorkerLifecycleService.FailureReport;
 import chatmap.application.service.WorkerLifecycleService.WorkerAssignmentInput;
 import chatmap.application.service.WorkerLifecycleService.WorkerSemanticHandoffInput;
 import chatmap.domain.WorkerAssignment;
@@ -81,6 +82,21 @@ class WorkerLifecycleServiceTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.transition(session.id(), WorkerLifecycleState.WAITING_FOR_DECISION));
+    }
+
+    @Test
+    void failedTransitionPreservesReasonAndPartialWork() throws Exception {
+        WorkerAssignment assignment = service.createAssignment(assignmentInput("Build lifecycle"));
+        WorkerSession session = service.createSession(assignment.id(), "codex");
+        service.transition(session.id(), WorkerLifecycleState.WORKING);
+
+        service.transitionWithFailure(session.id(), WorkerLifecycleState.FAILED,
+                new FailureReport("Compiler failed", "Patch remains in the worktree"));
+
+        var failure = service.record(session.id()).events().get(1);
+        assertEquals(WorkerLifecycleState.FAILED, failure.toState());
+        assertEquals("Compiler failed", failure.reason());
+        assertEquals("Patch remains in the worktree", failure.partialWork());
     }
 
     private static WorkerAssignmentInput assignmentInput(String task) {

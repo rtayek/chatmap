@@ -61,16 +61,31 @@ public final class WorkerLifecycleService {
     public WorkerSession transition(long sessionId, WorkerLifecycleState nextState, DecisionRequest decision)
             throws SQLException {
         Objects.requireNonNull(nextState, "nextState");
+        DecisionRequest actualDecision = nextState == WorkerLifecycleState.WAITING_FOR_DECISION
+                ? requireDecision(decision) : null;
+        return transition(sessionId, nextState,
+                actualDecision == null ? null : actualDecision.question(),
+                actualDecision == null ? null : actualDecision.reason(),
+                actualDecision == null ? null : actualDecision.partialWork());
+    }
+
+    public WorkerSession transitionWithFailure(long sessionId, WorkerLifecycleState nextState, FailureReport failure)
+            throws SQLException {
+        if (nextState != WorkerLifecycleState.FAILED && nextState != WorkerLifecycleState.CANCELLED) {
+            throw new IllegalArgumentException("Failure report requires FAILED or CANCELLED state.");
+        }
+        FailureReport actualFailure = requireFailure(failure);
+        return transition(sessionId, nextState, null, actualFailure.reason(), actualFailure.partialWork());
+    }
+
+    private WorkerSession transition(long sessionId, WorkerLifecycleState nextState, String question,
+            String reason, String partialWork) throws SQLException {
         return transactions.inTransaction(() -> {
             WorkerSession session = requireSession(sessionId);
             validateTransition(session.lifecycleState(), nextState);
-            DecisionRequest actualDecision = nextState == WorkerLifecycleState.WAITING_FOR_DECISION
-                    ? requireDecision(decision) : null;
             String now = now();
             store.insertEvent(new WorkerLifecycleEvent(0, sessionId, session.lifecycleState(), nextState,
-                    actualDecision == null ? null : actualDecision.question(),
-                    actualDecision == null ? null : actualDecision.reason(),
-                    actualDecision == null ? null : actualDecision.partialWork(), now));
+                    question, reason, partialWork, now));
             return store.updateSessionState(sessionId, nextState, now);
         });
     }
@@ -149,6 +164,15 @@ public final class WorkerLifecycleService {
                 requireText(decision.partialWork(), "Preserved partial work"));
     }
 
+    private static FailureReport requireFailure(FailureReport failure) {
+        if (failure == null) {
+            throw new IllegalArgumentException("Failure report is required.");
+        }
+        return new FailureReport(
+                requireText(failure.reason(), "Failure reason"),
+                requireText(failure.partialWork(), "Preserved partial work"));
+    }
+
     private static void requireInput(WorkerAssignmentInput input) {
         Objects.requireNonNull(input, "input");
         requireText(input.task(), "Task");
@@ -195,6 +219,9 @@ public final class WorkerLifecycleService {
     }
 
     public record DecisionRequest(String question, String reason, String partialWork) {
+    }
+
+    public record FailureReport(String reason, String partialWork) {
     }
 
     public record WorkerSemanticHandoffInput(

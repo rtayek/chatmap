@@ -40,7 +40,9 @@ class WorkerLifecycleRepositoryTest {
         try (Connection conn = new Database("jdbc:sqlite:" + db).openAndInitialize()) {
             WorkerLifecycleRepository workers = new WorkerLifecycleRepository(conn);
 
-            assertEquals("Task", workers.findAssignment(assignmentId).orElseThrow().task());
+            WorkerAssignment assignment = workers.findAssignment(assignmentId).orElseThrow();
+            assertEquals("Task", assignment.task());
+            assertTrue(assignment.predecessorSession().isEmpty());
             assertEquals(WorkerLifecycleState.WORKING,
                     workers.findSession(sessionId).orElseThrow().lifecycleState());
             assertEquals(1, workers.findEvents(sessionId).size());
