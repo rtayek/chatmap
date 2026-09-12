@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-09-10
+**Updated:** 2026-09-12
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -94,6 +94,19 @@ history.
   reverse a supplied fact. The `a2aSemanticProbe` command then required one
   fixed four-field factual contract. Local `qwen2.5:7b` returned the exact
   ordered values with no extra prose, and Java accepted the response.
+- Three native read-only subagents ran concurrently against a pinned ChatMap
+  revision while the existing worker-lifecycle service recorded a coordinator,
+  three sibling workers, their separate artifacts, and a synthesis session in
+  an isolated database. Database reopen and chain traversal passed. ChatMap
+  recorded the externally executed work; it did not launch or schedule the
+  workers. See `handoffs/2026-09-12-CM-parallel-ledger-recorded-run-handoff.md`.
+- Follow-up repair `c68d433` preserves a SQL NULL root predecessor across
+  readback and introduces an explicit failure report containing the reason and
+  preserved partial work. The A2A recorder now uses that failure path. Eight
+  focused repository, service, and A2A recorder tests passed through a direct
+  JUnit launch using the vendored dependencies. The full Gradle gate has not
+  yet run because the verification environment could not download its uncached
+  Gradle 9.1 distribution.
 
 ## Closed Work
 
@@ -115,27 +128,37 @@ history.
 - Archive-staging failure propagation: repaired and regression-tested. A failed
   inbox `git add` now returns partial failure, preserves the archived artifacts
   for recovery, and does not attempt the archive commit.
+- Recorded parallel-subagent experiment: completed. It proved that ChatMap can
+  durably describe an externally executed fan-out and synthesis without
+  becoming the scheduler. Structural fan-in, run identity, execution timing,
+  failure recovery, and semantic correctness remain unproven or deferred.
 
 ## Active Agenda
 
-1. Decide whether the metadata audit's three low-level findings justify a small
-   deterministic validator. Do not expand the YAML or JSON schema without a
-   concrete need.
-2. Decide whether semantic evaluation should stop at the successful bounded
-   structured probe or proceed to a small corpus of independently specified
-   factual contracts.
+1. Run the full Gradle quality gate locally after the worker-lifecycle readback
+   and failure-detail repairs.
+2. Repeat the bounded parallel-subagent exercise with one worker deliberately
+   failing or timing out. Verify that its reason and partial work survive and
+   that the other worker results still reach synthesis. Do not add a scheduler
+   or change the schema for this experiment.
 3. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
-4. `A2aTaskRecorder` exists and is tested, but is only exercised by
+4. Decide whether the metadata audit's three low-level findings justify a small
+   deterministic validator. Do not expand the YAML or JSON schema without a
+   concrete need.
+5. Decide whether semantic evaluation should stop at the successful bounded
+   structured probe or proceed to a small corpus of independently specified
+   factual contracts.
+6. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. No wiring exists from a real A2A exchange into the production
    home/database path, and nothing triggers recording automatically outside
    that experiment client. Decide whether to wire the existing recorder into
    the production path, or keep A2A recording bounded to the experiment for
    now.
-5. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
+7. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
    `.llm/index.md` (and the files it routes to) at cold start, so the AGENTS.md
    "read the index before doing anything" step becomes self-executing instead of
    depending on a prompt. Config change: get Ray's go-ahead before editing
@@ -160,6 +183,6 @@ history.
 
 ## Next Action
 
-Review the metadata audit's three low-level findings and decide whether they
-justify a small deterministic validator. Keep the decision evidence-based; do
-not expand the YAML or JSON schema without a concrete need.
+Run the full Gradle quality gate locally for repair `c68d433`. If it passes,
+perform one bounded parallel run with a deliberately failed or timed-out worker
+and verify preservation of failure evidence and successful sibling results.
