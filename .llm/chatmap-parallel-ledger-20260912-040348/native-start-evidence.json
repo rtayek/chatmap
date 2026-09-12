@@ -1,0 +1,30 @@
+{
+  "pin": "1bb642d390059e955a548148a4bb3b546f1c3d2f",
+  "nativeIdentities": [
+    "/root/lifecycle",
+    "/root/operations",
+    "/root/verifier"
+  ],
+  "startedMessages": [
+    {
+      "agent": "/root/lifecycle",
+      "utc": "2026-09-12 04:06:06 UTC"
+    },
+    {
+      "agent": "/root/operations",
+      "utc": "2026-09-12 04:06:16 UTC"
+    },
+    {
+      "agent": "/root/verifier",
+      "utc": "2026-09-12 04:06:24 UTC"
+    }
+  ],
+  "source": "Worker STARTED messages delivered by native collaboration runtime; self-reported timestamps, independently supported by native-running-snapshot.json",
+  "launchOrder": [
+    "lifecycle",
+    "operations",
+    "verifier"
+  ],
+  "launchMethod": "Three collaboration.spawn_agent calls in order, without waiting for any worker to complete; fork_turns=none; no model override",
+  "observationTime": "2026-09-12 04:06:38 UTC"
+}

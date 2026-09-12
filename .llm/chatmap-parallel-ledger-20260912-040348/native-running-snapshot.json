@@ -1,0 +1,24 @@
+{
+  "observedUtc": "2026-09-12 04:06:38 UTC",
+  "source": "collaboration.list_agents returned immediately before this clock reading",
+  "agents": [
+    {
+      "agent_name": "/root",
+      "agent_status": "running"
+    },
+    {
+      "agent_name": "/root/lifecycle",
+      "agent_status": "running"
+    },
+    {
+      "agent_name": "/root/operations",
+      "agent_status": "running"
+    },
+    {
+      "agent_name": "/root/verifier",
+      "agent_status": "running"
+    }
+  ],
+  "fanoutStart": "2026-09-12 04:05:50 UTC",
+  "interpretation": "Three native runtime tasks simultaneously running. Does not measure CPU overlap."
+}

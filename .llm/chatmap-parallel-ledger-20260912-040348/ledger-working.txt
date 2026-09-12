@@ -1,0 +1,112 @@
+SLF4J(W): Class path contains multiple SLF4J providers.
+SLF4J(W): Found provider [ch.qos.logback.classic.spi.LogbackServiceProvider@3caeaf62]
+SLF4J(W): Found provider [org.slf4j.impl.JBossSlf4jServiceProvider@e6ea0c6]
+SLF4J(W): See https://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+SLF4J(I): Actual provider is of type [ch.qos.logback.classic.spi.LogbackServiceProvider@3caeaf62]
+database=C:\Users\ray\Downloads\chatmap-parallel-ledger-20260912-040348\home\chatmap.db
+chainFrom(1)=4 sessions
+SESSION WorkerSession[id=1, assignmentId=1, workerIdentity=codex-native:/root, lifecycleState=WORKING, createdAt=2026-09-12T04:05:50.031282100Z, updatedAt=2026-09-12T04:05:50.035810900Z]
+ASSIGNMENT WorkerAssignment[id=1, predecessorSessionId=0, task=CM-PARALLEL-LEDGER-01: coordinator, contextAndFiles=# CM-PARALLEL-LEDGER-01 assignment contract
+
+Repository: C:/Users/ray/eclipse-workspace/chatmap
+Pinned commit: 1bb642d390059e955a548148a4bb3b546f1c3d2f
+Run directory: C:/Users/ray/Downloads/chatmap-parallel-ledger-20260912-040348
+Runtime: Codex native collaboration tools. ChatMap is the durable recorder.
+Required reads: .llm/index.md first, AGENTS.md, CLAUDE.md, and the index-routed human.md, persona.md, first-principles.md, design.md, evo.md, working-context.md.
+Read the named handoff .llm/handoffs/2026-09-12-CM-subagent-practice-and-ledger-experiment.md and its two required prior-evidence handoffs.
+Use git show <pinned-commit>:<path> for code evidence; cite path and line numbers from that revision.
+Permitted tools: read-only shell/Git, clock, and native collaboration messages. No network needed.
+Excluded: .chatmap-local/, secrets, raw session logs, unrelated handoffs. Never read the database directly; inspect coordinator-produced ledger snapshots in this run directory.
+Workers MUST NOT write files, run builds/tests/formatters, launch processes that outlive a tool call, create subagents, or modify shared state. Artifact persistence belongs to the coordinator.
+These read-only and path restrictions are instructions, not a tool sandbox.
+Output: plain ASCII; scope; verified facts with file:line evidence; recommendations labeled separately; uncertainty/disagreement; one next action; start/end UTC timestamps.
+Definition of done: bounded evidence review returned to /root with no writes. Send a brief STARTED message with UTC after beginning; return a final report without waiting for other workers.
+Failure: report the exact blocker and partial findings to /root; do not repair or invent evidence. Parent records terminal outcomes and synthesizes useful partial work.
+Reports will be stored separately and hashed. Later findings can be appended as separately identified follow-up artifacts.
+
+Coordinator owns assignment boundaries, pinned revision, native dispatch, single-writer lifecycle recording, all artifacts, synthesis and missing-worker reporting.
+Create coordinator WORKING first; launch three workers; record actual native identities in sibling sessions (worker session recording follows successful spawn).
+Capture native running status and UTC at fan-out. Overlapping runtime tasks is the concurrency criterion; simultaneous CPU execution is not observable.
+Three worker reports go to lifecycle-report.md, operations-report.md, verifier-report.md.
+Create synthesis only after all workers terminate; context must name sessions 2, 3, 4 and result paths.
+Synthesis predecessor is coordinator session 1: context references express fan-in; no multi-parent model is claimed.
+Complete synthesis then coordinator. Close/reopen database and verify chainFrom(1).
+No deliberate failure or sequential comparison in this run. No speedup claim.
+
+, availableTools=Workers: read-only Git/shell and native agent messages. Coordinator: native agents and this manual lifecycle recorder., constraintsAndPermissions=Pinned commit 1bb642d390059e955a548148a4bb3b546f1c3d2f. No worker writes/builds/formatting. No .chatmap-local reads. No schema/dependency/scheduler changes., definitionOfDone=Return scope, verified facts with pinned file:line evidence, recommendations, uncertainties/disagreements, next action, start/end UTC. Coordinator preserves each report and verifies reopen., escalationBehavior=Report blockers or failure with partial evidence to /root; do not repair or extend scope., createdAt=2026-09-12T04:05:50.026033900Z]
+EVENT WorkerLifecycleEvent[id=1, sessionId=1, fromState=QUEUED, toState=WORKING, question=null, reason=null, partialWork=null, createdAt=2026-09-12T04:05:50.035810900Z]
+ARTIFACT WorkerArtifact[id=1, sessionId=1, label=run-contract.md, location=C:\Users\ray\Downloads\chatmap-parallel-ledger-20260912-040348\run-contract.md, description=SHA-256=71227d6acc30d88d0c26c8faca8b6396ffd070ae1656c4555cd2cf9e1d794553; coordinator persisted external evidence, createdAt=2026-09-12T04:05:50.041361Z]
+ARTIFACT WorkerArtifact[id=5, sessionId=1, label=native-running-snapshot.json, location=C:\Users\ray\Downloads\chatmap-parallel-ledger-20260912-040348\native-running-snapshot.json, description=SHA-256=d64345497a1c02901ddb1fe35b2058cf261f7be2a6e65a26c388261602ac16ad; coordinator persisted external evidence, createdAt=2026-09-12T04:06:41.466833200Z]
+SESSION WorkerSession[id=2, assignmentId=2, workerIdentity=codex-native:/root/lifecycle, lifecycleState=WORKING, createdAt=2026-09-12T04:06:39.181882Z, updatedAt=2026-09-12T04:06:39.185391600Z]
+ASSIGNMENT WorkerAssignment[id=2, predecessorSessionId=1, task=CM-PARALLEL-LEDGER-01: lifecycle, contextAndFiles=# CM-PARALLEL-LEDGER-01 assignment contract
+
+Repository: C:/Users/ray/eclipse-workspace/chatmap
+Pinned commit: 1bb642d390059e955a548148a4bb3b546f1c3d2f
+Run directory: C:/Users/ray/Downloads/chatmap-parallel-ledger-20260912-040348
+Runtime: Codex native collaboration tools. ChatMap is the durable recorder.
+Required reads: .llm/index.md first, AGENTS.md, CLAUDE.md, and the index-routed human.md, persona.md, first-principles.md, design.md, evo.md, working-context.md.
+Read the named handoff .llm/handoffs/2026-09-12-CM-subagent-practice-and-ledger-experiment.md and its two required prior-evidence handoffs.
+Use git show <pinned-commit>:<path> for code evidence; cite path and line numbers from that revision.
+Permitted tools: read-only shell/Git, clock, and native collaboration messages. No network needed.
+Excluded: .chatmap-local/, secrets, raw session logs, unrelated handoffs. Never read the database directly; inspect coordinator-produced ledger snapshots in this run directory.
+Workers MUST NOT write files, run builds/tests/formatters, launch processes that outlive a tool call, create subagents, or modify shared state. Artifact persistence belongs to the coordinator.
+These read-only and path restrictions are instructions, not a tool sandbox.
+Output: plain ASCII; scope; verified facts with file:line evidence; recommendations labeled separately; uncertainty/disagreement; one next action; start/end UTC timestamps.
+Definition of done: bounded evidence review returned to /root with no writes. Send a brief STARTED message with UTC after beginning; return a final report without waiting for other workers.
+Failure: report the exact blocker and partial findings to /root; do not repair or invent evidence. Parent records terminal outcomes and synthesizes useful partial work.
+Reports will be stored separately and hashed. Later findings can be appended as separately identified follow-up artifacts.
+
+Role: lifecycle evidence worker. Review LedgerRun.java, run-contract.md and available ledger snapshots here against existing WorkerLifecycleService, domain records, repository, service and persistence tests. Identify whether actual recording matches observable work, missing/misleading states, and representational limitations. Focus on durable semantics; do not audit process internals. Do not claim final persistence before final snapshots exist.
+
+, availableTools=Workers: read-only Git/shell and native agent messages. Coordinator: native agents and this manual lifecycle recorder., constraintsAndPermissions=Pinned commit 1bb642d390059e955a548148a4bb3b546f1c3d2f. No worker writes/builds/formatting. No .chatmap-local reads. No schema/dependency/scheduler changes., definitionOfDone=Return scope, verified facts with pinned file:line evidence, recommendations, uncertainties/disagreements, next action, start/end UTC. Coordinator preserves each report and verifies reopen., escalationBehavior=Report blockers or failure with partial evidence to /root; do not repair or extend scope., createdAt=2026-09-12T04:06:39.169460300Z]
+EVENT WorkerLifecycleEvent[id=2, sessionId=2, fromState=QUEUED, toState=WORKING, question=null, reason=null, partialWork=null, createdAt=2026-09-12T04:06:39.185391600Z]
+ARTIFACT WorkerArtifact[id=2, sessionId=2, label=lifecycle-contract.md, location=C:\Users\ray\Downloads\chatmap-parallel-ledger-20260912-040348\lifecycle-contract.md, description=SHA-256=5b7848e8839a414acecd5561f826b64fd9cacec8d963f3dc6db9489533979f00; coordinator persisted external evidence, createdAt=2026-09-12T04:06:39.192923400Z]
+SESSION WorkerSession[id=3, assignmentId=3, workerIdentity=codex-native:/root/operations, lifecycleState=WORKING, createdAt=2026-09-12T04:06:39.923676200Z, updatedAt=2026-09-12T04:06:39.929486400Z]
+ASSIGNMENT WorkerAssignment[id=3, predecessorSessionId=1, task=CM-PARALLEL-LEDGER-01: operations, contextAndFiles=# CM-PARALLEL-LEDGER-01 assignment contract
+
+Repository: C:/Users/ray/eclipse-workspace/chatmap
+Pinned commit: 1bb642d390059e955a548148a4bb3b546f1c3d2f
+Run directory: C:/Users/ray/Downloads/chatmap-parallel-ledger-20260912-040348
+Runtime: Codex native collaboration tools. ChatMap is the durable recorder.
+Required reads: .llm/index.md first, AGENTS.md, CLAUDE.md, and the index-routed human.md, persona.md, first-principles.md, design.md, evo.md, working-context.md.
+Read the named handoff .llm/handoffs/2026-09-12-CM-subagent-practice-and-ledger-experiment.md and its two required prior-evidence handoffs.
+Use git show <pinned-commit>:<path> for code evidence; cite path and line numbers from that revision.
+Permitted tools: read-only shell/Git, clock, and native collaboration messages. No network needed.
+Excluded: .chatmap-local/, secrets, raw session logs, unrelated handoffs. Never read the database directly; inspect coordinator-produced ledger snapshots in this run directory.
+Workers MUST NOT write files, run builds/tests/formatters, launch processes that outlive a tool call, create subagents, or modify shared state. Artifact persistence belongs to the coordinator.
+These read-only and path restrictions are instructions, not a tool sandbox.
+Output: plain ASCII; scope; verified facts with file:line evidence; recommendations labeled separately; uncertainty/disagreement; one next action; start/end UTC timestamps.
+Definition of done: bounded evidence review returned to /root with no writes. Send a brief STARTED message with UTC after beginning; return a final report without waiting for other workers.
+Failure: report the exact blocker and partial findings to /root; do not repair or invent evidence. Parent records terminal outcomes and synthesizes useful partial work.
+Reports will be stored separately and hashed. Later findings can be appended as separately identified follow-up artifacts.
+
+Role: operations evidence worker. Review run-contract.md, LedgerRun.java, timing/runtime snapshots available here, and relevant pinned lifecycle/persistence/path-resolution code. Examine isolation, timing, failure handling and artifact paths; distinguish procedural safeguards from enforced ones. Assess what evidence can prove concurrency and what remains unavailable. Focus on this actual experiment; no broad orchestration audit.
+
+, availableTools=Workers: read-only Git/shell and native agent messages. Coordinator: native agents and this manual lifecycle recorder., constraintsAndPermissions=Pinned commit 1bb642d390059e955a548148a4bb3b546f1c3d2f. No worker writes/builds/formatting. No .chatmap-local reads. No schema/dependency/scheduler changes., definitionOfDone=Return scope, verified facts with pinned file:line evidence, recommendations, uncertainties/disagreements, next action, start/end UTC. Coordinator preserves each report and verifies reopen., escalationBehavior=Report blockers or failure with partial evidence to /root; do not repair or extend scope., createdAt=2026-09-12T04:06:39.913514200Z]
+EVENT WorkerLifecycleEvent[id=3, sessionId=3, fromState=QUEUED, toState=WORKING, question=null, reason=null, partialWork=null, createdAt=2026-09-12T04:06:39.929486400Z]
+ARTIFACT WorkerArtifact[id=3, sessionId=3, label=operations-contract.md, location=C:\Users\ray\Downloads\chatmap-parallel-ledger-20260912-040348\operations-contract.md, description=SHA-256=b8b4416c1fb2ed33465a58f2c2b69e3b084db898c5ed7fc096488547c977de1b; coordinator persisted external evidence, createdAt=2026-09-12T04:06:39.935590900Z]
+SESSION WorkerSession[id=4, assignmentId=4, workerIdentity=codex-native:/root/verifier, lifecycleState=WORKING, createdAt=2026-09-12T04:06:40.734634200Z, updatedAt=2026-09-12T04:06:40.741032500Z]
+ASSIGNMENT WorkerAssignment[id=4, predecessorSessionId=1, task=CM-PARALLEL-LEDGER-01: verifier, contextAndFiles=# CM-PARALLEL-LEDGER-01 assignment contract
+
+Repository: C:/Users/ray/eclipse-workspace/chatmap
+Pinned commit: 1bb642d390059e955a548148a4bb3b546f1c3d2f
+Run directory: C:/Users/ray/Downloads/chatmap-parallel-ledger-20260912-040348
+Runtime: Codex native collaboration tools. ChatMap is the durable recorder.
+Required reads: .llm/index.md first, AGENTS.md, CLAUDE.md, and the index-routed human.md, persona.md, first-principles.md, design.md, evo.md, working-context.md.
+Read the named handoff .llm/handoffs/2026-09-12-CM-subagent-practice-and-ledger-experiment.md and its two required prior-evidence handoffs.
+Use git show <pinned-commit>:<path> for code evidence; cite path and line numbers from that revision.
+Permitted tools: read-only shell/Git, clock, and native collaboration messages. No network needed.
+Excluded: .chatmap-local/, secrets, raw session logs, unrelated handoffs. Never read the database directly; inspect coordinator-produced ledger snapshots in this run directory.
+Workers MUST NOT write files, run builds/tests/formatters, launch processes that outlive a tool call, create subagents, or modify shared state. Artifact persistence belongs to the coordinator.
+These read-only and path restrictions are instructions, not a tool sandbox.
+Output: plain ASCII; scope; verified facts with file:line evidence; recommendations labeled separately; uncertainty/disagreement; one next action; start/end UTC timestamps.
+Definition of done: bounded evidence review returned to /root with no writes. Send a brief STARTED message with UTC after beginning; return a final report without waiting for other workers.
+Failure: report the exact blocker and partial findings to /root; do not repair or invent evidence. Parent records terminal outcomes and synthesizes useful partial work.
+Reports will be stored separately and hashed. Later findings can be appended as separately identified follow-up artifacts.
+
+Role: independent verifier. Read lifecycle-contract.md and operations-contract.md, run-contract.md and LedgerRun.java here; compare their evidence requirements against the handoff acceptance criteria and relevant pinned source. Report contradictions, unsupported claims and omissions. Other reports may not yet exist; independently verify the proposed evidence contract and identify what final evidence must be checked. Do not claim to have reviewed unavailable peer results.
+
+, availableTools=Workers: read-only Git/shell and native agent messages. Coordinator: native agents and this manual lifecycle recorder., constraintsAndPermissions=Pinned commit 1bb642d390059e955a548148a4bb3b546f1c3d2f. No worker writes/builds/formatting. No .chatmap-local reads. No schema/dependency/scheduler changes., definitionOfDone=Return scope, verified facts with pinned file:line evidence, recommendations, uncertainties/disagreements, next action, start/end UTC. Coordinator preserves each report and verifies reopen., escalationBehavior=Report blockers or failure with partial evidence to /root; do not repair or extend scope., createdAt=2026-09-12T04:06:40.725013200Z]
+EVENT WorkerLifecycleEvent[id=4, sessionId=4, fromState=QUEUED, toState=WORKING, question=null, reason=null, partialWork=null, createdAt=2026-09-12T04:06:40.741032500Z]
+ARTIFACT WorkerArtifact[id=4, sessionId=4, label=verifier-contract.md, location=C:\Users\ray\Downloads\chatmap-parallel-ledger-20260912-040348\verifier-contract.md, description=SHA-256=e9e3792867f471a719e2e52112c797ac69195130ab3fec38f9fffb4eeb17b65a; coordinator persisted external evidence, createdAt=2026-09-12T04:06:40.746764200Z]
+

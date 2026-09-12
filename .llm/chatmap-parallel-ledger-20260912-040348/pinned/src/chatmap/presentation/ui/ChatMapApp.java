@@ -1,0 +1,724 @@
+package chatmap.presentation.ui;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Consumer;
+
+import chatmap.application.port.llm.ModelTarget;
+import chatmap.app.ChatMapRuntime;
+import chatmap.app.bootstrap.LoggingBootstrap;
+import chatmap.domain.Chat;
+import chatmap.domain.ConversationInventory;
+import chatmap.domain.Project;
+import chatmap.domain.SearchResult;
+import chatmap.domain.Tag;
+import chatmap.application.service.PromptRoutingResult;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckMenuItem;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioMenuItem;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
+import javafx.scene.layout.BorderPane;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+
+/** Minimal JavaFX list/detail UI for file import and selected-chat Markdown export. */
+public final class ChatMapApp extends Application {
+
+    private ChatMapRuntime runtime;
+    private ChatMapController controller;
+    private ListView<SearchResult> chatList;
+    private TextArea detail;
+    private TextField searchField;
+    private ComboBox<Project> projectChoice;
+    private ComboBox<Project> relatedProjectChoice;
+    private ComboBox<Project> promptProjectChoice;
+    private ComboBox<Tag> tagChoice;
+    private TextField promptConversationField;
+    private ComboBox<Chat> promptResumeChatChoice;
+    private Label activeChatLabel;
+    private TextArea promptHistoryArea;
+    private TextArea promptArea;
+    private TextArea promptResponseArea;
+    private Button promptSendButton;
+    private Label promptClassificationLabel;
+    private Label promptRouteLabel;
+    private MenuItem getLatestChatItem;
+    private MenuItem inventoryItem;
+    private MenuItem summarizeItem;
+    private Consumer<Integer> selectFontSize;
+    private RadioMenuItem promptModeItem;
+    private RadioMenuItem browseModeItem;
+    private CheckMenuItem searchBarToggle;
+    private CheckMenuItem projectBarToggle;
+    private CheckMenuItem relatedProjectBarToggle;
+    private CheckMenuItem tagBarToggle;
+    private CheckMenuItem historyPanelToggle;
+    private Node searchBar;
+    private Node projectBar;
+    private Node relatedProjectBar;
+    private Node tagBar;
+    private Node promptContent;
+    private Node browseContent;
+    private FontSizeState fontSizeState;
+    private BorderPane root;
+    private Label status;
+    private BackgroundActionRunner backgroundActions;
+    private ChatMapSelectionCoordinator selection;
+    private String pendingPromptTitle = "New conversation";
+
+    public static void main(String[] args) {
+        LoggingBootstrap.bootstrap(args, ChatMapApp::validateArguments);
+        launch(args);
+    }
+
+    private static void validateArguments(chatmap.app.bootstrap.ChatMapPaths.ParsedArguments parsedArguments) {
+        if (!parsedArguments.remainingArgs().isEmpty()) {
+            throw new IllegalArgumentException("Usage: ChatMap [--home <directory>]");
+        }
+    }
+
+    @Override
+    public void start(Stage stage) throws Exception {
+        runtime = ChatMapRuntime.open(getParameters().getRaw());
+        controller = runtime.controller();
+
+        fontSizeState = new FontSizeState();
+        status = new Label("Ready");
+        backgroundActions = new BackgroundActionRunner(runtime, status, this::reportError);
+        chatList = ChatMapViewBuilder.createChatListView(
+                (observable, previousResult, selectedResult) -> selection.handleSelectedResult(selectedResult));
+        detail = ChatMapViewBuilder.createDetailTextArea();
+
+        ChatMapViewBuilder.ToolbarWidgets toolbarWidgets = ChatMapViewBuilder.createToolbar(
+                fontSizeState.current(),
+                () -> importFile("Import text", "*.txt"),
+                () -> importFile("Import Markdown", "*.md", "*.markdown"),
+                () -> importFile("Import ChatGPT JSON", "*.json"),
+                this::importChatGptArchive,
+                this::exportSelectedChat,
+                this::getLatestChat,
+                this::showConversationInventory,
+                this::summarizeSelectedChat,
+                Platform::exit,
+                this::showPromptMode,
+                this::showBrowseMode,
+                size -> applyFontSize(fontSizeState.set(size)),
+                this::reportError);
+        getLatestChatItem = toolbarWidgets.getLatestChatItem();
+        inventoryItem = toolbarWidgets.inventoryItem();
+        summarizeItem = toolbarWidgets.summarizeItem();
+        selectFontSize = toolbarWidgets.selectFontSize();
+        promptModeItem = toolbarWidgets.promptModeItem();
+        browseModeItem = toolbarWidgets.browseModeItem();
+        searchBarToggle = toolbarWidgets.searchBarToggle();
+        projectBarToggle = toolbarWidgets.projectBarToggle();
+        relatedProjectBarToggle = toolbarWidgets.relatedProjectBarToggle();
+        tagBarToggle = toolbarWidgets.tagBarToggle();
+        historyPanelToggle = toolbarWidgets.historyPanelToggle();
+
+        selection = new ChatMapSelectionCoordinator(controller, backgroundActions, chatList, detail, status,
+                toolbarWidgets.exportChatItem(), summarizeItem);
+
+        ChatMapViewBuilder.SearchBarWidgets searchBarWidgets = ChatMapViewBuilder.createSearchBar(
+                this::searchChats, this::clearSearchAndFilters, this::reportError);
+        searchField = searchBarWidgets.searchField();
+        searchBar = searchBarWidgets.searchBar();
+
+        ChatMapViewBuilder.ProjectBarWidgets projectBarWidgets = ChatMapViewBuilder.createProjectBar(
+                this::createProject, this::assignProject, this::clearProject, this::filterByProject,
+                this::reportError);
+        projectChoice = projectBarWidgets.projectChoice();
+        projectBar = projectBarWidgets.projectBar();
+
+        ChatMapViewBuilder.RelatedProjectBarWidgets relatedProjectBarWidgets =
+                ChatMapViewBuilder.createRelatedProjectBar(
+                        this::addRelatedProject, this::removeRelatedProject, this::filterByRelatedProject,
+                        this::clearSearchAndFilters, this::reportError);
+        relatedProjectChoice = relatedProjectBarWidgets.relatedProjectChoice();
+        relatedProjectBar = relatedProjectBarWidgets.relatedProjectBar();
+
+        ChatMapViewBuilder.TagBarWidgets tagBarWidgets = ChatMapViewBuilder.createTagBar(
+                this::createTag, this::addTag, this::removeTag, this::filterByTag,
+                this::clearSearchAndFilters, this::reportError);
+        tagChoice = tagBarWidgets.tagChoice();
+        tagBar = tagBarWidgets.tagBar();
+
+        ChatMapViewBuilder.PromptPaneWidgets promptPaneWidgets = ChatMapViewBuilder.createPromptPane(
+                this::sendPrompt, this::reportError);
+        promptProjectChoice = promptPaneWidgets.projectChoice();
+        promptConversationField = promptPaneWidgets.conversationField();
+        promptResumeChatChoice = promptPaneWidgets.resumeChatChoice();
+        activeChatLabel = promptPaneWidgets.activeChatLabel();
+        promptHistoryArea = promptPaneWidgets.historyArea();
+        promptArea = promptPaneWidgets.promptArea();
+        promptSendButton = promptPaneWidgets.sendButton();
+        promptClassificationLabel = promptPaneWidgets.classificationLabel();
+        promptRouteLabel = promptPaneWidgets.routeLabel();
+        promptResponseArea = promptPaneWidgets.responseArea();
+        promptProjectChoice.getSelectionModel().selectedItemProperty()
+                .addListener((observable, previous, selectedProject) -> refreshPromptResumeChoices(selectedProject));
+        promptResumeChatChoice.getSelectionModel().selectedItemProperty()
+                .addListener((observable, previous, selectedChat) -> loadPromptHistory(selectedChat));
+
+        bindBarVisibility(searchBar, searchBarToggle);
+        bindBarVisibility(projectBar, projectBarToggle);
+        bindBarVisibility(relatedProjectBar, relatedProjectBarToggle);
+        bindBarVisibility(tagBar, tagBarToggle);
+        bindVisibility(promptHistoryArea, historyPanelToggle);
+
+        SplitPane chatContent = new SplitPane(chatList, detail);
+        chatContent.setDividerPositions(0.32);
+        browseContent = chatContent;
+        promptContent = promptPaneWidgets.promptPane();
+        root = ChatMapViewBuilder.assembleRootPane(toolbarWidgets.menuBar(), searchBar, projectBar,
+                relatedProjectBar, tagBar, promptContent, status);
+        showPromptMode();
+
+        refreshOrganizationChoices();
+        runInBackground("Loading chats...", null, () -> controller.loadAllChats());
+        stage.setTitle("ChatMap");
+        applyFontSize(fontSizeState.current());
+        Scene scene = new Scene(root, 1200, 700);
+        registerFontShortcuts(scene);
+        stage.setScene(scene);
+        stage.setMaximized(true);
+        stage.show();
+    }
+
+    @Override
+    public void stop() throws Exception {
+        if (runtime != null) {
+            runtime.close();
+        }
+    }
+
+    private void importFile(String title, String... patterns) {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(title);
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(title, patterns));
+        java.io.File file = chooser.showOpenDialog(chatList.getScene().getWindow());
+        if (file == null) {
+            return;
+        }
+        runInBackground("Importing file...", null, () -> controller.importFile(file.toPath()));
+    }
+
+    private void exportSelectedChat() {
+        SearchResult selectedResult = chatList.getSelectionModel().getSelectedItem();
+        Chat selected = selectedResult == null ? null : selectedResult.chat();
+        if (selected == null) {
+            status.setText("Select a chat before exporting.");
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Export selected chat");
+        chooser.setInitialFileName(ChatMapViewBuilder.safeFileName(selected.title()) + ".md");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Markdown", "*.md"));
+        java.io.File file = chooser.showSaveDialog(chatList.getScene().getWindow());
+        if (file == null) {
+            return;
+        }
+        backgroundActions.runValue("Exporting chat...", null,
+                () -> controller.exportChatMarkdown(selected.id(), file.toPath()),
+                exported -> status.setText(
+                        exported ? "Exported " + selected.title() : "Selected chat no longer exists."));
+    }
+
+    private void importChatGptArchive() {
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Import ChatGPT archive");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("ChatGPT ZIP archive", "*.zip"));
+        java.io.File file = chooser.showOpenDialog(chatList.getScene().getWindow());
+        if (file == null) {
+            return;
+        }
+        runInBackground("Importing ChatGPT archive...", null,
+                () -> controller.importChatGptArchive(file.toPath()));
+    }
+
+    private void getLatestChat() {
+        // Provider reads may block (live web/CDP fetch); run on the backend lane.
+        runOnBackendLane("Importing available chat...", getLatestChatItem::setDisable, controller::fetchLatestChat);
+    }
+
+    private void showConversationInventory() {
+        // Queries every provider, including the web ones (live CDP fetch); backend lane.
+        backgroundActions.runValueOnBackendLane("Discovering all discoverable conversations...",
+                inventoryItem::setDisable,
+                controller::conversationInventory, this::showConversationInventoryDialog);
+    }
+
+    private void showConversationInventoryDialog(ConversationInventory inventory) {
+        ChatMapDialogs.showConversationInventory(inventory, fontSizeState.current());
+        status.setText("Conversation inventory loaded.");
+    }
+
+    private void summarizeSelectedChat() {
+        Long chatId = selection.selectedChatId();
+        if (chatId == null) {
+            status.setText("Select a chat to summarize.");
+            return;
+        }
+        // Blocking claude CLI call; run on the backend lane.
+        runOnBackendLane("Summarizing chat " + chatId + "...", summarizeItem::setDisable,
+                () -> controller.summarizeAndTag(chatId));
+    }
+
+    private void sendPrompt() {
+        Project project = promptProjectChoice.getValue();
+        if (project == null) {
+            status.setText("Select a project before sending.");
+            return;
+        }
+        String conversationId = promptConversationField.getText() == null ? "" : promptConversationField.getText().trim();
+        if (conversationId.isEmpty()) {
+            status.setText("Conversation is required.");
+            promptConversationField.requestFocus();
+            return;
+        }
+        String prompt = promptArea.getText() == null ? "" : promptArea.getText().trim();
+        if (prompt.isEmpty()) {
+            status.setText("Prompt is required.");
+            promptArea.requestFocus();
+            return;
+        }
+        Chat resumeChat = promptResumeChatChoice.getValue();
+        pendingPromptTitle = promptTitle(prompt);
+
+        promptResponseArea.clear();
+        promptClassificationLabel.setText("Classification: pending");
+        promptRouteLabel.setText("Route: pending");
+        backgroundActions.runValueOnBackendLane("Routing prompt...", promptSendButton::setDisable,
+                () -> controller.routePrompt(project, conversationId, prompt, resumeChat),
+                this::showPromptResult);
+    }
+
+    private void showPromptResult(PromptRoutingResult result) {
+        promptClassificationLabel.setText(PromptResultDisplay.classificationText(result));
+        promptRouteLabel.setText(PromptResultDisplay.routeText(result));
+        promptArea.clear();
+        promptResponseArea.setText(result.promptResult().response());
+        setActiveChat(pendingPromptTitle, result.promptResult().chatId());
+        loadPromptHistory(result.promptResult().chatId());
+        refreshPromptResumeChoices(promptProjectChoice.getValue(), result.promptResult().chatId());
+        refreshChatsAfterPrompt(result);
+        highlightPromptReady();
+    }
+
+    private void refreshPromptResumeChoices(Project project) {
+        refreshPromptResumeChoices(project, null);
+    }
+
+    private void refreshPromptResumeChoices(Project project, Long selectedChatId) {
+        if (selectedChatId == null) {
+            promptResumeChatChoice.getSelectionModel().clearSelection();
+            promptHistoryArea.clear();
+            resetActiveChat();
+            promptRouteLabel.setText("Route: none");
+        }
+        promptResumeChatChoice.setItems(FXCollections.observableArrayList());
+        if (project == null) {
+            return;
+        }
+        backgroundActions.runValue(null, null,
+                () -> controller.listPromptResumeCandidates(project),
+                chats -> {
+                    promptResumeChatChoice.setItems(FXCollections.observableArrayList(chats));
+                    if (selectedChatId != null) {
+                        selectPromptResumeChat(promptResumeChatChoice, selectedChatId);
+                    }
+                });
+    }
+
+    private void loadPromptHistory(Chat chat) {
+        if (chat == null) {
+            promptHistoryArea.clear();
+            resetActiveChat();
+            promptRouteLabel.setText("Route: none");
+            return;
+        }
+        loadPromptHistory(chat.id());
+        String title = chat.title() == null || chat.title().isBlank() ? "chat-" + chat.id() : chat.title();
+        setActiveChat(title, chat.id());
+        promptRouteLabel.setText(routePreviewText(chat));
+        promptConversationField.setText(ChatMapViewBuilder.safeFileName(title));
+    }
+
+    private void loadPromptHistory(long chatId) {
+        backgroundActions.runValue("Loading prompt history...", null,
+                () -> controller.loadChatDetails(chatId),
+                details -> promptHistoryArea.setText(details
+                        .map(PromptResultDisplay::historyText)
+                        .orElse("")));
+    }
+
+    private void refreshChatsAfterPrompt(PromptRoutingResult result) {
+        backgroundActions.runSnapshot("Refreshing chats...", null, controller::loadAllChats, snapshot -> {
+            selection.applyListState(snapshot);
+            selection.updateSelectionActionStates();
+            status.setText(PromptResultDisplay.successStatus(result));
+        }, exception -> {
+            selection.updateSelectionActionStates();
+            reportError(exception);
+        });
+    }
+
+    /**
+     * Runs a blocking controller call on a background thread, showing feedback: sets
+     * the pending status and disables the triggering control while in flight, then
+     * applies the resulting snapshot (or reports the error) back on the FX thread.
+     */
+    private void runInBackground(String pendingStatus, Consumer<Boolean> setDisabled, BackgroundCall call) {
+        backgroundActions.runSnapshot(pendingStatus, setDisabled, call::run, snapshot -> {
+            selection.applyListState(snapshot);
+            selection.updateSelectionActionStates();
+        }, exception -> {
+            selection.updateSelectionActionStates();
+            reportError(exception);
+        });
+    }
+
+    /**
+     * Same as {@link #runInBackground(String, Consumer, BackgroundCall)}, but for calls
+     * that reach an LLM backend or a live web/CDP provider fetch (can run for minutes)
+     * rather than doing DB-only work. Runs on ChatMapRuntime's separate slow lane so
+     * it never makes a search or chat-list load wait behind it.
+     */
+    private void runOnBackendLane(String pendingStatus, Consumer<Boolean> setDisabled, BackgroundCall call) {
+        backgroundActions.runSnapshotOnBackendLane(pendingStatus, setDisabled, call::run, snapshot -> {
+            selection.applyListState(snapshot);
+            selection.updateSelectionActionStates();
+        }, exception -> {
+            selection.updateSelectionActionStates();
+            reportError(exception);
+        });
+    }
+
+    private void searchChats() {
+        String query = searchField.getText();
+        runInBackground("Searching...", null, () -> controller.searchChats(query));
+        searchField.requestFocus();
+        searchField.selectAll();
+    }
+
+    private void clearSearchAndFilters() {
+        searchField.clear();
+        projectChoice.getSelectionModel().clearSelection();
+        tagChoice.getSelectionModel().clearSelection();
+        runInBackground("Loading...", null, () -> controller.clearFilters());
+        searchField.requestFocus();
+    }
+
+    private void createProject() {
+        Optional<String> name = requestName("New project", "Project name");
+        if (name.isEmpty()) {
+            return;
+        }
+        backgroundActions.runValue(null, null,
+                () -> controller.createProject(name.get()),
+                created -> {
+                    refreshOrganizationChoices();
+                    projectChoice.getSelectionModel().select(created);
+                    status.setText("Created project " + created.name());
+                });
+    }
+
+    private void assignProject() {
+        Long chatId = selection.selectedChatId();
+        Project project = projectChoice.getValue();
+        if (chatId == null || project == null) {
+            status.setText("Select a chat and project.");
+            return;
+        }
+        runInBackground("Assigning project...", null, () -> controller.assignProject(chatId, project.id()));
+    }
+
+    private void clearProject() {
+        Long chatId = selection.selectedChatId();
+        if (chatId == null) {
+            status.setText("Select a chat.");
+            return;
+        }
+        runInBackground("Clearing project...", null, () -> controller.clearProject(chatId));
+    }
+
+    private void filterByProject() {
+        Project project = projectChoice.getValue();
+        if (project == null) {
+            status.setText("Select a project.");
+            return;
+        }
+        runInBackground("Filtering...", null, () -> controller.filterByProject(project.id()));
+    }
+
+    private void addRelatedProject() {
+        Long chatId = selection.selectedChatId();
+        Project project = relatedProjectChoice.getValue();
+        if (chatId == null || project == null) {
+            status.setText("Select a chat and related project.");
+            return;
+        }
+        runInBackground("Adding related project...", null, () -> controller.addRelatedProject(chatId, project.id()));
+    }
+
+    private void removeRelatedProject() {
+        Long chatId = selection.selectedChatId();
+        Project project = relatedProjectChoice.getValue();
+        if (chatId == null || project == null) {
+            status.setText("Select a chat and related project.");
+            return;
+        }
+        runInBackground("Removing related project...", null,
+                () -> controller.removeRelatedProject(chatId, project.id()));
+    }
+
+    private void filterByRelatedProject() {
+        Project project = relatedProjectChoice.getValue();
+        if (project == null) {
+            status.setText("Select a related project.");
+            return;
+        }
+        runInBackground("Filtering...", null, () -> controller.filterByRelatedProject(project.id()));
+    }
+
+    private void createTag() {
+        Optional<String> name = requestName("New tag", "Tag name");
+        if (name.isEmpty()) {
+            return;
+        }
+        backgroundActions.runValue(null, null,
+                () -> controller.createTag(name.get()),
+                created -> {
+                    refreshOrganizationChoices();
+                    tagChoice.getSelectionModel().select(created);
+                    status.setText("Created tag " + created.name());
+                });
+    }
+
+    private void addTag() {
+        Long chatId = selection.selectedChatId();
+        Tag tag = tagChoice.getValue();
+        if (chatId == null || tag == null) {
+            status.setText("Select a chat and tag.");
+            return;
+        }
+        runInBackground("Adding tag...", null, () -> controller.addTag(chatId, tag.id()));
+    }
+
+    private void removeTag() {
+        Long chatId = selection.selectedChatId();
+        Tag tag = tagChoice.getValue();
+        if (chatId == null || tag == null) {
+            status.setText("Select a chat and tag.");
+            return;
+        }
+        runInBackground("Removing tag...", null, () -> controller.removeTag(chatId, tag.id()));
+    }
+
+    private void filterByTag() {
+        Tag tag = tagChoice.getValue();
+        if (tag == null) {
+            status.setText("Select a tag.");
+            return;
+        }
+        runInBackground("Filtering...", null, () -> controller.filterByTag(tag.id()));
+    }
+
+    private void refreshOrganizationChoices() {
+        backgroundActions.runValue(null, null,
+                () -> new OrganizationChoices(controller.listProjects(), controller.listTags()),
+                choices -> {
+                    var projects = FXCollections.observableArrayList(choices.projects());
+                    projectChoice.setItems(projects);
+                    promptProjectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
+                    relatedProjectChoice.setItems(FXCollections.observableArrayList(choices.projects()));
+                    tagChoice.setItems(FXCollections.observableArrayList(choices.tags()));
+                    if (!choices.projects().isEmpty() && promptProjectChoice.getValue() == null) {
+                        promptProjectChoice.getSelectionModel().selectFirst();
+                    } else {
+                        refreshPromptResumeChoices(promptProjectChoice.getValue());
+                    }
+                });
+    }
+
+    private Optional<String> requestName(String title, String prompt) {
+        return ChatMapDialogs.requestName(title, prompt);
+    }
+
+    private void reportError(Exception e) {
+        status.setText("Error: " + e.getMessage());
+        ChatMapDialogs.showError("Operation failed", e.getMessage());
+    }
+
+    private void highlightPromptReady() {
+        promptArea.requestFocus();
+        promptArea.setStyle(fontSizeStyle(fontSizeState.current())
+                + " -fx-border-color: #15803D; -fx-border-width: 2px;");
+        javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(javafx.util.Duration.millis(900));
+        pause.setOnFinished(event -> promptArea.setStyle(fontSizeStyle(fontSizeState.current())));
+        pause.play();
+    }
+
+    private void resetActiveChat() {
+        activeChatLabel.setText(newConversationText());
+    }
+
+    private void setActiveChat(String title, long chatId) {
+        activeChatLabel.setText(activeChatText(title, chatId));
+    }
+
+    static String newConversationText() {
+        return "Active chat: New conversation";
+    }
+
+    static String activeChatText(String title, long chatId) {
+        return "Active chat: " + title + " [" + chatId + "]";
+    }
+
+    static String routePreviewText(Chat chat) {
+        if (chat.modelTargetId() == null || chat.modelTargetId().isBlank()) {
+            return "Route: resumed chat model unknown";
+        }
+        ModelTarget target;
+        try {
+            target = ModelTarget.require(chat.modelTargetId());
+        } catch (IllegalArgumentException exception) {
+            return "Route: " + chat.modelTargetId() + " (resumed)";
+        }
+        StringBuilder text = new StringBuilder("Route: ");
+        text.append(target.channel().name())
+                .append(" -> ")
+                .append(target.displayName())
+                .append(" [")
+                .append(target.id())
+                .append("]");
+        chat.providerModelName().ifPresent(model -> text.append(", model ").append(model));
+        text.append(" (resumed)");
+        return text.toString();
+    }
+
+    static String promptTitle(String prompt) {
+        return prompt.length() > 40 ? prompt.substring(0, 40) + "..." : prompt;
+    }
+
+    static boolean selectPromptResumeChat(ComboBox<Chat> resumeChatChoice, long chatId) {
+        for (Chat chat : resumeChatChoice.getItems()) {
+            if (chat.id() == chatId) {
+                resumeChatChoice.getSelectionModel().select(chat);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void applyFontSize(int size) {
+        String style = fontSizeStyle(size);
+        if (root != null) {
+            root.setStyle(style);
+        }
+        Node[] fontSizedNodes = {chatList, detail, searchField, projectChoice, relatedProjectChoice,
+                promptProjectChoice, tagChoice, promptConversationField, promptResumeChatChoice, activeChatLabel,
+                promptHistoryArea, promptArea, promptResponseArea, status};
+        for (Node node : fontSizedNodes) {
+            if (node != null) {
+                node.setStyle(style);
+            }
+        }
+        if (selectFontSize != null) {
+            selectFontSize.accept(size);
+        }
+    }
+
+    private static String fontSizeStyle(int size) {
+        return "-fx-font-size: " + size + "px;";
+    }
+
+    private void showPromptMode() {
+        if (root == null) {
+            return;
+        }
+        root.setCenter(promptContent);
+        setVisibleManaged(searchBar, false);
+        setVisibleManaged(projectBar, false);
+        setVisibleManaged(relatedProjectBar, false);
+        setVisibleManaged(tagBar, false);
+        if (promptModeItem != null) {
+            promptModeItem.setSelected(true);
+        }
+    }
+
+    private void showBrowseMode() {
+        if (root == null) {
+            return;
+        }
+        root.setCenter(browseContent);
+        applyBrowseBarVisibility();
+        if (browseModeItem != null) {
+            browseModeItem.setSelected(true);
+        }
+    }
+
+    private void applyBrowseBarVisibility() {
+        setVisibleManaged(searchBar, searchBarToggle == null || searchBarToggle.isSelected());
+        setVisibleManaged(projectBar, projectBarToggle == null || projectBarToggle.isSelected());
+        setVisibleManaged(relatedProjectBar, relatedProjectBarToggle == null || relatedProjectBarToggle.isSelected());
+        setVisibleManaged(tagBar, tagBarToggle == null || tagBarToggle.isSelected());
+    }
+
+    private void bindBarVisibility(Node bar, CheckMenuItem toggle) {
+        toggle.selectedProperty().addListener((observable, wasSelected, isSelected) -> {
+            if (browseModeItem != null && browseModeItem.isSelected()) {
+                setVisibleManaged(bar, isSelected);
+            }
+        });
+    }
+
+    static void bindVisibility(Node node, CheckMenuItem toggle) {
+        setVisibleManaged(node, toggle.isSelected());
+        toggle.selectedProperty()
+                .addListener((observable, wasSelected, isSelected) -> setVisibleManaged(node, isSelected));
+    }
+
+    private static void setVisibleManaged(Node node, boolean visible) {
+        node.setVisible(visible);
+        node.setManaged(visible);
+    }
+
+    private void registerFontShortcuts(Scene scene) {
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.EQUALS, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.increase()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.ADD, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.increase()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.MINUS, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.decrease()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.SUBTRACT, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.decrease()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.DIGIT0, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.reset()));
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.NUMPAD0, KeyCombination.CONTROL_DOWN),
+                () -> applyFontSize(fontSizeState.reset()));
+    }
+
+    @FunctionalInterface
+    private interface BackgroundCall {
+        ChatListState.Snapshot run() throws Exception;
+    }
+
+    /** Carrier for the two lists loaded together by {@link #refreshOrganizationChoices()}. */
+    private record OrganizationChoices(List<Project> projects, List<Tag> tags) {
+    }
+}
