@@ -104,9 +104,8 @@ history.
   readback and introduces an explicit failure report containing the reason and
   preserved partial work. The A2A recorder now uses that failure path. Eight
   focused repository, service, and A2A recorder tests passed through a direct
-  JUnit launch using the vendored dependencies. The full Gradle gate has not
-  yet run because the verification environment could not download its uncached
-  Gradle 9.1 distribution.
+  JUnit launch using the vendored dependencies. Ray subsequently ran the full
+  Gradle quality gate locally and reported a green result.
 
 ## Closed Work
 
@@ -133,36 +132,53 @@ history.
   becoming the scheduler. Structural fan-in, run identity, execution timing,
   failure recovery, and semantic correctness remain unproven or deferred.
 
+## Worker, Skill, and Parallel Work
+
+Keep these four concepts distinct:
+
+1. **Subagents:** temporary runtime instances launched by Codex, Claude Code,
+   Anti-Gravity, or another external agent runtime.
+2. **Worker definitions:** portable Markdown contracts describing a worker's
+   role, task, inputs, tools, constraints, evidence, and definition of done.
+3. **Skills:** reusable capabilities consisting of instructions and, when
+   needed, scripts or supporting resources.
+4. **Parallel workflows:** fan-out, isolation, result collection, failure
+   handling, and fan-in synthesis across multiple workers.
+
+External runtimes execute the subagents. ChatMap records assignments, worker
+definitions, skills supplied, states, artifacts, decisions, failures, and
+provenance. Stable reusable worker definitions and skills will probably belong
+in `dotmdfiles` after ChatMap experiments establish their useful form.
+
 ## Active Agenda
 
-1. Run the full Gradle quality gate locally after the worker-lifecycle readback
-   and failure-detail repairs.
-2. Repeat the bounded parallel-subagent exercise with one worker deliberately
-   failing or timing out. Verify that its reason and partial work survive and
-   that the other worker results still reach synthesis. Do not add a scheduler
-   or change the schema for this experiment.
-3. Preserve the caller-chain escalation model: a worker returns an unresolved
+1. Subagents: repeat the bounded parallel exercise with one worker deliberately
+   failing. Verify that its reason and partial work survive and that successful
+   sibling results still reach synthesis.
+2. Worker definitions: extract the smallest portable Markdown worker contract
+   from the successful experiments. Avoid personality-heavy role catalogs.
+3. Skills: identify a small useful set, test how each runtime supplies them to
+   workers, and distinguish project-specific skills from reusable templates.
+4. Parallel workflows: record the proven fan-out, isolation, failure, and
+   synthesis procedure. Do not add a scheduler, fan-in schema, or run identifier
+   until an experiment demonstrates the need.
+5. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
-4. Decide whether the metadata audit's three low-level findings justify a small
+6. Decide whether the metadata audit's three low-level findings justify a small
    deterministic validator. Do not expand the YAML or JSON schema without a
    concrete need.
-5. Decide whether semantic evaluation should stop at the successful bounded
+7. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
-6. `A2aTaskRecorder` exists and is tested, but is only exercised by
+8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
-   home. No wiring exists from a real A2A exchange into the production
-   home/database path, and nothing triggers recording automatically outside
-   that experiment client. Decide whether to wire the existing recorder into
-   the production path, or keep A2A recording bounded to the experiment for
-   now.
-7. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
-   `.llm/index.md` (and the files it routes to) at cold start, so the AGENTS.md
-   "read the index before doing anything" step becomes self-executing instead of
-   depending on a prompt. Config change: get Ray's go-ahead before editing
-   settings.
+   home. Decide whether to wire it into the production path or keep A2A
+   recording bounded to the experiment.
+9. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
+   `.llm/index.md` and its routed files at cold start. Config change: get Ray's
+   go-ahead before editing settings.
 
 ## Deferred
 
@@ -183,6 +199,7 @@ history.
 
 ## Next Action
 
-Run the full Gradle quality gate locally for repair `c68d433`. If it passes,
-perform one bounded parallel run with a deliberately failed or timed-out worker
-and verify preservation of failure evidence and successful sibling results.
+Perform one bounded parallel run with a deliberately failed worker and verify
+preservation of its failure evidence and the successful sibling results. Use
+the result to draft the minimum portable worker definition and parallel
+procedure; do not change the schema or add a scheduler.
