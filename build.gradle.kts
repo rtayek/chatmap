@@ -263,6 +263,30 @@ tasks.register<JavaExec>("workerLifecycleSoakTest") {
     args = cliArgs
 }
 
+tasks.register<JavaExec>("parallelLedgerRecord") {
+    group = "verification"
+    description = "Records one bounded parallel subagent run. Usage: -Phome=<dir> -Preports=<dir> [-Pstarted=<iso>]"
+    mainClass.set("chatmap.infrastructure.persistence.sqlite.ParallelLedgerRecordHarness")
+    classpath = sourceSets["test"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+
+    val cliArgs = mutableListOf<String>()
+    if (project.hasProperty("home")) {
+        cliArgs.add("--home")
+        cliArgs.add(project.property("home").toString())
+    }
+    if (project.hasProperty("reports")) {
+        cliArgs.add("--reports")
+        cliArgs.add(project.property("reports").toString())
+    }
+    if (project.hasProperty("started")) {
+        cliArgs.add("--started")
+        cliArgs.add(project.property("started").toString())
+    }
+    args = cliArgs
+}
+
 tasks.register<JavaExec>("a2aRequest") {
     group = "application"
     description = "Sends one request to the experimental A2A worker."

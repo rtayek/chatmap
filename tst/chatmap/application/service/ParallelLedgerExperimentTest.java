@@ -111,6 +111,7 @@ class ParallelLedgerExperimentTest {
         service.transition(synthSession.id(), WorkerLifecycleState.COMPLETED);
 
         // 6. Complete Coordinator
+        service.transition(coordSession.id(), WorkerLifecycleState.COMPLETED);
         service.storeHandoff(coordSession.id(), new WorkerSemanticHandoffInput(
                 "Parallel subagents launched and synthesized",
                 "Used separate child sessions to record parallel execution",
@@ -119,7 +120,6 @@ class ParallelLedgerExperimentTest {
                 "None",
                 "Review synthesis",
                 "N/A", "N/A", "N/A", "N/A", "N/A", "N/A"));
-        service.transition(coordSession.id(), WorkerLifecycleState.COMPLETED);
         service.transition(coordSession.id(), WorkerLifecycleState.RETIRED);
 
         // 7. Verify chain
