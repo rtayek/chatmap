@@ -185,6 +185,7 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
     successful retry after a failure would be invisible to `chainFrom()` and
     any other caller of this method. Confirmed against the code on 2026-09-12,
     not yet fixed.
+11. Change all filenames to lower case.
 
 ## Deferred
 
