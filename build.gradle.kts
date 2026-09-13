@@ -316,6 +316,15 @@ tasks.register<JavaExec>("a2aModelRecord") {
         .getOrElse("Explain durable task history in two short sentences."))
 }
 
+tasks.register<JavaExec>("validateProjectMetadata") {
+    group = "verification"
+    description = "Validates the .llm metadata pilot against .llm/manifest.json (read-only)."
+    mainClass.set("chatmap.metadata.ValidateProjectMetadataCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    args(layout.projectDirectory.asFile.absolutePath)
+}
+
 tasks.register<JavaExec>("a2aSemanticProbe") {
     group = "verification"
     description = "Checks one model-backed A2A response against an exact factual contract."
