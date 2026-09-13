@@ -48,6 +48,8 @@ public final class ProjectMetadataValidator {
             return new Result(failures, 0, 0);
         }
 
+        validateDeclaredPolicy(manifest, failures);
+
         String entrypoint = string(manifest, "entrypoint");
         List<String> requiredDocuments = strings(manifest, "required_documents");
         String handoffDirectory = string(manifest, "handoff_directory");
@@ -87,6 +89,41 @@ public final class ProjectMetadataValidator {
         }
 
         return new Result(failures, pilotDocuments.size(), requiredDocuments.size());
+    }
+
+    private static void validateDeclaredPolicy(JsonObject manifest, List<String> failures) {
+        JsonElement element = manifest.get("validation");
+        if (element == null || !element.isJsonObject()) {
+            failures.add("manifest validation block is missing or is not an object");
+            return;
+        }
+
+        JsonObject validation = element.getAsJsonObject();
+        requireStringPolicy(validation, failures, "encoding", "UTF-8");
+        requireBooleanPolicy(validation, failures, "bom", false);
+        requireStringPolicy(validation, failures, "line_endings", "LF");
+        requireBooleanPolicy(validation, failures, "require_unique_ids", true);
+        requireBooleanPolicy(validation, failures, "require_paths_exist", true);
+    }
+
+    private static void requireStringPolicy(JsonObject validation, List<String> failures,
+            String key, String expected) {
+        JsonElement element = validation.get(key);
+        if (element == null || !element.isJsonPrimitive()
+                || !element.getAsJsonPrimitive().isString()
+                || !expected.equals(element.getAsString())) {
+            failures.add("validation." + key + " must be '" + expected + "'");
+        }
+    }
+
+    private static void requireBooleanPolicy(JsonObject validation, List<String> failures,
+            String key, boolean expected) {
+        JsonElement element = validation.get(key);
+        if (element == null || !element.isJsonPrimitive()
+                || !element.getAsJsonPrimitive().isBoolean()
+                || element.getAsBoolean() != expected) {
+            failures.add("validation." + key + " must be " + expected);
+        }
     }
 
     private void validateDocument(List<String> failures, String document, List<String> requiredFields,
