@@ -213,6 +213,14 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
   since this is a single-machine setup. Ray is planning to move these into a
   System project and have System scan dependents for valid pointers; revisit
   portability if that reorganization doesn't resolve it
+- Whether the metadata validator should honor the manifest's `validation`
+  block (`encoding`, `bom`, `line_endings`, `require_unique_ids`,
+  `require_paths_exist`) as switches instead of enforcing those rules
+  unconditionally. Today the flags are descriptive only and agree with the
+  hardcoded strict behavior, so the block is decorative. Investigate whether
+  any real case needs a per-flag toggle before wiring one; if not, consider
+  dropping the block to avoid implying configurability that does not exist.
+  See `chatmap.metadata.ProjectMetadataValidator` (commit 8d61c0f).
 
 ## Next Action
 
