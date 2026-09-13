@@ -118,6 +118,20 @@ history.
   final handoff was added inside the repo. ChatMap production code, schema,
   database, and UI were untouched. See
   `handoffs/chatmap-semantic-evaluation-experiment-handoff-2026-09-13.md`.
+- An independent read-only audit of that experiment's evidence returned
+  VERIFIED WITH QUALIFICATIONS. It reproduced the scores byte-for-byte,
+  recomputed and matched the prompt and corpus SHA-256 hashes, confirmed the
+  7/10 semantic result by manual inspection of all ten fixtures and thirty raw
+  responses, and confirmed all three runs per case are byte-identical. No LLM
+  was used in the audit. Qualifications, none of which change the result: the
+  pre-relaxation scorer is not preserved so the disclosed S06 empty-object fix
+  cannot be reconstructed from evidence alone (it affects only S06, and format
+  is 10/10 under the relaxed rule or 9/10 under a strict non-empty-object rule);
+  raw responses are stored CRLF rather than the LF Ollama emits (content-
+  faithful, not byte-faithful); and the corpus-hash procedure is not codified in
+  a preserved script. The next safe action remains REFINE, then rerun the same
+  frozen corpus. Audit evidence is outside the repository at
+  `C:\Users\ray\eclipse-workspace\chatmap-semantic-eval-audit-2026-09-13\`.
 
 ## Closed Work
 
