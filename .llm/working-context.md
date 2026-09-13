@@ -105,6 +105,19 @@ history.
   focused repository, service, and A2A recorder tests passed through a direct
   JUnit launch using the vendored dependencies. Ray subsequently ran the full
   Gradle quality gate locally and reported a green result.
+- The bounded semantic-evaluation experiment (CM-EXP-SEMANTIC-01) ran against
+  commit `22a06e0` using local `qwen2.5:7b` at temperature 0, three runs per
+  case, scored deterministically with no LLM in the grading loop. Transport and
+  format were total: 10/10 valid, schema-conforming JSON, bit-for-bit identical
+  across all three runs. Semantic correctness was 7/10. The three failures were
+  negation (denial left `polarity:"affirmed"`), decision-vs-rejected status
+  (both emitted as `facts`, status arrays empty), and disputed attribution
+  (conflicting reports downgraded to `certain`). No fabricated facts and no
+  invented causality occurred. All evidence lives outside the repository at
+  `C:\Users\ray\eclipse-workspace\chatmap-semantic-eval-2026-09-13\`; only the
+  final handoff was added inside the repo. ChatMap production code, schema,
+  database, and UI were untouched. See
+  `handoffs/chatmap-semantic-evaluation-experiment-handoff-2026-09-13.md`.
 
 ## Closed Work
 
@@ -177,9 +190,14 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
-7. Decide whether semantic evaluation should stop at the successful bounded
-   structured probe or proceed to a small corpus of independently specified
-   factual contracts.
+7. Resolved by CM-EXP-SEMANTIC-01: the ten-case corpus was run and the
+   recommendation is Refine, not Stop and not Expand. Next semantic step is to
+   add worked examples for negation polarity, decision/rejected/open-question
+   categorization, and disputed attribution, plus a deterministic post-parse
+   check flagging a negating cue in `relation` paired with
+   `polarity:"affirmed"`, then re-run the same frozen corpus against the
+   preserved baseline before authoring a larger, independently written corpus.
+   Do not integrate semantic extraction into production on this corpus.
 8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
