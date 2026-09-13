@@ -1,0 +1,17 @@
+diff --git a/.llm/working-context.md b/.llm/working-context.md
+index 9f9f152..c6f6fcd 100644
+--- a/.llm/working-context.md
++++ b/.llm/working-context.md
+@@ -196,6 +196,12 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
+ - layer-boundary enforcement (e.g. domain cannot import infrastructure) via
+   an ArchUnit test or Checkstyle ImportControl, in preference to a Gradle
+   multi-project split, which Ray does not want
++- portability of `.llm/human.md`, `.llm/persona.md`, and `AGENTS.md`, which
++  are now symlinks to absolute Windows paths under `C:/Users/ray/real-md-files/`.
++  Not portable to a second machine, CI, or a fresh clone -- acceptable for now
++  since this is a single-machine setup. Ray is planning to move these into a
++  System project and have System scan dependents for valid pointers; revisit
++  portability if that reorganization doesn't resolve it
+ 
+ ## Next Action
+ 
