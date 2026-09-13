@@ -62,14 +62,13 @@ history.
   client-side startup hook (e.g. `.claude/settings.json` SessionStart) that reads
   the index, since repo Markdown alone cannot force the order.
 - The bounded metadata pilot now separates Markdown bodies, document-local YAML,
-  and repository-wide JSON rules. The read-only audit passed all required
-  document, front-matter, unique-ID, allowed-value, UTF-8/no-BOM/LF, and
-  manifest-consistency checks without changing the worktree. Three low-level
-  design questions remain: duplicated document-path lists, unspecified scope
-  for path and ID validation, and an unspecified front-matter format and
-  enforcement procedure. The earlier speculative Agent OS proposal is preserved
-  under `.llm/handoffs/archive/`; `evo.md` records only adopted ChatMap
-  evolution.
+  and repository-wide JSON rules. The deterministic read-only validator makes
+  the document scope and front-matter enforcement explicit. The manifest's
+  `validation` block declares the required strict policy; it is not a set of
+  switches, and missing or unsupported values fail validation. Duplicated
+  document-path lists remain an accepted small drift risk for now. The earlier
+  speculative Agent OS proposal is preserved under `.llm/handoffs/archive/`;
+  `evo.md` records only adopted ChatMap evolution.
 - The full Gradle quality pipeline passed after the A2A merge. The consolidated
   A2A server and same-task continuation client also passed their runtime check.
   Live provider tests remain intentionally opt-in.
@@ -119,8 +118,10 @@ history.
   into A2A; ANP is deferred.
 - Project-memory discovery test: completed with substantive agreement across
   Codex, Claude Code, and Anti-Gravity.
-- Metadata pilot audit: completed read-only with all checks passing and three
-  low-level specification questions retained for later judgment.
+- Metadata pilot audit and validator: completed. The validator enforces the
+  manifest's strict policy profile and rejects missing or unsupported policy
+  declarations. The `validation` block is machine-readable policy, not a set
+  of optional toggles.
 - Independent code review: completed. Previously reported transaction,
   worktree-preservation, structured-output, process-reader, and platform-Codex
   defects no longer reproduced.
@@ -176,25 +177,18 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
-7. A deterministic, read-only metadata validator now exists as
-   `chatmap.metadata.ProjectMetadataValidator`, exposed through the
-   `validateProjectMetadata` Gradle task and covered by 13 tests (commit
-   8d61c0f). It enforces only the rules already declared in
-   `.llm/manifest.json` and passes on the current repository. Open: whether the
-   manifest's `validation` block should become per-flag toggles or be dropped
-   (see Deferred); the schema was not expanded.
-8. Decide whether semantic evaluation should stop at the successful bounded
+7. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
-9. `A2aTaskRecorder` exists and is tested, but is only exercised by
+8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
    recording bounded to the experiment.
-10. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
-    `.llm/index.md` and its routed files at cold start. Config change: get Ray's
-    go-ahead before editing settings.
-11. Change all filenames to lower case.
-12. Investigate real-time capture for the live web-CDP providers (Claude,
+9. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
+   `.llm/index.md` and its routed files at cold start. Config change: get Ray's
+   go-ahead before editing settings.
+10. Change all filenames to lower case.
+11. Investigate real-time capture for the live web-CDP providers (Claude,
     ChatGPT, Gemini web). Today `latestChat()` is a single on-demand
     snapshot per run of `importAllChats`; nothing watches continuously.
     CDP itself supports a persistent connection with polling or page
@@ -226,14 +220,6 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
   since this is a single-machine setup. Ray is planning to move these into a
   System project and have System scan dependents for valid pointers; revisit
   portability if that reorganization doesn't resolve it
-- Whether the metadata validator should honor the manifest's `validation`
-  block (`encoding`, `bom`, `line_endings`, `require_unique_ids`,
-  `require_paths_exist`) as switches instead of enforcing those rules
-  unconditionally. Today the flags are descriptive only and agree with the
-  hardcoded strict behavior, so the block is decorative. Investigate whether
-  any real case needs a per-flag toggle before wiring one; if not, consider
-  dropping the block to avoid implying configurability that does not exist.
-  See `chatmap.metadata.ProjectMetadataValidator` (commit 8d61c0f).
 
 ## Next Action
 
