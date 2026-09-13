@@ -196,6 +196,18 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 - layer-boundary enforcement (e.g. domain cannot import infrastructure) via
   an ArchUnit test or Checkstyle ImportControl, in preference to a Gradle
   multi-project split, which Ray does not want
+- portability of `.llm/human.md`, `.llm/persona.md`, and `AGENTS.md`, which
+  are now symlinks to absolute Windows paths under `C:/Users/ray/real-md-files/`.
+  Not portable to a second machine, CI, or a fresh clone -- acceptable for now
+  since this is a single-machine setup. Ray is planning to move these into a
+  System project and have System scan dependents for valid pointers; revisit
+  portability if that reorganization doesn't resolve it
+- portability of `.llm/human.md`, `.llm/persona.md`, and `AGENTS.md`, which
+  are now symlinks to absolute Windows paths under `C:/Users/ray/real-md-files/`.
+  Not portable to a second machine, CI, or a fresh clone -- acceptable for now
+  since this is a single-machine setup. Ray is planning to move these into a
+  System project and have System scan dependents for valid pointers; revisit
+  portability if that reorganization doesn't resolve it
 
 ## Next Action
 
