@@ -186,10 +186,23 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    session portability, and trajectory mapping before considering integration.
    This is a recommended investigation, not the next action or an architectural
    commitment.
-6. Preserve the caller-chain escalation model: a worker returns an unresolved
-   decision to its caller; each caller resolves it within its authority or
-   propagates it upward. Verify whether the existing ledger records caller
-   identity and decision provenance before proposing a schema change.
+6. Caller-chain escalation model (worker returns an unresolved decision to its
+   caller; each caller resolves within its authority or propagates upward).
+   VERIFIED 2026-09-13, no schema change made. Findings: (a) caller identity is
+   recorded only via the single `workerAssignments.predecessorSessionId` edge
+   plus free-text `workerSessions.workerIdentity` labels; that edge is
+   overloaded (it means both "who called me" and "who I succeed") and cannot
+   represent fan-in with multiple parents -- the parallel harness names the
+   three parents in prose, not structurally. (b) Decision RAISING is recorded
+   (`workerLifecycleEvents.question`/`reason`, and handoff free-text
+   `decisionsAndReasons`/`unresolvedProblems`/`requiredUserDecisions`), and
+   `escalationBehavior` stores the policy, but decision RESOLUTION provenance is
+   not modeled: no resolver identity, no resolved-at-level, no per-decision rows,
+   and no link from a resolution back to the raising event. The escalation model
+   is therefore not queryable today. Making it queryable is an architectural
+   change (distinct caller/parent edge separate from succession, a fan-in link,
+   and per-decision raisedBy/resolvedBy/resolvedAtLevel rows); do not propose or
+   implement it without Ray's go-ahead.
 7. Resolved by CM-EXP-SEMANTIC-01: the ten-case corpus was run and the
    recommendation is Refine, not Stop and not Expand. Next semantic step is to
    add worked examples for negation polarity, decision/rejected/open-question
