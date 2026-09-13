@@ -186,7 +186,11 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    recording bounded to the experiment.
 9. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
    `.llm/index.md` and its routed files at cold start. Config change: get Ray's
-   go-ahead before editing settings.
+   go-ahead before editing settings. On hold: as of 2026-09-13, project-level
+   `.claude/settings.json` SessionStart hooks are reported to crash Claude
+   Code's background/Agent-View sessions on some versions (even a bare
+   `echo test` reproduces it) -- verify this doesn't affect Ray's actual
+   Claude Code usage before implementing.
 10. Change all filenames to lower case.
 11. Investigate real-time capture for the live web-CDP providers (Claude,
     ChatGPT, Gemini web). Today `latestChat()` is a single on-demand
