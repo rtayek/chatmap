@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-09-12
+**Updated:** 2026-09-13
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -162,30 +162,40 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 4. Parallel workflows: record the proven fan-out, isolation, failure, and
    synthesis procedure. Do not add a scheduler, fan-in schema, or run identifier
    until an experiment demonstrates the need.
-5. Preserve the caller-chain escalation model: a worker returns an unresolved
+5. Portable CLI execution: soon conduct a bounded, isolated evaluation of Mark
+   Pollack's Agent Client as a common Java adapter for Claude Code, Codex,
+   Gemini CLI, and possibly Anti-Gravity. Determine whether it can replace
+   provider-specific CLI launching while ChatMap continues to own lifecycle
+   recording and external runtimes continue to own execution. Pin one released
+   version, use conservative permissions in disposable worktrees, and assess
+   its Business Source License, dependency footprint, failure normalization,
+   session portability, and trajectory mapping before considering integration.
+   This is a recommended investigation, not the next action or an architectural
+   commitment.
+6. Preserve the caller-chain escalation model: a worker returns an unresolved
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
-6. Decide whether the metadata audit's three low-level findings justify a small
+7. Decide whether the metadata audit's three low-level findings justify a small
    deterministic validator. Do not expand the YAML or JSON schema without a
    concrete need.
-7. Decide whether semantic evaluation should stop at the successful bounded
+8. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
-8. `A2aTaskRecorder` exists and is tested, but is only exercised by
+9. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
    recording bounded to the experiment.
-9. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
-   `.llm/index.md` and its routed files at cold start. Config change: get Ray's
-   go-ahead before editing settings.
-10. `WorkerLifecycleRepository.findSessionByAssignment` uses `ORDER BY id
+10. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
+    `.llm/index.md` and its routed files at cold start. Config change: get Ray's
+    go-ahead before editing settings.
+11. `WorkerLifecycleRepository.findSessionByAssignment` uses `ORDER BY id
     LIMIT 1`, so when an assignment is retried and records more than one
     session, it always returns the earliest session, not the latest. A
     successful retry after a failure would be invisible to `chainFrom()` and
     any other caller of this method. Confirmed against the code on 2026-09-12,
     not yet fixed.
-11. Change all filenames to lower case.
+12. Change all filenames to lower case.
 
 ## Deferred
 
