@@ -171,7 +171,7 @@ public final class WorkerLifecycleRepository implements WorkerLifecycleStore {
     public Optional<WorkerSession> findSessionByAssignment(long assignmentId) throws SQLException {
         synchronized (conn) {
             try (PreparedStatement ps = conn.prepareStatement(selectSession()
-                    + " WHERE assignmentId = ? ORDER BY id LIMIT 1")) {
+                    + " WHERE assignmentId = ? ORDER BY id DESC LIMIT 1")) {
                 ps.setLong(1, assignmentId);
                 try (ResultSet rs = ps.executeQuery()) {
                     return rs.next() ? Optional.of(readSession(rs)) : Optional.empty();

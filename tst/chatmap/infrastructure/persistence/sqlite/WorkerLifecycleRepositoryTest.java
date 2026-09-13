@@ -50,6 +50,25 @@ class WorkerLifecycleRepositoryTest {
     }
 
     @Test
+    void findSessionByAssignmentReturnsLatestSessionForRetriedAssignment() throws Exception {
+        try (Connection conn = new Database("jdbc:sqlite::memory:").openAndInitialize()) {
+            WorkerLifecycleRepository workers = new WorkerLifecycleRepository(conn);
+            WorkerAssignment assignment = workers.insertAssignment(new WorkerAssignment(0, null,
+                    "Task", "Files", "Tools", "Constraints", "Done", "Escalate", "2026-08-26T00:00:00Z"));
+
+            WorkerSession firstAttempt = workers.insertSession(new WorkerSession(0, assignment.id(), "worker-1",
+                    WorkerLifecycleState.FAILED, "2026-08-26T00:00:00Z", "2026-08-26T00:00:00Z"));
+            WorkerSession retry = workers.insertSession(new WorkerSession(0, assignment.id(), "worker-2",
+                    WorkerLifecycleState.COMPLETED, "2026-08-26T00:01:00Z", "2026-08-26T00:01:00Z"));
+
+            WorkerSession found = workers.findSessionByAssignment(assignment.id()).orElseThrow();
+            assertEquals(retry.id(), found.id());
+            assertEquals(WorkerLifecycleState.COMPLETED, found.lifecycleState());
+            assertTrue(found.id() > firstAttempt.id());
+        }
+    }
+
+    @Test
     void schemaCreatesWorkerLifecycleTables() throws Exception {
         try (Connection conn = new Database("jdbc:sqlite::memory:").openAndInitialize()) {
             assertTrue(tableExists(conn, "workerAssignments"));

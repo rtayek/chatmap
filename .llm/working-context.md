@@ -189,13 +189,7 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 10. Draft a Claude Code SessionStart hook in `.claude/settings.json` that reads
     `.llm/index.md` and its routed files at cold start. Config change: get Ray's
     go-ahead before editing settings.
-11. `WorkerLifecycleRepository.findSessionByAssignment` uses `ORDER BY id
-    LIMIT 1`, so when an assignment is retried and records more than one
-    session, it always returns the earliest session, not the latest. A
-    successful retry after a failure would be invisible to `chainFrom()` and
-    any other caller of this method. Confirmed against the code on 2026-09-12,
-    not yet fixed.
-12. Change all filenames to lower case.
+11. Change all filenames to lower case.
 
 ## Deferred
 
