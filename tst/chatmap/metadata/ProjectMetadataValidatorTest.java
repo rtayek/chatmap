@@ -120,11 +120,39 @@ class ProjectMetadataValidatorTest {
         assertTrue(result.failures().get(0).contains("manifest not found"));
     }
 
+    @Test
+    void missingValidationPolicyFails() throws IOException {
+        writeValidTree(root);
+        replaceManifest("\"validation\": {", "\"validation_removed\": {");
+        assertFailure("validation block is missing");
+    }
+
+    @Test
+    void unsupportedValidationEncodingFails() throws IOException {
+        writeValidTree(root);
+        replaceManifest("\"encoding\": \"UTF-8\"", "\"encoding\": \"UTF-16\"");
+        assertFailure("validation.encoding must be 'UTF-8'");
+    }
+
+    @Test
+    void disabledRequiredValidationFails() throws IOException {
+        writeValidTree(root);
+        replaceManifest("\"require_unique_ids\": true", "\"require_unique_ids\": false");
+        assertFailure("validation.require_unique_ids must be true");
+    }
+
     private void assertFailure(String expectedSubstring) throws IOException {
         Result result = new ProjectMetadataValidator(root).validate();
         assertFalse(result.passed(), "expected a failure containing: " + expectedSubstring);
         assertTrue(result.failures().stream().anyMatch(failure -> failure.contains(expectedSubstring)),
                 () -> "no failure contained '" + expectedSubstring + "'; got: " + result.failures());
+    }
+
+    private void replaceManifest(String expected, String replacement) throws IOException {
+        Path path = root.resolve(".llm/manifest.json");
+        String manifest = Files.readString(path, StandardCharsets.UTF_8);
+        assertTrue(manifest.contains(expected), () -> "manifest did not contain: " + expected);
+        Files.writeString(path, manifest.replace(expected, replacement), StandardCharsets.UTF_8);
     }
 
     private static void writeValidTree(Path root) throws IOException {
