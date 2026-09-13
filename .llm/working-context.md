@@ -176,9 +176,13 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    decision to its caller; each caller resolves it within its authority or
    propagates it upward. Verify whether the existing ledger records caller
    identity and decision provenance before proposing a schema change.
-7. Decide whether the metadata audit's three low-level findings justify a small
-   deterministic validator. Do not expand the YAML or JSON schema without a
-   concrete need.
+7. A deterministic, read-only metadata validator now exists as
+   `chatmap.metadata.ProjectMetadataValidator`, exposed through the
+   `validateProjectMetadata` Gradle task and covered by 13 tests (commit
+   8d61c0f). It enforces only the rules already declared in
+   `.llm/manifest.json` and passes on the current repository. Open: whether the
+   manifest's `validation` block should become per-flag toggles or be dropped
+   (see Deferred); the schema was not expanded.
 8. Decide whether semantic evaluation should stop at the successful bounded
    structured probe or proceed to a small corpus of independently specified
    factual contracts.
