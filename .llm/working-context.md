@@ -194,6 +194,15 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
     `.llm/index.md` and its routed files at cold start. Config change: get Ray's
     go-ahead before editing settings.
 11. Change all filenames to lower case.
+12. Investigate real-time capture for the live web-CDP providers (Claude,
+    ChatGPT, Gemini web). Today `latestChat()` is a single on-demand
+    snapshot per run of `importAllChats`; nothing watches continuously.
+    CDP itself supports a persistent connection with polling or page
+    mutation events instead of fetch-once-and-close, using the existing
+    `CdpBrowserConnection`/`CdpPage` classes as a base. This is continuity
+    (recording), not a harness (autonomous action), so it doesn't cross
+    the scheduler/harness line in Deferred below -- still just an
+    investigation, not committed to build yet.
 
 ## Deferred
 
