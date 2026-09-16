@@ -268,6 +268,13 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
     (recording), not a harness (autonomous action), so it doesn't cross
     the scheduler/harness line in Deferred below -- still just an
     investigation, not committed to build yet.
+12. OpenWorker follow-up: decide whether to run one more bounded evaluation
+    with a capable model. The run should use the existing read-only ChatMap
+    snapshot, interactive approvals, one legitimate task, one deliberately
+    impossible task, and a close/reopen persistence check. Before a local-model
+    retry, diagnose why Ollama was observed running CPU-only despite the
+    workstation's RTX 4060 Ti. Do not integrate OpenWorker, add connectors, or
+    change ChatMap's schema on the current inconclusive evidence.
 
 ## Deferred
 
@@ -286,7 +293,8 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
   an ArchUnit test or Checkstyle ImportControl, in preference to a Gradle
   multi-project split, which Ray does not want
 - portability of `.llm/human.md`, `.llm/persona.md`, and `AGENTS.md`, which
-  are now symlinks to absolute Windows paths under `C:/Users/ray/real-md-files/`.
+  are now symlinks to absolute Windows paths under
+  `C:/Users/ray/eclipse-workspace/dotmdfiles/real/`.
   Not portable to a second machine, CI, or a fresh clone -- acceptable for now
   since this is a single-machine setup. Ray is planning to move these into a
   System project and have System scan dependents for valid pointers; revisit
