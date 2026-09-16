@@ -132,6 +132,28 @@ history.
   a preserved script. The next safe action remains REFINE, then rerun the same
   frozen corpus. Audit evidence is outside the repository at
   `C:\Users\ray\eclipse-workspace\chatmap-semantic-eval-audit-2026-09-13\`.
+- A bounded OpenWorker (v0.2.1, Andrew Ng's local-first desktop coworker)
+  evaluation was run against a read-only snapshot of commit `1000f86`. Verdict:
+  INCONCLUSIVE -- the integration seam is promising but no successful task run
+  was observed. Key positive: OpenWorker persists work to real, hash-chained
+  on-disk SQLite (`journal_entries`, `audit_events`, and a `teams` board) that
+  maps cleanly onto ChatMap's lifecycle ledger and is readable read-only without
+  UI scraping; single-agent runs populate `audit_events` while the hash-chained
+  journal and team board are team/case-scoped. Key blocker: local `qwen2.5:7b`
+  is unusable for OpenWorker's agent loop. A real config bug was found and fixed
+  (OpenWorker drove Ollama at a 4096 context, truncating history and causing a
+  144x tool loop; raising Ollama to 16384 fixed the loop), but the model then
+  fabricated the analysis and even fabricated the file-write -- it never read the
+  target source, invented methods/lines that do not exist, and reported success
+  for a file that was never written. MCP is bundled (client-side); no A2A; voice
+  input reproducibly crashes the app; the installer is unsigned. Nothing was
+  integrated; ChatMap code, schema, and data are unchanged. Smallest next step:
+  one capable-model run (a cloud key) in interactive mode to obtain a genuine
+  successful run, the deliberate-failure test, and a close/reopen persistence
+  check -- deferred to Ray. Report and evidence are outside the repository at
+  `C:\Users\ray\eclipse-workspace\openworker-eval-2026-09-14\`; the distilled
+  report is preserved at
+  `handoffs/openworker-bounded-evaluation-report-2026-09-14.md`.
 
 ## Closed Work
 
