@@ -104,7 +104,7 @@ copied in full below since it is dense and easy to lose).
    remembering as a real gotcha pattern for any future ResultSet-reading
    code review, not just this one instance.
 
-10. **OpenWorker (Andrew Ng / Rohit Prasad, MIT, openworker.com)
+10. **OpenWorker (from the `andrewyng` GitHub organization, MIT, openworker.com)
     evaluation ran to completion. Verdict: INCONCLUSIVE, not PROMISING and
     not NOT-A-FIT.** Full report:
     `.llm/handoffs/openworker-bounded-evaluation-report-2026-09-14.md` --
@@ -138,13 +138,13 @@ copied in full below since it is dense and easy to lose).
       CPU-only on Ray's machine**, despite having an RTX 4060 Ti. Not yet
       diagnosed. Ray had Claude Code separately investigating this as this
       session ended.
-    - Hardware research done this session (not yet acted on): DeepSeek's
-      14B distill (`deepseek-r1:14b`) is a realistic fit for a 16GB 4060 Ti
-      (~8-9GB at Q4) and would likely outperform `qwen2.5:7b` for the
-      OpenWorker retry. Kimi K2 is definitively infeasible on this hardware
-      (~1T-parameter MoE, minimum ~244GB combined RAM+VRAM even at the most
-      aggressive quantization) -- do not re-investigate Kimi without a
-      hardware change.
+    - Hardware correction: Ray's RTX 4060 Ti has 8GB VRAM, not 16GB.
+      DeepSeek's 14B distill (`deepseek-r1:14b`) at Q4 is roughly 8-9GB before
+      context and runtime overhead, so it will not fit entirely on this GPU.
+      It would require partial CPU offload and may be slow; do not treat it as
+      the preferred OpenWorker retry until GPU use is restored and measured.
+      Kimi K2 remains infeasible on this hardware -- do not re-investigate it
+      without a hardware change.
 
 ## Open items carried forward, not resolved this session
 
@@ -173,20 +173,17 @@ copied in full below since it is dense and easy to lose).
   session's end.
 - **Ollama CPU-only diagnosis** -- in progress with Claude Code as this
   session ends; check its outcome first thing in the new chat.
-- **Two known doc-sync gaps**, both patches drafted this session but never
-  confirmed applied: (a) the OpenWorker Active Agenda item (would have been
-  item 12) is NOT in the current `working-context.md` -- verify before
-  assuming it's tracked; (b) the portability Deferred-list note still
-  references the old `real-md-files` path instead of `dotmdfiles/real`.
+- **The two known doc-sync gaps were corrected after this handoff was written:**
+  OpenWorker is Active Agenda item 12, and the portability Deferred-list note
+  now names `C:/Users/ray/eclipse-workspace/dotmdfiles/real/`.
 
 ## Suggested first move in the new chat
 
 1. Fetch the repository, confirm current `master` commit and clean working
    tree.
 2. Check what Claude Code found on the Ollama CPU-only question.
-3. Check whether `working-context.md` actually has the OpenWorker item and
-   the corrected portability-note path, or whether those patches still need
-   applying.
+3. Confirm `working-context.md` still has OpenWorker item 12 and the corrected
+   `dotmdfiles/real` portability path.
 4. Ask Ray whether he wants to proceed with the OpenWorker capable-model
    run (possibly using `deepseek-r1:14b` locally instead of a cloud key, if
    the GPU issue gets resolved first), or move to one of items 1-4.
