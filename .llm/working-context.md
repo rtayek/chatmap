@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-09-13
+**Updated:** 2026-09-16
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -132,8 +132,8 @@ history.
   a preserved script. The next safe action remains REFINE, then rerun the same
   frozen corpus. Audit evidence is outside the repository at
   `C:\Users\ray\eclipse-workspace\chatmap-semantic-eval-audit-2026-09-13\`.
-- A bounded OpenWorker (v0.2.1, Andrew Ng's local-first desktop coworker)
-  evaluation was run against a read-only snapshot of commit `1000f86`. Verdict:
+- A bounded OpenWorker (v0.2.1, the local-first desktop coworker from the
+  andrewyng GitHub organization) evaluation was run against a read-only snapshot of commit `1000f86`. Verdict:
   INCONCLUSIVE -- the integration seam is promising but no successful task run
   was observed. Key positive: OpenWorker persists work to real, hash-chained
   on-disk SQLite (`journal_entries`, `audit_events`, and a `teams` board) that

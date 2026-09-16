@@ -35,7 +35,8 @@ capable-cloud-model run (Option 1) was deliberately deferred to Ray.
   secondary coverage - authorship not independently verified beyond the org).
 - Version tested: v0.2.1 (open beta; releases v0.1.4 2026-07-22 .. v0.2.1
   2026-08-25). License: MIT.
-- Platform: Windows 11, Intel i7-13700F (no GPU -> Ollama runs on CPU).
+- Platform: Windows 11, Intel i7-13700F with an RTX 4060 Ti; Ollama was
+  observed running CPU-only.
 - Model: local qwen2.5:7b via Ollama (OpenAI-compatible /v1/chat/completions).
 - Install: C:\Users\ray\AppData\Local\OpenWorker\ (per-user, no admin).
 - Data dir: C:\Users\ray\AppData\Roaming\coworker\ (SQLite DBs + logs).
@@ -222,7 +223,8 @@ a real verdict:
 This answers the two things still missing (a genuine successful recorded run and
 persistence) at the cost of sending the (Ray-owned, non-secret) ChatMap snapshot
 to a cloud model provider. No connectors. If Ray declines cloud, the alternative
-is a larger local model on a GPU-capable machine; on this CPU-only box that is
+is a larger local model on a GPU-capable machine; on this box, where Ollama
+ran CPU-only, that is
 slow and unproven.
 
 Do NOT, on this evidence, integrate OpenWorker, add connectors, enable
