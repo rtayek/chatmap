@@ -265,7 +265,8 @@ tasks.register<JavaExec>("workerLifecycleSoakTest") {
 
 tasks.register<JavaExec>("parallelLedgerRecord") {
     group = "verification"
-    description = "Records one bounded parallel subagent run. Usage: -Phome=<dir> -Preports=<dir> [-Pstarted=<iso>]"
+    description = "Records one bounded parallel run. Usage: -Phome=<dir> -Preports=<dir> "
+        + "[-Pstarted=<iso>] [-Prevision=<commit>] [-PfailedWorker=<0..3>]"
     mainClass.set("chatmap.infrastructure.persistence.sqlite.ParallelLedgerRecordHarness")
     classpath = sourceSets["test"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
@@ -283,6 +284,14 @@ tasks.register<JavaExec>("parallelLedgerRecord") {
     if (project.hasProperty("started")) {
         cliArgs.add("--started")
         cliArgs.add(project.property("started").toString())
+    }
+    if (project.hasProperty("revision")) {
+        cliArgs.add("--revision")
+        cliArgs.add(project.property("revision").toString())
+    }
+    if (project.hasProperty("failedWorker")) {
+        cliArgs.add("--failed-worker")
+        cliArgs.add(project.property("failedWorker").toString())
     }
     args = cliArgs
 }

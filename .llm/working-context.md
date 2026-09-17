@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-09-16
+**Updated:** 2026-09-17
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -105,6 +105,15 @@ history.
   focused repository, service, and A2A recorder tests passed through a direct
   JUnit launch using the vendored dependencies. Ray subsequently ran the full
   Gradle quality gate locally and reported a green result.
+- The bounded parallel-failure follow-up passed on 2026-09-17. Two native
+  read-only workers completed and one deliberately failed on an exact missing
+  input without fabricating evidence. An isolated file-backed lifecycle ledger
+  reopened with five sessions: coordinator, two successful siblings, the
+  `FAILED` sibling with exact reason and partial work, and completed synthesis.
+  Successful artifact files remained present, and a separate read-only process
+  verified the database. The run also produced a minimum portable worker
+  contract and proven parallel procedure. See
+  `handoffs/2026-09-17-cm-parallel-failure-experiment.md`.
 - The bounded semantic-evaluation experiment (CM-EXP-SEMANTIC-01) ran against
   commit `22a06e0` using local `qwen2.5:7b` at temperature 0, three runs per
   case, scored deterministically with no LLM in the grading loop. Transport and
@@ -154,6 +163,9 @@ history.
   `C:\Users\ray\eclipse-workspace\openworker-eval-2026-09-14\`; the distilled
   report is preserved at
   `handoffs/openworker-bounded-evaluation-report-2026-09-14.md`.
+  Further OpenWorker installation, model, and runtime evaluation now belongs
+  to Ray's separate OpenWorker project. ChatMap retains this report as evidence
+  and may consume later conclusions, but OpenWorker is not active ChatMap work.
 
 ## Closed Work
 
@@ -179,8 +191,13 @@ history.
   for recovery, and does not attempt the archive commit.
 - Recorded parallel-subagent experiment: completed. It proved that ChatMap can
   durably describe an externally executed fan-out and synthesis without
-  becoming the scheduler. Structural fan-in, run identity, execution timing,
-  failure recovery, and semantic correctness remain unproven or deferred.
+  becoming the scheduler. The 2026-09-17 follow-up additionally proved one
+  failed sibling's reason and partial work survive database reopen while both
+  successful sibling artifacts and final synthesis remain available. Structural
+  fan-in, run identity, execution timing, and semantic correctness remain
+  unproven or deferred.
+- OpenWorker evaluation: delegated to its separate project. ChatMap retains the
+  completed bounded report and does not own further runtime investigation.
 
 ## Worker, Skill, and Parallel Work
 
@@ -202,16 +219,19 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Active Agenda
 
-1. Subagents: repeat the bounded parallel exercise with one worker deliberately
-   failing. Verify that its reason and partial work survive and that successful
-   sibling results still reach synthesis.
-2. Worker definitions: extract the smallest portable Markdown worker contract
-   from the successful experiments. Avoid personality-heavy role catalogs.
+1. COMPLETED 2026-09-17: the bounded parallel exercise preserved one failed
+   worker's reason and partial work, both successful sibling results, and final
+   synthesis across database reopen.
+2. COMPLETED 2026-09-17: the smallest portable Markdown worker contract was
+   extracted from the experiment. It describes task, exact inputs, tools,
+   constraints, definition of done, failure behavior, and expected evidence;
+   it is not a personality-heavy role catalog.
 3. Skills: identify a small useful set, test how each runtime supplies them to
    workers, and distinguish project-specific skills from reusable templates.
-4. Parallel workflows: record the proven fan-out, isolation, failure, and
-   synthesis procedure. Do not add a scheduler, fan-in schema, or run identifier
-   until an experiment demonstrates the need.
+4. COMPLETED 2026-09-17: the proven fan-out, isolation, failure, reopen
+   verification, and synthesis procedure is recorded in the experiment handoff.
+   Do not add a scheduler, fan-in schema, or run identifier until another
+   experiment demonstrates the need.
 5. Portable CLI execution: soon conduct a bounded, isolated evaluation of Mark
    Pollack's Agent Client as a common Java adapter for Claude Code, Codex,
    Gemini CLI, and possibly Anti-Gravity. Determine whether it can replace
@@ -268,14 +288,6 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
     (recording), not a harness (autonomous action), so it doesn't cross
     the scheduler/harness line in Deferred below -- still just an
     investigation, not committed to build yet.
-12. OpenWorker follow-up: decide whether to run one more bounded evaluation
-    with a capable model. The run should use the existing read-only ChatMap
-    snapshot, interactive approvals, one legitimate task, one deliberately
-    impossible task, and a close/reopen persistence check. Before a local-model
-    retry, diagnose why Ollama was observed running CPU-only despite the
-    workstation's RTX 4060 Ti. Do not integrate OpenWorker, add connectors, or
-    change ChatMap's schema on the current inconclusive evidence.
-
 ## Deferred
 
 - Handoff-watcher provenance, content-hash duplicate detection, explicit queue
@@ -302,7 +314,7 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-Perform one bounded parallel run with a deliberately failed worker and verify
-preservation of its failure evidence and the successful sibling results. Use
-the result to draft the minimum portable worker definition and parallel
-procedure; do not change the schema or add a scheduler.
+Refine the bounded semantic-extraction prompt with worked examples for negation
+polarity, decision/rejected/open-question categorization, and disputed
+attribution. Add the deterministic negation/polarity check, then rerun the same
+frozen ten-case corpus against the preserved baseline before expanding it.
