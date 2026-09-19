@@ -58,29 +58,5 @@ Agents may:
 
 Deliver each qualifying artifact using the first available method:
 
-1. Attach it as a downloadable file when the interface supports attachments or
-   download buttons.
-
-2. If downloads are unavailable but the agent can write files, write the
-   artifact to the first suitable writable location:
-
-   - a delivery directory explicitly selected by the user;
-   - an existing project `incoming/` directory;
-   - the user's `Downloads` directory;
-   - the agent's current working directory.
-
-3. After writing the file, report its exact pathname clearly.
-
-4. If neither downloading nor filesystem writing is available, provide the
-   artifact in a fenced block as a last resort.
-
-This rule grants standing permission to create new artifact files in these
-delivery locations. It does not grant permission to overwrite an existing file.
-Use a timestamp or numeric suffix to prevent collisions.
-
-Actual handoffs may be placed in an existing project `handoffs/` directory.
-Other artifacts should not be placed in `handoffs/` merely because no better
-location exists.
-
-When practical, make the download link, attachment, or written pathname the
-last item in the response so it is easy to find.
+- If writing to the project and downloads are both unsupported by the interface, provide the artifact in a fenced block.
+- Any handoff artifact MUST include '[Hh]andoff' in the filename.

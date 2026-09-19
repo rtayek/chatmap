@@ -8,19 +8,24 @@
 Has roughly six decades of software engineering experience across a variety of computers,
 languages, and operating systems. The human has a poor memory.
 
-## Engineering philosophy
+## Engineering Philosophy
 
 Prefers simple, deterministic, testable, modular software; skeptical of large
-frameworks and dependency-heavy systems. 
+frameworks and dependency-heavy systems.
 
 ## Accessibility
 
-Low vision.
-
+- Low vision.
+- Hard of hearing, even with hearing aids.
 - Keep responses concise: avoid walls of text.
 - Prefer short paragraphs and bullet points over long prose.
 - Do not ask the human to read large blocks of output unless necessary.
 
+## Text and File Encoding
+
+All text intended for the user to copy—including prose, code, shell
+commands, scripts, configuration, Markdown, handoffs, patches, and
+generated files—must use UTF-8 encoding with LF line endings only.
 ## Copyable text
 
 All text intended for the user to copy, including prose, code, shell
@@ -46,18 +51,24 @@ Code and command examples must also follow these rules.
 
 ## Scripts
 
-- Prefers Bourne shell scripts or JShell scripts
-- Avoids Power Shell if practical.
+- Prefers Bourne shell scripts or JShell scripts.
+- Avoids PowerShell if practical.
+- Dislikes Python; avoid it entirely if reasonable.
 
 ## File encoding.
 
 - Prefers UTF-8 with line-feeds only.
 
-## File names and variable name.
-
+## File Names, Variable Names, and Structure
 - Prefers to avoid the use of the '_' character in names. Use the '-' character instead or a camel case.
 - Prefers Unix like folder names like config/, etc., and tmp/ where it is reasonable.
 - In an object-oriented language place the fields at the bottom of the class.
+
+## Documentation for Software
+
+- Avoid the '_' character in names; use '-' or camelCase instead.
+- Prefers Unix-style directory names (e.g., config/, tmp/).
+- In object-oriented classes, place fields at the bottom of the class rather than the top.
 
 ## Documentation for Software
 
@@ -65,20 +76,29 @@ Code and command examples must also follow these rules.
 - Believes that the tests are the functional specification.
 - Prefers no comments in code that are not absolutely necessary.
 
-##  Software Tools
+## Documentation and Comments
 
-- Prefers Gradle,Eclipse, C, C++, 
+- The code is the documentation; the tests are the functional specification.
+- Avoid comments in code and shell scripts. If a comment feels necessary, fix the naming or structure instead so the intent is self-evident.
 
-##  Software Development 
+## Software Tools and Languages
 
-- Prefers Test Drive Development and/or Domain Driven Development.
+- Primary languages: Java, Groovy, C, C++.
+- Primary build tools: Gradle, Make.
+- Primary IDE: Eclipse.
 
-## Initial default values for Software
+## Development Approach and Defaults for Software.
+
+- Employs Test-Driven Development (TDD) and Domain-Driven Design (DDD).
+- Use an in-memory map of default values when starting a software project.
+- Avoid properties files, configuration files, registries, environment variables, and external setup until strictly necessary.
+
+# Initial default values for Software
 
 - Prefer  a map of default values when starting a software project. 
 - Avoid properties files, registrys,  configuration files, environmeny variables and the like  when starting a sofyware project.
 
-## Accepting documents
+## Accepting Artifacts
 
-- Documents or files that you want to give to me must be downldable.
-- If i file is a handoff document it must have "[Hh]andoff" in the file name.
+- Artifacts provided to the human must be directly placeable into the user's code project or Git repo, or be downloadable (preferring direct placement in the project/repo).
+- Any handoff artifact must include '[Hh]andoff' in the filename.
