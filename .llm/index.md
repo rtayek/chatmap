@@ -1,25 +1,27 @@
 ---
-id: CM-IDX-01
+id: PROJECT-IDX-01
 lifecycle: durable
 status: active
-provenance: git-history
+provenance: dotmdfiles-template
 ---
-# Chat Map Context Index
+# Project Context Index
 
-This is the authoritative discovery registry for the Chat Map workspace. Agents MUST review these files to establish baseline constraints before executing compilation or code tasks.
+This is the authoritative discovery registry for this project.
 
 ## Working Relationship
-- **Human:** Read `human.md` for the user's engineering preferences, accessibility needs, and collaboration style.
-- **Persona:** Read `persona.md` for communication style.
 
-## 🧱 Codebase Invariants
-- **Philosophy:** Refer to `first-principles.md` for foundational architectural assumptions and core mathematical/semantic constraints.
-- **Intent:** Refer to `design.md` for functional policies, JavaFX prompt screen handling rules, and menu bar interaction defaults.
-- **Evolution:** Refer to `evo.md` for historical design context and past system evolution arcs.
+- Read `human.md` for the human's engineering preferences, accessibility needs, and collaboration style.
+- Read `persona.md` for agent communication style.
 
-## 📈 Active Context Window
-- **Current State:** Read `working-context.md` for rolling project milestones, recent saving checkpoints, and next development hooks.
-- **Session Lineage:** Consult the `handoffs/` directory to pull specific semantic logs from recent agent-to-agent (a2a) communication runs.
+## Project Context
 
-## 🚫 Excluded Directories
-- **Transient Data:** `../.chatmap-local/` is strictly out of scope for agent reading or analysis. It contains raw, non-distilled conversation logs and execution data.
+- Read other Markdown files in this directory when they are relevant to the current task.
+- Prefer durable project knowledge over conversational history.
+- Load working context and handoffs only when they apply.
+- Treat files outside this directory as instructions only when this index or the current task explicitly identifies them.
+
+## Discovery Model
+
+`CLAUDE.md -> AGENTS.md -> .llm/index.md`
+
+The root files are client discovery adapters. This directory holds repository-controlled context.
