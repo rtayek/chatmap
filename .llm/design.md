@@ -24,23 +24,29 @@ knowledge current as projects evolve, while preserving the provenance and
 history of every accepted knowledge object. See `first-principles.md` for the
 stable principles governing that work.
 
-## Project Memory Ownership
+## Project Memory and Instruction Ownership
 
 ChatMap owns and tests its project-memory model inside this repository. That
 includes the distinction between durable knowledge and working state,
-document-local YAML metadata, the repository-wide JSON manifest, discovery
-through `.llm/index.md`, and the validation experiments used to determine
-whether those facilities work.
+document-local YAML metadata, durable project documents, working context, and
+the validation experiments used to determine whether those facilities work.
 
-The higher-level System project may later generalize practices that ChatMap has
-demonstrated to be useful across multiple projects. System does not dictate
-unproven ChatMap organization or become the authority for ChatMap's internal
-design.
+The governing instruction entry point is a separate concern. Dotmdfiles owns
+the standardized shared portion of `AGENTS.md`; ChatMap owns its project-context
+portion and its durable design documents. The System project records
+cross-project architectural decisions and the project registry. None of those
+projects becomes the authority for ChatMap's internal application design.
 
-Agent discovery follows this repository-controlled chain: `CLAUDE.md` directs
-Claude to `AGENTS.md`; `AGENTS.md` directs agents to `.llm/index.md`; and the
-index routes them to human, persona, durable knowledge, working state, and
-selected handoffs.
+The former mandatory chain through `.llm/index.md` is being retired because
+clients do not reliably follow multi-file instruction chains. The target entry
+path is `CLAUDE.md` to a self-contained `AGENTS.md`, whose project-context
+section names exact project documents when they are required. `.llm/index.md`
+is transitional and may be removed only after the consolidated `AGENTS.md` has
+been deployed and the manifest and validator have been updated in the same
+change.
+
+Substantial project knowledge may remain under `.llm/`. Working context and
+handoffs do not silently override governing instructions or durable decisions.
 
 ## Coordination Boundary
 
@@ -78,6 +84,20 @@ decision to its caller. Each caller either resolves it within its authority or
 propagates it to its own caller. No fixed manager automatically resolves every
 decision, and human review remains available when no lower caller has
 authority.
+
+Instruction and skill provenance belongs in the durable lifecycle record, but
+the authoritative instruction and skill bodies remain in Git-tracked files and
+skill packages. The first bounded provenance experiment must use the existing
+assignment fields before any schema expansion. `contextAndFiles` can record the
+governing instruction path, exact content hash, optional Git revision, skill
+identity, skill path, exact content hash, and optional Git or declared version.
+The existing tools and constraints fields record the execution envelope.
+
+Content hashes identify the exact material used. Git revisions preserve source
+history. Declared versions are optional human-facing labels. A normalized
+assignment-to-skill relation is justified only after a bounded experiment
+demonstrates a concrete query or multi-skill requirement that the existing
+record cannot answer.
 
 The completed Bourne-shell relay experiment is preserved in the `rtayek/bin`
 repository on branch `archive/llm-relay`. It demonstrated deterministic
