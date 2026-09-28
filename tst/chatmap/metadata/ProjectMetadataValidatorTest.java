@@ -24,14 +24,14 @@ class ProjectMetadataValidatorTest {
         writeValidTree(root);
         Result result = new ProjectMetadataValidator(root).validate();
         assertTrue(result.passed(), () -> "expected pass but got: " + result.failures());
-        assertEquals(6, result.pilotDocumentCount());
+        assertEquals(5, result.pilotDocumentCount());
     }
 
     @Test
     void missingRequiredPathFails() throws IOException {
         writeValidTree(root);
-        Files.delete(root.resolve(".llm/human.md"));
-        assertFailure(".llm/human.md");
+        Files.delete(root.resolve("AGENTS.md"));
+        assertFailure("AGENTS.md");
     }
 
     @Test
@@ -158,14 +158,12 @@ class ProjectMetadataValidatorTest {
     private static void writeValidTree(Path root) throws IOException {
         Files.createDirectories(root.resolve(".llm/handoffs"));
         Files.writeString(root.resolve(".llm/manifest.json"), MANIFEST, StandardCharsets.UTF_8);
-        writePilot(root, "index", "CM-IDX-01", "durable", "active");
+        Files.writeString(root.resolve("AGENTS.md"), "# Agent Instructions\n", StandardCharsets.UTF_8);
         writePilot(root, "first-principles", "CM-FP-01", "durable", "active");
         writePilot(root, "design", "CM-DESIGN-01", "durable", "active");
         writePilot(root, "evo", "CM-EVO-01", "durable", "active");
         writePilot(root, "implementation-notes", "CM-IMPL-01", "working", "active");
         writePilot(root, "working-context", "CM-CTX-01", "working", "active");
-        Files.writeString(root.resolve(".llm/human.md"), "# Human\n", StandardCharsets.UTF_8);
-        Files.writeString(root.resolve(".llm/persona.md"), "# Persona\n", StandardCharsets.UTF_8);
     }
 
     private static void writePilot(Path root, String name, String id, String lifecycle, String status)
@@ -195,11 +193,9 @@ class ProjectMetadataValidatorTest {
             {
               "format_version": 1,
               "project_id": "CHATMAP",
-              "entrypoint": ".llm/index.md",
+              "entrypoint": "AGENTS.md",
               "required_documents": [
-                ".llm/index.md",
-                ".llm/human.md",
-                ".llm/persona.md",
+                "AGENTS.md",
                 ".llm/first-principles.md",
                 ".llm/design.md",
                 ".llm/evo.md",
@@ -210,7 +206,6 @@ class ProjectMetadataValidatorTest {
               "excluded_paths": [".chatmap-local/"],
               "metadata_pilot": {
                 "documents": [
-                  ".llm/index.md",
                   ".llm/first-principles.md",
                   ".llm/design.md",
                   ".llm/evo.md",
