@@ -1,11 +1,9 @@
 {
   "format_version": 1,
   "project_id": "CHATMAP",
-  "entrypoint": ".llm/index.md",
+  "entrypoint": "AGENTS.md",
   "required_documents": [
-    ".llm/index.md",
-    ".llm/human.md",
-    ".llm/persona.md",
+    "AGENTS.md",
     ".llm/first-principles.md",
     ".llm/design.md",
     ".llm/evo.md",
@@ -18,7 +16,6 @@
   ],
   "metadata_pilot": {
     "documents": [
-      ".llm/index.md",
       ".llm/first-principles.md",
       ".llm/design.md",
       ".llm/evo.md",
