@@ -46,7 +46,7 @@ sourceSets {
 
 dependencies {
     implementation("org.xerial:sqlite-jdbc:3.53.2.0")
-    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.google.code.gson:gson:2.14.0")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.7")
 
@@ -55,7 +55,7 @@ dependencies {
     implementation("org.a2aproject.sdk:a2a-java-sdk-client-transport-jsonrpc:$a2aVersion")
     implementation("org.a2aproject.sdk:a2a-java-sdk-reference-jsonrpc:$a2aVersion")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
