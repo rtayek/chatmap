@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-09-27
+**Updated:** 2026-10-01
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -43,21 +43,15 @@ history.
 - Caller-owned migration transactions are now protected by a JDBC savepoint.
   Commit `63a7ad6` rolls back only migration work on failure while leaving the
   caller's surrounding transaction under caller control.
-- The former mandatory discovery chain through `.llm/index.md` is being
-  retired. Cross-client testing showed substantive semantic agreement when the
-  chain was followed, but Claude Code did not automatically read the index on a
-  cold start. On 2026-09-27 Ray decided that the index will go away for now.
-  The target is a thin `CLAUDE.md` adapter and a self-contained `AGENTS.md`
-  containing shared governing instructions plus a ChatMap-owned project-context
-  section that names exact documents when required.
-- Dotmdfiles has recorded the accepted consolidated-instructions direction,
-  but its replacement `AGENTS.md` and deployment mechanism have not yet been
-  implemented. ChatMap therefore keeps `.llm/index.md`, `human.md`, and
-  `persona.md` only as transitional discovery files. Removing them before the
-  consolidated file is deployed would discard currently required instructions.
-  When the replacement is ready, update `AGENTS.md`, remove the obsolete files,
-  and update `manifest.json`, the metadata validator, and durable documentation
-  atomically.
+- The governing instruction consolidation is complete. Automatic client
+  discovery is `CLAUDE.md` -> `AGENTS.md`. `AGENTS.md` contains the shared
+  governing instructions plus ChatMap's marked project-context section and
+  directly names additional project documents when they are required.
+- The retired five-file discovery chain is no longer active. `human.md`,
+  `persona.md`, and `.llm/index.md` are not required discovery files; ChatMap
+  currently has no `.llm/index.md`. A project-owned `.llm/index.md` may be added
+  later as a knowledge catalog, but it would not become an automatic instruction
+  hop and need not be named in `AGENTS.md`.
 - The bounded metadata pilot now separates Markdown bodies, document-local YAML,
   and repository-wide JSON rules. The deterministic read-only validator makes
   the document scope and front-matter enforcement explicit. The manifest's
@@ -268,10 +262,10 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
    recording bounded to the experiment.
-9. Retire `.llm/index.md` after dotmdfiles supplies the stable consolidated
-   `AGENTS.md`. Update ChatMap's entry files, manifest, validator, and durable
-   documentation together; do not add a SessionStart hook for the retiring
-   chain.
+9. COMPLETED 2026-10-01: the governing instruction migration now uses
+   `CLAUDE.md` -> `AGENTS.md`; the retired five-file discovery chain is no
+   longer active. Optional future `.llm/index.md` use is limited to a
+   project-owned knowledge catalog rather than an automatic discovery hop.
 10. Change all filenames to lower case.
 11. Investigate real-time capture for the live web-CDP providers (Claude,
     ChatGPT, Gemini web). Today `latestChat()` is a single on-demand
@@ -282,12 +276,12 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
     (recording), not a harness (autonomous action), so it doesn't cross
     the scheduler/harness line in Deferred below -- still just an
     investigation, not committed to build yet.
-12. After the consolidated `AGENTS.md` format is stable, run one bounded
-    no-schema provenance experiment. Record the governing instruction path,
-    SHA-256, and optional Git revision plus one exact skill identity, path,
-    SHA-256, and optional version in the existing assignment context. Verify
-    database reopen, artifact continuity, successor handoff, and exact
-    provenance lookup before proposing normalized skill tables.
+12. The consolidated `AGENTS.md` format is now deployed. A bounded no-schema
+    provenance experiment may record the governing instruction path, SHA-256,
+    and optional Git revision plus one exact skill identity, path, SHA-256, and
+    optional version in the existing assignment context. Verify database reopen,
+    artifact continuity, successor handoff, and exact provenance lookup before
+    proposing normalized skill tables.
 ## Deferred
 
 - Handoff-watcher provenance, content-hash duplicate detection, explicit queue
@@ -310,7 +304,7 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-Wait for dotmdfiles to supply the stable consolidated `AGENTS.md` before
-changing ChatMap's discovery files or running the provenance experiment.
-Meanwhile, ChatMap's independent next code action remains refinement of the
-bounded semantic-extraction prompt and rerunning the frozen ten-case corpus.
+The documentation migration no longer blocks ChatMap work. ChatMap's independent
+next code action remains refinement of the bounded semantic-extraction prompt
+and rerunning the frozen ten-case corpus. The bounded instruction-and-skill
+provenance experiment is also no longer gated on dotmdfiles deployment.

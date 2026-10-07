@@ -37,13 +37,15 @@ portion and its durable design documents. The System project records
 cross-project architectural decisions and the project registry. None of those
 projects becomes the authority for ChatMap's internal application design.
 
-The former mandatory chain through `.llm/index.md` is being retired because
-clients do not reliably follow multi-file instruction chains. The target entry
-path is `CLAUDE.md` to a self-contained `AGENTS.md`, whose project-context
-section names exact project documents when they are required. `.llm/index.md`
-is transitional and may be removed only after the consolidated `AGENTS.md` has
-been deployed and the manifest and validator have been updated in the same
-change.
+The implemented governing entry path is `CLAUDE.md` to a self-contained
+`AGENTS.md`. The marked project-context section in `AGENTS.md` names exact
+project documents when they are required. Critical instructions do not depend
+on recursively discovering secondary Markdown files.
+
+A project-owned `.llm/index.md` may exist as an optional knowledge catalog for
+deep project documentation. It is not part of automatic instruction discovery
+and does not need to be referenced from `AGENTS.md`. ChatMap currently does not
+require such an index.
 
 Substantial project knowledge may remain under `.llm/`. Working context and
 handoffs do not silently override governing instructions or durable decisions.
@@ -176,143 +178,4 @@ Message
 - sequence
 - timestamp
 - rawJson
-```
-
-`text` is the normalized searchable text.
-
-`rawJson` preserves the original source payload when available.
-
-### Tag
-
-```text
-Tag
-- id
-- name
-```
-
-### chatTags
-
-The chat-to-tag association. This is a join table only; there is no `ChatTag`
-domain type.
-
-```text
-chatTags
-- chatId
-- tagId
-```
-
-### ChatSummary
-
-An optional, AI-generated summary for a chat. Additive only: never edits the
-chat or its messages.
-
-```text
-ChatSummary
-- id
-- chatId
-- summary
-- generatedBy
-- generatedAt
-- contentHash
-```
-
-## Import
-
-All importers produce normalized chat data.
-
-This section covers format-based importers only. Live/local acquisition via
-the six-source ChatProvider system (CLI-history readers for Claude Code,
-Codex, and Gemini; live web-CDP readers for Claude, ChatGPT, and Gemini) is
-documented in `implementation-notes.md` under "Supported Live Provider &
-Automation Capabilities."
-
-Current import behavior:
-
-```text
-Plain text → one Chat → one Message
-Markdown   → one Chat → one Message
-ChatGPT JSON → flattened Messages with rawJson preserved
-ChatGPT archive (ZIP) → many Chats from an exported conversations file
-Gemini Workspace Takeout (extracted directory) → one Chat per conversation JSON text file
-```
-
-Importers do not persist data directly. Services pass imported data to repositories.
-
-## Export
-
-Markdown export is core.
-
-Exporters receive fully hydrated export models from `ExportService`.
-
-Export targets:
-
-* single chat
-* deterministic no-LLM handoff
-
-The no-LLM handoff is structured extraction, not semantic compression.
-
-It includes project metadata, chat list, tags, dates, source platform, first/last messages, and optional notes.
-
-## Storage
-
-Chats live in a durable local store, not a cloud service — this is a design
-decision, not an implementation detail: users own their data as files on
-their own disk.
-
-Main tables:
-
-```text
-projects
-chats
-messages
-messageFts
-tags
-chatTags
-chatSummaries
-```
-
-`chatSummaries` is empty when AI is unused.
-
-Repository tests must verify that insert, update, and delete operations keep
-search results correct.
-
-## Search
-
-Search is full-text over message text. See `implementation-notes.md` for the
-specific engine and version.
-
-`SearchRepository` owns queries involving:
-
-* message text
-* project filter
-* tag filter
-* archived filter
-
-Results are returned in deterministic chat import order. Duplicate message matches produce one result per chat.
-
-## Non-Goals for MVP
-
-Not built, and out of scope for the deterministic MVP:
-
-* cloud accounts
-* multi-user collaboration
-* payments
-* mobile app
-* advanced analytics
-* complex model comparison
-* sophisticated infinite canvas
-* AI-required handoff generation
-
-## MVP Success Test
-
-The MVP succeeds when a user can:
-
-```text
-1. Import a chat.
-2. Store it in the local store.
-3. Search its message text.
-4. Assign it to a project.
-5. Add tags.
-6. Export clean Markdown.
-7. Export a deterministic project handoff.
 ```
