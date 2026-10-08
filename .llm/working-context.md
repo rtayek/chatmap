@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-10-01
+**Updated:** 2026-10-07
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -132,6 +132,19 @@ history.
   a preserved script. The next safe action remains REFINE, then rerun the same
   frozen corpus. Audit evidence is outside the repository at
   `C:\Users\ray\eclipse-workspace\chatmap-semantic-eval-audit-2026-09-13\`.
+- Two bounded refinement follow-ups completed the `qwen2.5:7b` prompt line.
+  CM-EXP-SEMANTIC-02 remained 7/10 cases despite improving the run total from
+  21/30 to 23/30. CM-EXP-SEMANTIC-03 scored 8/10 cases and 24/30 runs, with all
+  30 responses schema-valid and byte-identical across repetitions, but manual
+  acceptance still rejected S04 because `them` was not resolved to `the
+  workers`; S07 still misplaced decisions and rejections in `facts`; and S10
+  omitted the fact that the disputed report was not independently verified.
+  All seven checker tests passed, six useful warnings were emitted, and all 27
+  frozen input artifacts remained unchanged. Decision: stop prompt refinement
+  for `qwen2.5:7b`; the next semantic experiment is a controlled stronger-model
+  comparison using the same frozen corpus and deterministic scoring. Do not
+  integrate semantic extraction into production on this evidence. See
+  `handoffs/chatmap-semantic-refinement-3-final-handoff-2026-10-07.md`.
 - A bounded OpenWorker (v0.2.1, the local-first desktop coworker from the
   andrewyng GitHub organization) evaluation was run against a read-only snapshot of commit `1000f86`. Verdict:
   INCONCLUSIVE -- the integration seam is promising but no successful task run
@@ -250,14 +263,14 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    change (distinct caller/parent edge separate from succession, a fan-in link,
    and per-decision raisedBy/resolvedBy/resolvedAtLevel rows); do not propose or
    implement it without Ray's go-ahead.
-7. Resolved by CM-EXP-SEMANTIC-01: the ten-case corpus was run and the
-   recommendation is Refine, not Stop and not Expand. Next semantic step is to
-   add worked examples for negation polarity, decision/rejected/open-question
-   categorization, and disputed attribution, plus a deterministic post-parse
-   check flagging a negating cue in `relation` paired with
-   `polarity:"affirmed"`, then re-run the same frozen corpus against the
-   preserved baseline before authoring a larger, independently written corpus.
-   Do not integrate semantic extraction into production on this corpus.
+7. COMPLETED 2026-10-07: three bounded experiments established the practical
+   limit of prompt refinement for local `qwen2.5:7b`. The final experiment
+   scored 8/10 cases and 24/30 runs, but failed manual acceptance on S04 and
+   still failed S07 and S10. Close this refinement line. The next semantic step
+   is a controlled stronger-model comparison using the unchanged ten-case
+   corpus, deterministic scoring, preserved raw evidence, and the explicit S04
+   coreference acceptance rule. Do not integrate semantic extraction into
+   production on this evidence.
 8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
@@ -304,7 +317,9 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-The documentation migration no longer blocks ChatMap work. ChatMap's independent
-next code action remains refinement of the bounded semantic-extraction prompt
-and rerunning the frozen ten-case corpus. The bounded instruction-and-skill
-provenance experiment is also no longer gated on dotmdfiles deployment.
+The `qwen2.5:7b` prompt-refinement line is closed. ChatMap's next semantic
+evidence step is a bounded stronger-model comparison against the unchanged
+ten-case corpus, preserving the same fixtures, deterministic scoring, raw
+evidence, and manual S04 coreference acceptance. No production integration is
+justified. The bounded instruction-and-skill provenance experiment remains
+independently available.
