@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-10-07
+**Updated:** 2026-10-11
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -145,6 +145,16 @@ history.
   comparison using the same frozen corpus and deterministic scoring. Do not
   integrate semantic extraction into production on this evidence. See
   `handoffs/chatmap-semantic-refinement-3-final-handoff-2026-10-07.md`.
+- CM-EXP-SEMANTIC-04 compared the unchanged frozen corpus and extraction
+  contract with local `qwen2.5:14b`. Semantic acceptance improved to 10/10
+  cases and 30/30 runs, with S04, S07, and S10 corrected and no semantic
+  regression in the other seven cases. A subsequent no-model strict-JSON
+  recheck separated that semantic result from structural validity: 27/30 runs
+  and 9/10 cases were strictly valid because all three S09 responses contained
+  a duplicate `facts` key. The frozen lenient scorer accepted those responses
+  using last-key-wins behavior. This is strong semantic evidence, not production
+  readiness. See
+  `handoffs/chatmap-semantic-stronger-model-final-handoff-2026-10-11.md`.
 - A bounded OpenWorker (v0.2.1, the local-first desktop coworker from the
   andrewyng GitHub organization) evaluation was run against a read-only snapshot of commit `1000f86`. Verdict:
   INCONCLUSIVE -- the integration seam is promising but no successful task run
@@ -263,14 +273,14 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    change (distinct caller/parent edge separate from succession, a fan-in link,
    and per-decision raisedBy/resolvedBy/resolvedAtLevel rows); do not propose or
    implement it without Ray's go-ahead.
-7. COMPLETED 2026-10-07: three bounded experiments established the practical
-   limit of prompt refinement for local `qwen2.5:7b`. The final experiment
-   scored 8/10 cases and 24/30 runs, but failed manual acceptance on S04 and
-   still failed S07 and S10. Close this refinement line. The next semantic step
-   is a controlled stronger-model comparison using the unchanged ten-case
-   corpus, deterministic scoring, preserved raw evidence, and the explicit S04
-   coreference acceptance rule. Do not integrate semantic extraction into
-   production on this evidence.
+7. COMPLETED 2026-10-11: CM-EXP-SEMANTIC-04 established that local
+   `qwen2.5:14b` provides a strong semantic improvement over `qwen2.5:7b` on the
+   frozen ten-case corpus: 10/10 cases and 30/30 runs passed semantic acceptance.
+   Strict structural validity was 9/10 cases and 27/30 runs because S09 emitted
+   a duplicate `facts` key in every run. Before expanding the corpus or
+   considering integration, decide whether strict duplicate-key rejection is a
+   mandatory extraction-boundary contract and test that contract independently
+   of semantic scoring. Production integration remains out of scope.
 8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
@@ -317,9 +327,9 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-The `qwen2.5:7b` prompt-refinement line is closed. ChatMap's next semantic
-evidence step is a bounded stronger-model comparison against the unchanged
-ten-case corpus, preserving the same fixtures, deterministic scoring, raw
-evidence, and manual S04 coreference acceptance. No production integration is
-justified. The bounded instruction-and-skill provenance experiment remains
-independently available.
+The stronger-model comparison is complete. ChatMap's next semantic decision is
+whether strict JSON parsing, including duplicate-key rejection, is a mandatory
+acceptance boundary distinct from semantic correctness. Specify and test that
+boundary before expanding to a larger or more adversarial corpus. No production
+integration is justified. The bounded instruction-and-skill provenance
+experiment remains independently available.
