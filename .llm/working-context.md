@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-10-11
+**Updated:** 2026-10-12
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -155,6 +155,16 @@ history.
   using last-key-wins behavior. This is strong semantic evidence, not production
   readiness. See
   `handoffs/chatmap-semantic-stronger-model-final-handoff-2026-10-11.md`.
+- CM-EXP-SEMANTIC-05 froze a deterministic three-gate evaluation contract:
+  strict JSON validity, schema conformance, and semantic acceptance, with full
+  acceptance requiring all three. Re-scoring preserved evidence without any
+  model calls produced full acceptance of 24/30 runs and 8/10 cases for
+  `qwen2.5:7b`, versus 27/30 runs and 9/10 cases for `qwen2.5:14b`. The 7B
+  failures were semantic (S07 and S10); the 14B failures were structural (S09
+  duplicate `facts` keys). Focused tests passed 19/19 and repeated evaluator
+  runs were byte-identical. This contract is frozen for subsequent experiments,
+  but the ten-case corpus does not justify production integration. See
+  `handoffs/chatmap-semantic-output-contract-final-handoff-2026-10-12.md`.
 - A bounded OpenWorker (v0.2.1, the local-first desktop coworker from the
   andrewyng GitHub organization) evaluation was run against a read-only snapshot of commit `1000f86`. Verdict:
   INCONCLUSIVE -- the integration seam is promising but no successful task run
@@ -273,14 +283,12 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    change (distinct caller/parent edge separate from succession, a fan-in link,
    and per-decision raisedBy/resolvedBy/resolvedAtLevel rows); do not propose or
    implement it without Ray's go-ahead.
-7. COMPLETED 2026-10-11: CM-EXP-SEMANTIC-04 established that local
-   `qwen2.5:14b` provides a strong semantic improvement over `qwen2.5:7b` on the
-   frozen ten-case corpus: 10/10 cases and 30/30 runs passed semantic acceptance.
-   Strict structural validity was 9/10 cases and 27/30 runs because S09 emitted
-   a duplicate `facts` key in every run. Before expanding the corpus or
-   considering integration, decide whether strict duplicate-key rejection is a
-   mandatory extraction-boundary contract and test that contract independently
-   of semantic scoring. Production integration remains out of scope.
+7. COMPLETED 2026-10-12: CM-EXP-SEMANTIC-05 specified and tested strict JSON,
+   schema, semantic, and full-acceptance gates against the preserved 7B and 14B
+   evidence. Freeze this exact three-gate contract for subsequent experiments
+   and report all four totals separately. The 14B model leads on full acceptance
+   at 27/30 runs and 9/10 cases, versus 24/30 and 8/10 for 7B, but the corpus is
+   too small for production integration.
 8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
@@ -327,9 +335,9 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-The stronger-model comparison is complete. ChatMap's next semantic decision is
-whether strict JSON parsing, including duplicate-key rejection, is a mandatory
-acceptance boundary distinct from semantic correctness. Specify and test that
-boundary before expanding to a larger or more adversarial corpus. No production
-integration is justified. The bounded instruction-and-skill provenance
-experiment remains independently available.
+The three-gate semantic-output contract is frozen for future experiments.
+ChatMap's next semantic evidence step is an independently written, larger or
+more adversarial corpus evaluated with that unchanged contract. Do not tune the
+prompt or evaluator against the existing ten cases again, and do not integrate
+semantic extraction into production on the current evidence. The bounded
+instruction-and-skill provenance experiment remains independently available.

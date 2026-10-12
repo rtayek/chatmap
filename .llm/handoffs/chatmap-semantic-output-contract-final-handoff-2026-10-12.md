@@ -1,6 +1,6 @@
 # CM-EXP-SEMANTIC-05 output-contract final handoff
 
-Status: complete. Do not copy this handoff into ChatMap until Ray reviews it.
+Status: complete. Accepted for recording in ChatMap on 2026-10-12.
 
 ## What was done
 
@@ -67,7 +67,7 @@ structural cases, still without production integration.
 - Source (unchanged): 03 `9f95f57`, 04 `c77eede`.
 - Experiment repo `chatmap-semantic-output-contract-2026-10-11`:
   - pre-implementation (spec) commit: `2ac5794`;
-  - result commit: recorded in the repository log for this handoff.
+  - result commit: `8edd9c3`.
 
 ## Evidence locations
 
