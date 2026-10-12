@@ -187,9 +187,13 @@ history.
   `C:\Users\ray\eclipse-workspace\openworker-eval-2026-09-14\`; the distilled
   report is preserved at
   `handoffs/openworker-bounded-evaluation-report-2026-09-14.md`.
-  Further OpenWorker installation, model, and runtime evaluation now belongs
-  to Ray's separate OpenWorker project. ChatMap retains this report as evidence
+  The ownership transition is now explicit: further OpenWorker installation,
+  model, and runtime evaluation belongs to Ray's separate OpenWorker project.
+  ChatMap retains the report and transition handoff as architectural evidence
   and may consume later conclusions, but OpenWorker is not active ChatMap work.
+  The separate project is paused with one optional final `qwen2.5:14b` test of
+  grounded success, deliberate failure, and close/reopen persistence. See
+  `handoffs/handoff-chatmap-to-openworker-ownership-transition-2026-10-12.md`.
 
 ## Closed Work
 
@@ -220,8 +224,9 @@ history.
   successful sibling artifacts and final synthesis remain available. Structural
   fan-in, run identity, execution timing, and semantic correctness remain
   unproven or deferred.
-- OpenWorker evaluation: delegated to its separate project. ChatMap retains the
-  completed bounded report and does not own further runtime investigation.
+- OpenWorker evaluation and ownership transition: completed. ChatMap retains
+  the bounded report and transition handoff; the separate OpenWorker project
+  owns any optional final runtime test and is otherwise paused.
 
 ## Worker, Skill, and Parallel Work
 
