@@ -35,24 +35,28 @@ history.
   declarations, and actor ambiguity requires explicit candidate names.
   The B-corpus is development evidence, not blind validation or proof of
   model quality. No new corpus, model run, or evaluator v4 is the next action.
-- Ray selected shared memory access through a small read-only MCP adapter as
-  the next investigation. External runtimes still own execution; ChatMap
-  supplies preserved conversations, selected project context, and provenance.
-  Semantic extraction, trace ingestion, graph UI, and A2A productization are
-  not prerequisites for this first slice.
+- The first small read-only MCP slice is implemented on the local
+  `feature/read-only-mcp` branch. It exposes only `searchChats`,
+  `readChatMessages`, and `readWorkingContext` through stdio. External runtimes
+  still own execution; ChatMap supplies preserved conversations, selected
+  project context, and provenance. Semantic extraction, trace ingestion, graph
+  UI, A2A productization, scheduling, and native-memory synchronization remain
+  outside this slice.
 - The concrete cold-start question is: "What were we doing, what was decided,
   and where is the evidence?" Evaluate answer support and how much context
   must be loaded. Native agent memory may coexist with ChatMap; no competing
   automatic-memory system or wholesale document loading is required.
-- A pinned source review identified `SearchService.searchResults` and
-  `ExportService.loadChat` as existing read seams. Search returns chat-level
-  snippets without message IDs; source retrieval needs bounded message
-  projection. Normal application startup initializes/migrates the database
-  and changes journal mode, so it is not a verified read-only startup path.
-  `ProjectContext` identifies a project; it does not read working-context
-  Markdown. See
-  `handoffs/chatmap-read-only-mcp-seam-review-handoff-2026-10-30.md`.
-  This is a source review and interface proposal, not an implemented server.
+- The MCP entry point has a dedicated read-only composition path requiring an
+  existing home and project ID. It does not initialize/migrate the database,
+  start providers/models, or initialize file logging. A fixed document port
+  reads only the explicitly configured `.llm/working-context.md`. Normal
+  application startup remains unchanged.
+- The isolated synthetic fixture and real MCP protocol tests passed. A fresh
+  Codex CLI session used the three tools in four calls and correctly cited
+  messages 1002, 2001, and 2002 plus the working-context path/hash. The full
+  Gradle gate passed 650 tests with 4 skipped. This proves bounded connectivity
+  and supported continuity on the fixture, not semantic quality, improvement
+  over a baseline, scalability, or live concurrent-WAL behavior.
 
 ### Earlier implementation and experiment evidence
 
@@ -380,17 +384,12 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-Semantic evaluation is parked at the reported evaluator-v3 freeze above.
-The next direction is a bounded read-only MCP investigation over existing
-search and source-retrieval services, with selected project working context
-where explicitly configured. First settle the small tool contract and the
-non-mutating database startup path identified in
-`handoffs/chatmap-read-only-mcp-seam-review-handoff-2026-10-30.md`.
-No MCP server or dependency has been added by this documentation checkpoint.
-
-Use an isolated fixture database before considering a live home. Preserve
-original evidence and distinguish project working state from accepted decisions.
-Assess whether a fresh CLI session can recover the current task, decisions,
-and supporting sources with a small amount of retrieved context. Do not turn
-this direction into a scheduler, general harness, or automatic promotion of
-agent notes to accepted knowledge.
+Review the completed isolated MCP slice and its final handoff. The smallest
+optional follow-up is a separately authorized live-read feasibility test that
+first defines backup/concurrency safeguards and observes WAL coordination-file
+behavior; no live home has been accessed or authorized here. Before any such
+test, consider reducing response duplication and avoiding retrieval of a large
+irrelevant message after the needed evidence has already been found. Do not
+infer database pagination, lower context cost, semantic quality, or production
+readiness from the one synthetic run, and do not expand this adapter into a
+scheduler, general harness, semantic extractor, or automatic-memory system.

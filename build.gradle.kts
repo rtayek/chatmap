@@ -21,6 +21,7 @@ java {
 }
 
 val a2aVersion = "1.3.0.Final"
+val mcpVersion = "2.1.0"
 val quarkusVersion = "3.39.1"
 
 sourceSets {
@@ -49,6 +50,9 @@ dependencies {
     implementation("com.google.code.gson:gson:2.14.0")
     implementation("org.slf4j:slf4j-api:2.0.16")
     implementation("ch.qos.logback:logback-classic:1.5.7")
+    implementation(platform("io.modelcontextprotocol.sdk:mcp-bom:$mcpVersion"))
+    implementation("io.modelcontextprotocol.sdk:mcp-core")
+    implementation("io.modelcontextprotocol.sdk:mcp-json-jackson2")
 
     implementation(enforcedPlatform("io.quarkus.platform:quarkus-bom:$quarkusVersion"))
     implementation("org.a2aproject.sdk:a2a-java-sdk-client:$a2aVersion")
@@ -332,6 +336,27 @@ tasks.register<JavaExec>("validateProjectMetadata") {
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = layout.projectDirectory.asFile
     args(layout.projectDirectory.asFile.absolutePath)
+}
+
+tasks.register<JavaExec>("readOnlyMcpServer") {
+    group = "application"
+    description = "Runs the read-only MCP stdio server. Usage: -Pargs='--home <dir> --project-id <id> [--project-root <dir>]'"
+    mainClass.set("chatmap.presentation.mcp.ReadOnlyMcpServerCli")
+    classpath = sourceSets["main"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    standardInput = System.`in`
+    if (project.hasProperty("args")) {
+        args(project.property("args").toString().split(" "))
+    }
+}
+
+tasks.register<JavaExec>("readOnlyMcpFixture") {
+    group = "verification"
+    description = "Creates the isolated synthetic fixture and deterministic continuity checklist."
+    mainClass.set("chatmap.presentation.mcp.SyntheticMcpFixtureCli")
+    classpath = sourceSets["test"].runtimeClasspath
+    workingDir = layout.projectDirectory.asFile
+    args(providers.gradleProperty("output").getOrElse("build/mcp-fixture"))
 }
 
 tasks.register<JavaExec>("a2aSemanticProbe") {

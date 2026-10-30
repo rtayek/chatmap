@@ -106,7 +106,7 @@ public final class MessageRepository implements MessageStore {
     public List<Message> findByChat(long chatId) throws SQLException {
         synchronized (conn) {
             String sql = "SELECT id, chatId, role, text, sequence, timestamp, rawJson "
-                    + "FROM messages WHERE chatId = ? ORDER BY sequence";
+                    + "FROM messages WHERE chatId = ? ORDER BY sequence, id";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 ps.setLong(1, chatId);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -129,7 +129,7 @@ public final class MessageRepository implements MessageStore {
             }
             String sql = "SELECT id, chatId, role, text, sequence, timestamp, rawJson "
                     + "FROM messages WHERE chatId IN (" + placeholders(byChat.size()) + ") "
-                    + "ORDER BY chatId, sequence";
+                    + "ORDER BY chatId, sequence, id";
             try (PreparedStatement ps = conn.prepareStatement(sql)) {
                 int index = 1;
                 for (Long chatId : byChat.keySet()) {

@@ -33,10 +33,12 @@ src/chatmap
 │   ├── handoff      — filesystem handoff storage
 │   ├── importer     — plain-text, Markdown, ChatGPT JSON, and archive readers
 │   ├── llm          — Claude, Codex, Antigravity, Ollama, and JShell adapters
-│   ├── persistence  — SQLite repositories, transactions, and schema
+│   ├── persistence  — SQLite repositories, transactions, schema, and read-only opening
+│   ├── document     — fixed project-document filesystem reads
 │   └── provider     — CLI-history and live-web/CDP chat providers
 └── presentation
     ├── cli  — import, inventory, prompt, handoff, and lifecycle entry points
+    ├── mcp  — bounded read-only stdio tools and direct CLI entry point
     └── ui   — JavaFX application, controller, view construction, and UI state
 ```
 
@@ -53,6 +55,8 @@ inbox; it does not interpret or route their contents.
 * Browser Automation: Chrome DevTools Protocol
 * Agent Protocol: A2A 1.0 using Java SDK 1.3.0.Final and JSON-RPC
 * A2A Server Runtime: Quarkus 3.39.1 reference JSON-RPC server
+* Model Context Protocol: official Java SDK 2.1.0 (`mcp-core` and
+  `mcp-json-jackson2`), stdio transport only
 * Quality Assurance: JUnit 5, JaCoCo, Checkstyle, PMD, SpotBugs (`./gradlew check`)
 
 ## Storage Details
@@ -81,7 +85,60 @@ inbox; it does not interpret or route their contents.
 12. Bounded A2A Agent Card and JSON-RPC server, deterministic and local Ollama
     workers, same-task continuation, isolated lifecycle recording, persisted
     task and text artifacts, and deterministic structured-response acceptance
+13. A bounded read-only MCP stdio adapter for project-scoped chat search,
+    citable message retrieval, and one explicitly configured working-context
+    document
 ```
+
+## Read-only MCP adapter
+
+`ReadOnlyMcpServerCli` is a separate composition path from normal application
+startup. It requires an existing `--home` and positive `--project-id`; an
+optional `--project-root` enables only `.llm/working-context.md`. It neither
+creates directories nor initializes or migrates the database, changes journal
+mode, starts providers or models, or initializes file logging. SQLite opens
+with driver read-only and explicit-read-only flags plus connection-local
+`query_only`, then validates only the tables, columns, and FTS capability these
+reads require. Normal application startup retains its existing initialization
+and migration behavior.
+
+The adapter exposes exactly three tools:
+
+* `searchChats`: configured-project prefix-token OR search; query maximum 256
+  Unicode code points, default/maximum results 5/10, snippets capped at 600
+  code points. Snippets are navigation aids, not message citations.
+* `readChatMessages`: configured-project enforcement after chat lookup;
+  default/maximum message chunks 5/10; deterministic sequence then message-ID
+  order; 12,000 Unicode-code-point text budget. Results identify stored
+  normalized text, not original bytes or `rawJson`.
+* `readWorkingContext`: fixed relative path only; default/maximum chunk 4,000/
+  12,000 Unicode code points; real-path containment rejects escaping links.
+  The document is labeled mutable working-state evidence rather than authority.
+
+Message and document cursors are opaque URL-safe Base64 values bound to an
+observed SHA-256 content version. A changed version returns `changedSource`
+instead of joining chunks from different states. The current search and chat
+load seams materialize all matching chats/messages before bounding their MCP
+projection; this fixture-proven slice is not database pagination or a
+scalability result.
+
+Build the direct launcher with:
+
+```text
+gradlew.bat installDist
+```
+
+On Windows, connect a client directly so Gradle output cannot enter protocol
+stdout:
+
+```text
+java -cp "build\install\chatmap\lib\*" chatmap.presentation.mcp.ReadOnlyMcpServerCli --home <existing-home> --project-id <id> [--project-root <project-root>]
+```
+
+`readOnlyMcpServer` provides the equivalent Gradle JavaExec entry point for
+manual use with `-Pargs="..."`; MCP clients should use the direct launcher.
+`readOnlyMcpFixture -Poutput=<new-build-directory>` creates an isolated
+synthetic fixture and refuses an existing output path.
 
 ## Supported Live Provider & Automation Capabilities
 
