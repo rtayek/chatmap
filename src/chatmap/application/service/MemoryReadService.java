@@ -89,7 +89,7 @@ public final class MemoryReadService {
         if (characterOffset < 0 || characterOffset > firstLength) {
             throw new IllegalArgumentException("cursor character offset is outside the message");
         }
-        if (characterOffset == firstLength) {
+        if (firstLength > 0 && characterOffset == firstLength) {
             messageOffset++;
             characterOffset = 0;
         }

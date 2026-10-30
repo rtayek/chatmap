@@ -4,12 +4,17 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 import chatmap.application.service.MemoryReadService;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -134,7 +139,39 @@ public final class ReadOnlyMcpServer {
     }
 
     private static Map<String, Object> toMap(Object value) {
-        return gson.fromJson(gson.toJson(value), mapType);
+        return structuredObject(gson.toJsonTree(value).getAsJsonObject());
+    }
+
+    private static Map<String, Object> structuredObject(JsonObject object) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        object.entrySet().forEach(entry -> result.put(entry.getKey(), structuredValue(entry.getValue())));
+        return result;
+    }
+
+    private static Object structuredValue(JsonElement value) {
+        if (value.isJsonNull()) {
+            return null;
+        }
+        if (value.isJsonObject()) {
+            return structuredObject(value.getAsJsonObject());
+        }
+        if (value.isJsonArray()) {
+            List<Object> result = new ArrayList<>();
+            value.getAsJsonArray().forEach(element -> result.add(structuredValue(element)));
+            return result;
+        }
+        JsonPrimitive primitive = value.getAsJsonPrimitive();
+        if (primitive.isBoolean()) {
+            return primitive.getAsBoolean();
+        }
+        if (primitive.isString()) {
+            return primitive.getAsString();
+        }
+        String number = primitive.getAsString();
+        if (!number.contains(".") && !number.contains("e") && !number.contains("E")) {
+            return Long.valueOf(number);
+        }
+        return new BigDecimal(number);
     }
 
     private static ToolAnnotations readAnnotations(String title) {
@@ -225,5 +262,4 @@ public final class ReadOnlyMcpServer {
     }
 
     private static final Gson gson = new Gson();
-    private static final java.lang.reflect.Type mapType = new TypeToken<Map<String, Object>>() { }.getType();
 }

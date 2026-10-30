@@ -171,3 +171,29 @@ or native-memory synchronization as part of that step.
 No normal `.chatmap-local` or other live user database was accessed. No model
 other than the one fresh Codex CLI demonstration was invoked. Nothing was
 pushed.
+
+## Post-review corrections
+
+The two review findings were corrected on the same branch after the completion
+checkpoint. `readChatMessages` now returns a requested zero-length message as a
+normal message chunk, including its ID, role, timestamp, and empty text. Tests
+cover both an initial explicit offset and a cursor continuation positioned at
+the empty message.
+
+MCP structured content now converts integral JSON values to `Long` rather than
+round-tripping them through Gson's default `Double` map representation. A real
+stdio protocol test reads chat ID `9007199254740993` and message ID
+`9007199254740995`, and verifies that the text and structured results retain
+the same exact values.
+
+The focused `MemoryReadServiceTest` and `ReadOnlyMcpProtocolTest` run passed 9
+tests with no failures or skips. The full `gradlew.bat --no-daemon check` passed
+652 tests: 648 passed, 4 skipped, and 0 failed. `validateProjectMetadata` and
+`git diff --check` also passed.
+
+The model demonstration was not rerun. The four original evidence files were
+preserved and packaged at
+`C:/Users/ray/Downloads/chatmap-mcp-demonstration-2026-10-30.zip`; its entries
+retain their `build/mcp-demonstration-2026-10-30/` paths. The local review-fix
+commit is the subsequent commit containing these corrections; its exact SHA is
+reported in the completion response.

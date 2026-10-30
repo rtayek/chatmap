@@ -16,12 +16,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.ServerParameters;
 import io.modelcontextprotocol.client.transport.StdioClientTransport;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
+import io.modelcontextprotocol.spec.McpSchema.TextContent;
 
 class ReadOnlyMcpProtocolTest {
 
@@ -73,6 +77,43 @@ class ReadOnlyMcpProtocolTest {
         assertThrows(IllegalArgumentException.class, () -> ReadOnlyMcpServerCli.parse(List.of()));
         assertThrows(IllegalArgumentException.class,
                 () -> ReadOnlyMcpServerCli.parse(List.of("--home", "somewhere")));
+    }
+
+    @Test
+    @Timeout(value = 30, unit = TimeUnit.SECONDS)
+    void preservesExactLargeIdsInTextAndStructuredResults(@TempDir Path directory) throws Exception {
+        McpSyntheticFixture.Fixture fixture = McpSyntheticFixture.create(directory);
+        ServerParameters parameters = ServerParameters.builder(javaCommand())
+                .args("-cp", System.getProperty("java.class.path"), ReadOnlyMcpServerCli.class.getName(),
+                        "--home", fixture.home().toString(),
+                        "--project-id", Long.toString(McpSyntheticFixture.selectedProjectId),
+                        "--project-root", fixture.projectRoot().toString())
+                .build();
+        StdioClientTransport transport = new StdioClientTransport(parameters, McpJsonDefaults.getMapper());
+        try (McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(Duration.ofSeconds(10))
+                .initializationTimeout(Duration.ofSeconds(10))
+                .build()) {
+            client.initialize();
+            var result = client.callTool(new CallToolRequest(
+                    "readChatMessages", Map.of("chatId", McpSyntheticFixture.largeIdChatId)));
+
+            Map<String, Object> structured = resultMap(result.structuredContent());
+            Map<String, Object> structuredMessage = resultMap(
+                    ((List<?>) structured.get("messages")).getFirst());
+            JsonObject text = JsonParser.parseString(((TextContent) result.content().getFirst()).text())
+                    .getAsJsonObject();
+
+            assertEquals(McpSyntheticFixture.largeIdChatId,
+                    ((Number) structured.get("chatId")).longValue());
+            assertEquals(text.get("chatId").getAsLong(),
+                    ((Number) structured.get("chatId")).longValue());
+            assertEquals(McpSyntheticFixture.largeIdMessageId,
+                    ((Number) structuredMessage.get("messageId")).longValue());
+            assertEquals(text.getAsJsonArray("messages").get(0).getAsJsonObject().get("messageId").getAsLong(),
+                    ((Number) structuredMessage.get("messageId")).longValue());
+        }
+        transport.awaitForExit();
     }
 
     @SuppressWarnings("unchecked")

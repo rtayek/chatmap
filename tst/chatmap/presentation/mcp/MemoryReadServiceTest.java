@@ -93,6 +93,32 @@ class MemoryReadServiceTest {
     }
 
     @Test
+    void emptyMessageIsReturnedForInitialOffsetAndContinuationBoundary(@TempDir Path directory) throws Exception {
+        McpSyntheticFixture.Fixture fixture = McpSyntheticFixture.create(directory);
+        try (ReadOnlyMcpRuntime runtime = open(fixture)) {
+            MemoryReadService reads = runtime.memoryReads();
+
+            ChatMessagesResult initial = reads.readChatMessages(
+                    McpSyntheticFixture.emptyMessageChatId, 1, 1, null);
+
+            assertEquals(McpSyntheticFixture.emptyMessageId, initial.messages().getFirst().messageId());
+            assertEquals("user", initial.messages().getFirst().role());
+            assertEquals("2026-10-30T12:00:00Z", initial.messages().getFirst().timestamp());
+            assertEquals("", initial.messages().getFirst().text());
+
+            ChatMessagesResult before = reads.readChatMessages(
+                    McpSyntheticFixture.emptyMessageChatId, 0, 1, null);
+            ChatMessagesResult continuation = reads.readChatMessages(
+                    McpSyntheticFixture.emptyMessageChatId, null, 1, before.nextCursor());
+
+            assertEquals(McpSyntheticFixture.emptyMessageId, continuation.messages().getFirst().messageId());
+            assertEquals("user", continuation.messages().getFirst().role());
+            assertEquals("2026-10-30T12:00:00Z", continuation.messages().getFirst().timestamp());
+            assertEquals("", continuation.messages().getFirst().text());
+        }
+    }
+
+    @Test
     void workingContextChunksByUnicodeAndDetectsChanges(@TempDir Path directory) throws Exception {
         McpSyntheticFixture.Fixture fixture = McpSyntheticFixture.create(directory);
         try (ReadOnlyMcpRuntime runtime = open(fixture)) {

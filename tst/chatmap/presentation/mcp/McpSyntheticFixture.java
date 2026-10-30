@@ -65,6 +65,8 @@ final class McpSyntheticFixture {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             insertChat(statement, historyChatId, selectedProjectId, "Synthetic architecture history", "fixture-history");
             insertChat(statement, currentChatId, selectedProjectId, "Synthetic current work", "fixture-current");
+            insertChat(statement, emptyMessageChatId, selectedProjectId, "Synthetic empty message", "fixture-empty");
+            insertChat(statement, largeIdChatId, selectedProjectId, "Synthetic large ids", "fixture-large-id");
             insertChat(statement, otherChatId, otherProjectId, "Forbidden other project", "fixture-other");
         }
     }
@@ -97,6 +99,10 @@ final class McpSyntheticFixture {
             insertMessage(statement, deferredMessageId, currentChatId, 0,
                     "Explicitly deferred: semantic extraction.");
             insertMessage(statement, oversizedMessageId, currentChatId, 1, oversizedText());
+            insertMessage(statement, beforeEmptyMessageId, emptyMessageChatId, 0, "Before empty message.");
+            insertMessage(statement, emptyMessageId, emptyMessageChatId, 1, "");
+            insertMessage(statement, afterEmptyMessageId, emptyMessageChatId, 2, "After empty message.");
+            insertMessage(statement, largeIdMessageId, largeIdChatId, 0, "Exact large integer evidence.");
             insertMessage(statement, otherMessageId, otherChatId, 0,
                     "FORBIDDEN-OTHER-PROJECT-CONTENT must never cross project scope.");
         }
@@ -120,12 +126,18 @@ final class McpSyntheticFixture {
     static final long otherProjectId = 2;
     static final long historyChatId = 101;
     static final long currentChatId = 102;
+    static final long emptyMessageChatId = 103;
+    static final long largeIdChatId = 9007199254740993L;
     static final long otherChatId = 201;
     static final long proposalMessageId = 1001;
     static final long decisionMessageId = 1002;
     static final long currentTaskMessageId = 2001;
     static final long deferredMessageId = 2002;
     static final long oversizedMessageId = 2003;
+    static final long beforeEmptyMessageId = 4001;
+    static final long emptyMessageId = 4002;
+    static final long afterEmptyMessageId = 4003;
+    static final long largeIdMessageId = 9007199254740995L;
     static final long otherMessageId = 3001;
     private static final String timestamp = "2026-10-30T12:00:00Z";
 }
