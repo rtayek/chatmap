@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-10-12
+**Updated:** 2026-10-30
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -17,6 +17,44 @@ conversations and keep that knowledge current while retaining provenance and
 history.
 
 ## Current State
+
+### Current checkpoint and focus (2026-10-30)
+
+- Semantic evaluation is parked after evaluator v3. Ray's local CLI report says
+  the isolated repository
+  `C:/Users/ray/eclipse-workspace/chatmap-semantic-evaluator-v3-2026-10-20/`
+  is complete and independently reverified. Preregistered specification:
+  `7396843f76ba05fbdc725724bb8ea03291d5a7b2`; executable freeze:
+  `a671e4581ffb0e00c0877ba2604eb8f97247b036`; metadata-only receipt:
+  `d0aab8912de6dd9445b33ffeefb472bbb176e061`. These local artifacts were
+  reported in the conversation; the GitHub source review has not rerun them.
+- Reported verification: B-corpus controls 64/64, focused v3 regressions 88/88,
+  v2 safeguards 80/80, v1 regression 286/286, structural/schema 19/19,
+  warning checks 7/7, and inventory/provenance 29/29. Matching remains lexical
+  and fixture-declared; grouping supports four explicit same-category
+  declarations, and actor ambiguity requires explicit candidate names.
+  The B-corpus is development evidence, not blind validation or proof of
+  model quality. No new corpus, model run, or evaluator v4 is the next action.
+- Ray selected shared memory access through a small read-only MCP adapter as
+  the next investigation. External runtimes still own execution; ChatMap
+  supplies preserved conversations, selected project context, and provenance.
+  Semantic extraction, trace ingestion, graph UI, and A2A productization are
+  not prerequisites for this first slice.
+- The concrete cold-start question is: "What were we doing, what was decided,
+  and where is the evidence?" Evaluate answer support and how much context
+  must be loaded. Native agent memory may coexist with ChatMap; no competing
+  automatic-memory system or wholesale document loading is required.
+- A pinned source review identified `SearchService.searchResults` and
+  `ExportService.loadChat` as existing read seams. Search returns chat-level
+  snippets without message IDs; source retrieval needs bounded message
+  projection. Normal application startup initializes/migrates the database
+  and changes journal mode, so it is not a verified read-only startup path.
+  `ProjectContext` identifies a project; it does not read working-context
+  Markdown. See
+  `handoffs/chatmap-read-only-mcp-seam-review-handoff-2026-10-30.md`.
+  This is a source review and interface proposal, not an implemented server.
+
+### Earlier implementation and experiment evidence
 
 - Gemini Workspace Takeout directory import is implemented through
   `importGeminiTakeout`, using the existing transactional import service and
@@ -293,7 +331,9 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    evidence. Freeze this exact three-gate contract for subsequent experiments
    and report all four totals separately. The 14B model leads on full acceptance
    at 27/30 runs and 9/10 cases, versus 24/30 and 8/10 for 7B, but the corpus is
-   too small for production integration.
+   too small for production integration. Later adversarial work and evaluator
+   v3 supersede this as the current operational checkpoint; semantic evaluation
+   is now parked as described above.
 8. `A2aTaskRecorder` exists and is tested, but is only exercised by
    `ModelRecordingClient`, which records into an isolated temporary ChatMap
    home. Decide whether to wire it into the production path or keep A2A
@@ -340,9 +380,17 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
 
 ## Next Action
 
-The three-gate semantic-output contract is frozen for future experiments.
-ChatMap's next semantic evidence step is an independently written, larger or
-more adversarial corpus evaluated with that unchanged contract. Do not tune the
-prompt or evaluator against the existing ten cases again, and do not integrate
-semantic extraction into production on the current evidence. The bounded
-instruction-and-skill provenance experiment remains independently available.
+Semantic evaluation is parked at the reported evaluator-v3 freeze above.
+The next direction is a bounded read-only MCP investigation over existing
+search and source-retrieval services, with selected project working context
+where explicitly configured. First settle the small tool contract and the
+non-mutating database startup path identified in
+`handoffs/chatmap-read-only-mcp-seam-review-handoff-2026-10-30.md`.
+No MCP server or dependency has been added by this documentation checkpoint.
+
+Use an isolated fixture database before considering a live home. Preserve
+original evidence and distinguish project working state from accepted decisions.
+Assess whether a fresh CLI session can recover the current task, decisions,
+and supporting sources with a small amount of retrieved context. Do not turn
+this direction into a scheduler, general harness, or automatic promotion of
+agent notes to accepted knowledge.
