@@ -437,4 +437,6 @@ No new input source should require inventing a parallel semantic model.
 The immediate objective is not building the entire staged vision. ChatMap
 should first remain useful as a deterministic tool (Stage 1). Semantic
 extraction (Stage 2) should be introduced only after its model and review
-workflow are understood — see `semantic-extraction-design-PRELIMINARY.md`.
+workflow are understood. Preliminary exploration is preserved as historical
+evidence in `handoffs/semantic-extraction-design-PRELIMINARY.md`; it is not
+current project authority.

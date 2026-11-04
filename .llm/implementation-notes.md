@@ -36,6 +36,7 @@ src/chatmap
 │   ├── persistence  — SQLite repositories, transactions, schema, and read-only opening
 │   ├── document     — fixed project-document filesystem reads
 │   └── provider     — CLI-history and live-web/CDP chat providers
+├── metadata             — project-document metadata validation and CLI
 └── presentation
     ├── cli  — import, inventory, prompt, handoff, and lifecycle entry points
     ├── mcp  — bounded read-only stdio tools and direct CLI entry point
@@ -48,7 +49,7 @@ inbox; it does not interpret or route their contents.
 
 ## Technology Choices
 
-* Language & Runtime: Java 25 (Gradle 9.1.0, Kotlin DSL)
+* Language & Runtime: Java 25 (Gradle 9.8.0, Kotlin DSL)
 * UI: JavaFX 25.0.1 (javafx.controls)
 * Storage: SQLite (sqlite-jdbc 3.53.2.0)
 * Search: SQLite FTS5

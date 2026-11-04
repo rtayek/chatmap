@@ -6,7 +6,7 @@ provenance: git-history
 ---
 # ChatMap Working Context
 
-**Updated:** 2026-10-30
+**Updated:** 2026-11-04
 **Authority:** current operational state; update or replace this file as work changes
 
 ## Purpose
@@ -18,7 +18,7 @@ history.
 
 ## Current State
 
-### Current checkpoint and focus (2026-10-30)
+### Current checkpoint and focus (2026-11-04)
 
 - Semantic evaluation is parked after evaluator v3. Ray's local CLI report says
   the isolated repository
@@ -35,8 +35,9 @@ history.
   declarations, and actor ambiguity requires explicit candidate names.
   The B-corpus is development evidence, not blind validation or proof of
   model quality. No new corpus, model run, or evaluator v4 is the next action.
-- The first small read-only MCP slice is implemented on the local
-  `feature/read-only-mcp` branch. It exposes only `searchChats`,
+- The first small read-only MCP slice is implemented on `master` at `b8cd525`.
+  `master`, `origin/master`, and the retained `feature/read-only-mcp` branch
+  currently point to that commit. It exposes only `searchChats`,
   `readChatMessages`, and `readWorkingContext` through stdio. External runtimes
   still own execution; ChatMap supplies preserved conversations, selected
   project context, and provenance. Semantic extraction, trace ingestion, graph
@@ -114,8 +115,9 @@ history.
   `workerLifecycleRecord` command successfully reopened that database and
   displayed the persisted assignment, session, four transitions, decision
   details, and three artifacts after the A2A client exited. The temporary
-  A2A and worker-lifecycle worktrees and branches have been removed; the primary
-  ChatMap worktree is the only active worktree.
+  A2A and worker-lifecycle worktrees and branches have been removed. Two
+  worktrees now exist: the primary `master` worktree and the sibling
+  `chatmap-read-only-mcp-2026-10-30` worktree on `feature/read-only-mcp`.
 - The model-backed A2A path was proven with local `qwen2.5:7b`. The server
   advertised an Ollama Agent Card and returned a completed `worker-result`
   artifact. The `a2aModelRecord` client then stored a real model task in an
@@ -346,7 +348,7 @@ in `dotmdfiles` after ChatMap experiments establish their useful form.
    `CLAUDE.md` -> `AGENTS.md`; the retired five-file discovery chain is no
    longer active. Optional future `.llm/index.md` use is limited to a
    project-owned knowledge catalog rather than an automatic discovery hop.
-10. Change all filenames to lower case.
+10. Change all filenames to lower case when practical.
 11. Investigate real-time capture for the live web-CDP providers (Claude,
     ChatGPT, Gemini web). Today `latestChat()` is a single on-demand
     snapshot per run of `importAllChats`; nothing watches continuously.
